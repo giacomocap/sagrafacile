@@ -1,24 +1,29 @@
 {
     local_certs
-    debug
 }
 
-:443 {
+# Handle any host/IP on HTTPS
+https:// {
     handle_path /api/* {
-        reverse_proxy backend:8080 # Target backend's HTTP port
+        reverse_proxy backend:8080
     }
     
     handle {
         reverse_proxy frontend:3000
     }
 
-    tls internal
+    # Use internal certificates with on-demand
+    tls internal {
+        on_demand
+    }
+    
     log {
         output stdout
         format console
     }
 }
 
-:80 {
+# Handle any host/IP on HTTP and redirect
+http:// {
     redir https://{host}{uri}
 }
