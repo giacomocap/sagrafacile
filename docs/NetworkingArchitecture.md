@@ -70,7 +70,10 @@ NanoStation RX (Paninoteca) ----> SWITCH GIGABIT (S3 - Paninoteca) ----> 2x PC C
 
 2.  **Router Principale (Cassa):**
     *   Utilizza quello fornito dal tuo ISP (TIM, Vodafone, etc.). Assicurati che abbia porte Gigabit Ethernet e un Wi-Fi decente (almeno Wi-Fi 5 - 802.11ac). Questo gestirà l'accesso a Internet, farà da DHCP server (assegna IP) e da gateway.
-    *   **Configurazione:** Imposta un range DHCP tipo `192.168.1.100` a `192.168.1.200`. Lui sarà `192.168.1.1`.
+    *   **Configurazione Router Principale (DHCP):**
+        *   **Indirizzo IP Router:** Solitamente `192.168.1.1` (o `192.168.0.1`). Questo sarà il **Gateway** per tutti i dispositivi.
+        *   **Range DHCP:** Configura il router per assegnare indirizzi IP dinamici in un intervallo specifico, ad esempio da `192.168.1.50` a `192.168.1.200`. Questo lascia spazio per IP statici al di fuori di questo range.
+        *   **DNS:** Il router stesso (`192.168.1.1`) può fungere da server DNS per la rete locale, oppure puoi usare DNS pubblici come `8.8.8.8` (Google) o `1.1.1.1` (Cloudflare).
 
 3.  **Switch (S1 - Cassa, S2 - Capannoni, S3 - Paninoteca):**
     *   **Tipo:** **Switch Gigabit Ethernet non gestiti (unmanaged).**
@@ -108,12 +111,29 @@ NanoStation RX (Paninoteca) ----> SWITCH GIGABIT (S3 - Paninoteca) ----> 2x PC C
 6.  **PC Bar:**
     *   Si collegherà in Wi-Fi al modem/router della cassa. Se il segnale è debole, potresti considerare un piccolo ripetitore Wi-Fi consumer o, meglio, un terzo AP economico vicino alla cassa dedicato a questo.
 
-**Configurazione Generale Rete:**
+**Configurazione Generale Rete e Indirizzamento IP:**
 
-*   **Gateway e DNS per tutti i PC e AP:** `192.168.1.1` (l'IP del tuo modem/router principale).
-*   **Server:** Assegna un IP statico, ad esempio `192.168.1.10`. Questo IP sarà quello che i telefoni dei camerieri (e i PC cassa) dovranno raggiungere.
-*   **PC Cassa, PC Coda, PC Ordini Pronti:** Possono prendere IP via DHCP dal router o puoi assegnare IP statici per maggiore controllo (es. da `192.168.1.20` in su).
-*   **Telefoni Camerieri:** Si collegheranno al Wi-Fi "SAGRA_STAFF" e otterranno IP via DHCP. Dovranno puntare all'IP del server (`192.168.1.10`) per accedere alle pagine degli ordini.
+Una corretta pianificazione degli indirizzi IP è cruciale per la stabilità e l'accessibilità di SagraFacile.
+
+*   **Gateway Predefinito e Server DNS:** Per tutti i dispositivi client (PC, telefoni, AP), l'indirizzo IP del router principale (es. `192.168.1.1`) sarà il gateway predefinito e spesso anche il server DNS primario.
+*   **Server SagraFacile (Host Docker):**
+    *   **IP Statico Obbligatorio:** Assegna un indirizzo IP statico alla macchina che ospiterà Docker e quindi SagraFacile. Ad esempio: `192.168.1.10`.
+    *   **Subnet Mask:** Tipicamente `255.255.255.0` per una rete `/24`.
+    *   **Perché Statico?** Tutti i client (casse, KDS, telefoni camerieri, display pubblici) dovranno puntare a questo indirizzo IP fisso per accedere all'applicazione SagraFacile. Se l'IP del server cambiasse (come potrebbe accadere con DHCP), i client non riuscirebbero più a connettersi.
+*   **Altri Dispositivi Fissi (PC Cassa, Stampanti di Rete, KDS, AP, NanoStation):**
+    *   È consigliabile assegnare indirizzi IP statici anche a questi dispositivi per una gestione più semplice e per evitare problemi nel caso il server DHCP avesse malfunzionamenti. Scegli IP al di fuori del range DHCP, ad esempio:
+        *   PC Cassa 1: `192.168.1.20`
+        *   PC Cassa 2: `192.168.1.21`
+        *   Stampante Rete Cucina: `192.168.1.30`
+        *   Access Point 1: `192.168.1.40`
+        *   NanoStation TX: `192.168.1.45`
+        *   NanoStation RX: `192.168.1.46`
+        *   (e così via, mantenendo un schema logico)
+*   **Dispositivi Mobili (Telefoni Camerieri, Tablet):**
+    *   Questi possono tranquillamente ottenere un indirizzo IP dinamico dal server DHCP del router (nel range `192.168.1.50` - `192.168.1.200`).
+    *   Dovranno essere configurati (o l'app SagraFacile dovrà essere configurata) per puntare all'IP statico del server SagraFacile (es. `https://192.168.1.10`).
+
+**Importante:** Documenta tutti gli IP statici assegnati per futura referenza.
 
 **Lista della Spesa (Indicativa e Budget-Oriented):**
 

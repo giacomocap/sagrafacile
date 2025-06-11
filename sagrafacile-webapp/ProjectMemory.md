@@ -25,10 +25,12 @@
 **Key Decisions:**
 *   The frontend will be served via Caddy, which handles HTTPS and routes appropriate requests to the Next.js container listening on port 3000.
 *   `NEXT_PUBLIC_API_BASE_URL` is set to `/api` to ensure frontend API calls are correctly routed through Caddy to the backend.
+*   **Helper Scripts Created:** `setup.bat` and `setup.sh` were created in the repository root to guide users through the Docker Compose setup, including `.env` configuration and Caddy CA certificate installation. These scripts also provide guidance on finding the server's local IP address.
+*   **Main README Updated:** The main `README.md` in the repository root was significantly updated with a comprehensive "Docker Deployment & Installation Guide," incorporating details from `DEPLOYMENT_ARCHITECTURE.md` and instructions for using the new setup scripts, trusting the Caddy CA, and basic network configuration considerations. It also references `docs/NetworkingArchitecture.md` for more detailed network planning.
 **Next Steps (Overall Deployment Plan):**
-*   Create helper setup scripts (`setup.bat`, `setup.sh`).
-*   Write the main `README.md` installation guide.
-*   Package all components for distribution.
+*   Manually package all components (source code, Dockerfiles, `docker-compose.yml`, `Caddyfile`, `.env.example`, setup scripts, `README.md`) into a distributable `.zip` file (Task 4.3).
+*   Finalize the Windows Printer Service application and its installer, ensuring it integrates with the Dockerized backend and respects the CA certificate.
+*   Further refine documentation as needed.
 
 ## (2025-06-10) - Unified Receipt Dialog Layout to Fix Overflow
 **Context:** The `ReceiptDialog` had persistent layout issues on both mobile and vertically-constrained desktop screens. When an order contained many items, the scrollable area would expand instead of scrolling, pushing the footer with action buttons out of view.

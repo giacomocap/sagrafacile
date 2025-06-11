@@ -25,11 +25,15 @@
 *   The backend service within Docker will listen on port 8080 (HTTP), and Caddy will handle external HTTPS termination and proxying.
 *   A specific container name (`sagrafacile_caddy`) will be used for Caddy to simplify CA certificate extraction commands.
 *   The `docker-compose.yml` directly constructs the backend's connection string from environment variables.
+*   **Helper Scripts Created:** `setup.bat` and `setup.sh` were created in the repository root to guide users through the Docker Compose setup, including `.env` configuration and Caddy CA certificate installation.
+*   **Main README Updated:** The main `README.md` in the repository root was significantly updated with a comprehensive "Docker Deployment & Installation Guide," incorporating details from `DEPLOYMENT_ARCHITECTURE.md` and instructions for using the new setup scripts and trusting the Caddy CA.
 **Next Steps (Overall Deployment Plan):**
-*   Create helper setup scripts (`setup.bat`, `setup.sh`).
-*   Write the main `README.md` installation guide.
-*   Finalize the Windows Printer Service application and installer.
-*   Package all components for distribution.
+*   Manually package all components (source code, Dockerfiles, `docker-compose.yml`, `Caddyfile`, `.env.example`, setup scripts, `README.md`) into a distributable `.zip` file (Task 4.3).
+*   Finalize the Windows Printer Service application:
+    *   Ensure it's configurable for the SagraFacile backend URL.
+    *   Ensure it trusts the custom root CA.
+*   Create a Windows Installer (e.g., Inno Setup) for the `SagraFacile.WindowsPrinterService` (Task 5.2).
+*   Update main documentation further if needed regarding the printer service installer (Task 5.3).
 
 ## (2025-06-11) - Resolved Static Web Asset Conflict After Project Rename
 **Context:** A build error occurred in the `SagraFacile.NET.API` project: "Conflicting assets with the same target path ... from different projects." This happened after the project was renamed from `SagraPOS.NET.API` to `SagraFacile.NET.API`. The build system was still detecting assets related to the old project name (`_content/SagraPOS.NET.API`) alongside the new one (`_content/SagraFacile.NET.API`), specifically for a Bootstrap CSS file.

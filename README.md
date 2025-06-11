@@ -85,60 +85,177 @@ The Next.js application will include the following key interfaces:
     *   `/app/app/org/[orgId]/area/[areaId]/pickup-confirmation/page.tsx`: Staff interface to confirm order pickups.
     *   `/app/admin`: Administration panel for managing Menus, Areas, Users, Printers, KDS, Stock Management (Scorta), and viewing Reports.
 
-## Docker Deployment
+## Docker Deployment & Installation Guide
 
-This project is designed to be deployed using Docker Compose, which simplifies the setup of the entire application stack (backend, frontend, database, and reverse proxy) for a local, on-premise network.
+SagraFacile is designed for easy local deployment using Docker and Docker Compose. This setup packages the backend API, frontend web application, PostgreSQL database, and a Caddy reverse proxy (for automatic HTTPS) into a cohesive system.
 
-This setup uses the **Caddy web server** as a reverse proxy to provide **automatic HTTPS** for the internal network using self-signed certificates.
+### 1. Prerequisites
 
-### Prerequisites
+*   **Docker:** Install Docker Desktop (for Windows or macOS) or Docker Engine (for Linux).
+    *   Windows: [Get Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+    *   macOS: [Get Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+    *   Linux: [Install Docker Engine](https://docs.docker.com/engine/install/) (select your distribution)
+*   **Docker Compose:** Usually included with Docker Desktop. For Linux, if not included, follow the [Docker Compose installation guide](https://docs.docker.com/compose/install/).
+*   **Git (Optional but Recommended):** For cloning the repository. Otherwise, you can download the source code as a ZIP. [Install Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git).
+*   **Text Editor:** A simple text editor (like Notepad++, VS Code, Sublime Text, Nano, Vim) for editing configuration files.
 
-*   [Docker](https://docs.docker.com/get-docker/) installed and running on your host machine.
-*   [Docker Compose](https://docs.docker.com/compose/install/) (usually included with Docker Desktop).
+### 2. Network Configuration (Important!)
 
-### How to Run the Application
+A stable network setup is crucial for SagraFacile to operate correctly, especially in a multi-device environment like a food festival.
 
-1.  **Clone the repository** if you haven't already.
+*   **Static IP for the Server:** The computer running SagraFacile (the Docker host) **must have a static IP address** on your local network (e.g., `192.168.1.10`). This ensures that all client devices (cashier PCs, waiter phones, KDS screens) can reliably connect to the server.
+*   **DHCP Range:** Configure your main network router to assign dynamic IP addresses (DHCP) in a range that does not conflict with your chosen static IPs (e.g., DHCP range `192.168.1.50` to `192.168.1.200`).
+*   **Router IP:** Note your router's IP address (e.g., `192.168.1.1`), as this will be the gateway for your server.
 
-2.  **Start the services** by running the following command from the root of the project directory:
+For detailed guidance on network planning, component recommendations, and IP addressing strategies, please refer to **`docs/NetworkingArchitecture.md`** included in this package.
+
+### 3. Installation Steps
+
+1.  **Download or Clone SagraFacile:**
+    *   **Using Git (Recommended):**
+        ```bash
+        git clone https://github.com/your-username/sagrafacile.git # Replace with the actual repository URL
+        cd sagrafacile
+        ```
+    *   **Manual Download:** Download the project ZIP file from the repository and extract it to a folder on your computer.
+
+2.  **Run the Setup Script:**
+    Navigate to the root directory where you cloned or extracted SagraFacile.
+    *   **For Windows:**
+        *   Double-click `setup.bat`.
+    *   **For macOS or Linux:**
+        *   Open a terminal in the SagraFacile directory.
+        *   Make the script executable: `chmod +x setup.sh`
+        *   Run the script: `./setup.sh`
+
+3.  **Configure Environment Variables:**
+    *   The setup script will create an `.env` file from `.env.example` if it doesn't already exist.
+    *   You will be prompted to **edit the `.env` file**. This is a critical step.
+    *   Open `.env` with your text editor and carefully review all settings.
+    *   **You MUST change placeholder values**, especially for:
+        *   `POSTGRES_PASSWORD`
+        *   `JWT_SECRET_KEY` (make this a very long, random string)
+        *   `INITIAL_ADMIN_EMAIL`
+        *   `INITIAL_ADMIN_PASSWORD`
+    *   Save the `.env` file and press Enter in the setup script to continue.
+
+4.  **Docker Compose Build & Start:**
+    *   The setup script will then run `docker-compose up -d --build`.
+    *   This command builds the Docker images for the SagraFacile components and starts them in the background.
+    *   This process might take several minutes, especially on the first run, as Docker downloads base images and builds your application.
+
+5.  **MANDATORY - Trust the Self-Signed HTTPS Certificate:**
+    SagraFacile uses the Caddy web server to automatically provide HTTPS for your local network using a self-signed certificate. For your browsers to trust this local HTTPS connection, you **must** install Caddy's root CA certificate on:
+    *   The computer running SagraFacile (the Docker host).
+    *   **ALL client devices** (cashier PCs, waiter phones, tablets, etc.) that will access SagraFacile.
+
+    The setup script will provide platform-specific instructions. Here's a summary:
+
+    *   **General Steps:**
+        1.  **Copy the certificate from the Caddy container:**
+            ```bash
+            docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .
+            ```
+            (This command should be run in a terminal/command prompt on the machine where Docker is running, from the SagraFacile directory).
+        2.  **Install `root.crt` into your system's trust store:**
+            *   **Windows (Administrator Command Prompt/PowerShell):**
+                ```powershell
+                certutil -addstore -f "ROOT" "root.crt"
+                ```
+            *   **macOS (Terminal):**
+                ```bash
+                sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain root.crt
+                ```
+            *   **Linux (Debian/Ubuntu based - Terminal):**
+                ```bash
+                sudo mkdir -p /usr/local/share/ca-certificates/extra
+                sudo cp root.crt /usr/local/share/ca-certificates/extra/sagrafacile-local-root.crt
+                sudo update-ca-certificates
+                ```
+                (For other Linux distributions, consult your system's documentation.)
+        3.  **(Optional) Delete the copied `root.crt` file** after successful installation.
+        4.  **Restart your web browser(s)** after installing the certificate.
+
+    *   **Connecting Other Devices:** For each additional device that needs to access SagraFacile:
+        1.  Transfer the `root.crt` file (that you copied from the Caddy container) to the device.
+        2.  Install it according to the device's operating system instructions (e.g., on Android or iOS, you typically open the certificate file and follow prompts to install it).
+
+### 4. Accessing SagraFacile
+
+*   Once the services are running and the CA certificate is trusted:
+    *   **On the server machine:** Open your web browser and go to `https://localhost`
+    *   **From other devices on the network:** Open your web browser and go to `https://<server-ip-address>` (e.g., `https://192.168.1.10`, using the static IP you assigned to the server).
+
+    You should see the SagraFacile login page or public interface.
+
+### 5. Managing SagraFacile Services
+
+From the SagraFacile root directory in your terminal:
+
+*   **To stop all services:**
     ```bash
-    docker-compose up --build -d
+    docker-compose down
     ```
-    *   `--build` tells Docker Compose to build the images from the `Dockerfile`s the first time it's run or if the source code has changed.
-    *   `-d` runs the containers in detached mode (in the background).
+*   **To stop services and remove data volumes (WARNING: DELETES ALL DATABASE DATA):**
+    ```bash
+    docker-compose down -v
+    ```
+*   **To restart services:**
+    ```bash
+    docker-compose restart
+    ```
+*   **To view logs for all services:**
+    ```bash
+    docker-compose logs -f
+    ```
+*   **To view logs for a specific service (e.g., backend):**
+    ```bash
+    docker-compose logs -f backend
+    ```
 
-3.  **Access the Application:**
-    *   Find the local IP address of the machine running Docker (e.g., `192.168.1.100`).
-    *   Open a web browser and navigate to `https://<your-local-ip-address>`.
+### 6. Windows Printer Service (Companion App)
 
-4.  **Trust the Self-Signed Certificate:**
-    *   The first time you connect, your browser will show a security warning (e.g., "Your connection is not private"). This is expected because the HTTPS certificate is self-signed by Caddy and is not recognized by a public Certificate Authority.
-    *   You must manually instruct your browser to trust this certificate. Look for an "Advanced" or "Details" button and then an option like "Proceed to [IP address] (unsafe)".
-    *   For a more permanent solution, you can install Caddy's root certificate (`caddy_data/_data/caddy/pki/authorities/local/root.crt` inside the Docker volume) on your client machines.
+For printing receipts and comandas to USB-connected printers on Windows machines:
 
-### Services Overview
+1.  Locate the `SagraFacile.WindowsPrinterService.Setup.exe` installer (this will be part of the final distribution package - for now, you'd build it from the `SagraFacile.NET/SagraFacile.WindowsPrinterService/` project).
+2.  Run the installer on each Windows PC that has a USB printer to be used with SagraFacile.
+3.  During installation, or by editing its settings post-installation, configure the companion app:
+    *   **Server Base URL:** Point it to your SagraFacile server's address (e.g., `https://192.168.1.10`).
+    *   **Instance GUID:** Generate a unique GUID for each printer instance.
+    *   **Selected Printer:** Choose the correct Windows printer from the dropdown.
+4.  Ensure the Windows PC can access the SagraFacile server URL and trusts the self-signed CA certificate.
+5.  In the SagraFacile Admin interface, configure these printers using their GUIDs.
 
-The `docker-compose.yml` file defines the following services:
+See `docs/PrinterArchitecture.md` for more details.
 
-*   **`db`**: The PostgreSQL database where all data is stored.
-*   **`backend`**: The .NET API service.
-*   **`frontend`**: The Next.js web application.
-*   **`caddy`**: The reverse proxy that handles all incoming traffic.
-    *   It exposes ports `80` and `443` to the host network.
+### 7. Services Overview (Docker Compose)
+
+The `docker-compose.yml` file defines and configures the following services:
+
+*   **`db`**: The PostgreSQL database (version 15) where all SagraFacile data is stored. Data is persisted in a Docker volume.
+*   **`backend`**: The .NET API service (SagraFacile.NET.API) built from its Dockerfile. It connects to the `db` service and exposes an internal HTTP port (8080).
+*   **`frontend`**: The Next.js web application (sagrafacile-webapp) built from its Dockerfile. It communicates with the `backend` service (via Caddy) and exposes an internal HTTP port (3000).
+*   **`caddy`**: The Caddy web server (version 2) acting as a reverse proxy.
+    *   Exposes ports `80` (HTTP) and `443` (HTTPS) to your host network.
     *   Redirects all HTTP traffic to HTTPS.
-    *   Routes requests to `/api/*` to the **backend** service.
-    *   Routes all other requests to the **frontend** service.
+    *   Provides automatic HTTPS using self-signed certificates via its `local_certs` feature.
+    *   Routes requests to `/api/*` to the `backend:8080` service.
+    *   Routes all other requests to the `frontend:3000` service.
+    *   Caddy's data (including generated certificates) is persisted in Docker volumes.
 
-### Stopping the Application
+### 8. Troubleshooting
 
-To stop all the running services, use the command:
-```bash
-docker-compose down
-```
-To stop and remove the data volumes (deleting all database data), use:
-```bash
-docker-compose down -v
-```
+*   **Cannot access `https://localhost` or `https://<server-ip>`:**
+    *   Ensure Docker services are running: `docker-compose ps`
+    *   Verify the CA certificate is installed correctly on the machine you are testing from, and that your browser has been restarted.
+    *   Check firewall settings on the server machine; ensure incoming connections on port 443 are allowed.
+    *   Check Caddy logs: `docker-compose logs -f caddy`
+*   **API errors or frontend not loading data:**
+    *   Check backend logs: `docker-compose logs -f backend`
+    *   Check frontend logs: `docker-compose logs -f frontend`
+    *   Ensure the `NEXT_PUBLIC_API_BASE_URL=/api` is correctly set for the frontend service in `docker-compose.yml` and that the frontend is making calls to relative paths like `/api/orders`.
+*   **Database connection issues (from backend logs):**
+    *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in your `.env` file match what the backend expects for its connection string. The `docker-compose.yml` directly constructs the connection string for the backend using these.
 
 ## Contributing
 
