@@ -1,0 +1,42 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main # Or your default branch, e.g., master
+
+jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Specify your Node.js version
+
+      - name: Install frontend dependencies
+        working-directory: ./sagrafacile-webapp
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./sagrafacile-webapp
+        run: npm run build
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x' # Specify your .NET SDK version (as per ProjectMemory.md)
+
+      - name: Build backend
+        run: dotnet build SagraFacile.NET/SagraFacile.NET.sln --configuration Release
