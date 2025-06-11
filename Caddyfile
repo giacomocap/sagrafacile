@@ -1,5 +1,6 @@
 {
     local_certs
+    debug
 }
 
 :443 {

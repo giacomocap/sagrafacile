@@ -28,7 +28,7 @@ echo
 echo "Starting SagraFacile services using Docker Compose..."
 echo "This may take a while on the first run as images are built."
 echo
-docker-compose up -d --build
+docker compose up -d --build
 
 if [ $? -ne 0 ]; then
     echo "ERROR: Docker Compose failed to start. Please check the output above for errors."
@@ -73,6 +73,6 @@ echo "Access SagraFacile at: https://localhost"
 echo "Or, if accessing from another device on your network, use: https://$(hostname) or https://<your-host-machine-ip-address>"
 echo "(You can find your IP address using 'ifconfig' or 'ip addr' in the terminal. Ensure this IP is static.)"
 echo
-echo "To stop SagraFacile, run: docker-compose down"
-echo "To stop and remove data volumes (deletes database!), run: docker-compose down -v"
+echo "To stop SagraFacile, run: docker compose down"
+echo "To stop and remove data volumes (deletes database!), run: docker compose down -v"
 echo

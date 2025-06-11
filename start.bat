@@ -12,7 +12,7 @@ IF NOT EXIST .env (
     exit /b 1
 )
 
-docker-compose up -d
+docker compose up -d
 echo.
 echo SagraFacile services are starting up.
 echo.
@@ -25,7 +25,7 @@ echo IMPORTANT: If this is your first time running, or if you see certificate er
 echo please ensure you have installed the Caddy root CA certificate on this machine
 echo and on any client devices. Instructions are in the README.md file.
 echo.
-echo To view logs, run: docker-compose logs -f
+echo To view logs, run: docker compose logs -f
 echo To stop services, run: stop.bat
 echo.
 pause
