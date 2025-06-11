@@ -106,7 +106,7 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
         if (localNumber !== numberOfGuests) {
             setGuestInput(String(numberOfGuests));
         }
-    }, [numberOfGuests]); // Only re-sync when the parent prop changes
+    }, [numberOfGuests, guestInput]); // Only re-sync when the parent prop changes
 
     const handleGuestsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;

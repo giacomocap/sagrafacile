@@ -45,7 +45,6 @@ const OrgKdsStationsAdminPage = () => {
 
     // State for Delete Dialog
     const [stationToDelete, setStationToDelete] = useState<KdsStationDto | null>(null);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
 
     // State for Create/Edit Dialog
@@ -118,7 +117,6 @@ const OrgKdsStationsAdminPage = () => {
     const handleOpenDeleteDialog = (station: KdsStationDto) => {
         setStationToDelete(station);
         setDeleteError(null);
-        setIsDeleteDialogOpen(true);
     };
 
     const handleDeleteStation = async () => {
@@ -138,7 +136,6 @@ const OrgKdsStationsAdminPage = () => {
             if (selectedAreaId) {
                 fetchStationsForArea(selectedAreaId);
             }
-            setIsDeleteDialogOpen(false);
             setStationToDelete(null);
         } catch (err) {
             console.error("Error deleting KDS station:", err);
@@ -284,7 +281,7 @@ const OrgKdsStationsAdminPage = () => {
                                                                 </p>
                                                             )}
                                                             <AlertDialogFooter>
-                                                                <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Annulla</AlertDialogCancel>
+                                                                <AlertDialogCancel onClick={() => setStationToDelete(null)}>Annulla</AlertDialogCancel>
                                                                 <AlertDialogAction onClick={handleDeleteStation}>
                                                                     Sì, elimina
                                                                 </AlertDialogAction>

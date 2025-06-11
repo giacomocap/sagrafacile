@@ -134,11 +134,14 @@ export default function StaffPickupConfirmationPage() {
                                 amountPaid: undefined,
                                 qrCodeBase64: undefined,
                                 dayId: prevOrders.find(o => o.dayId)?.dayId || undefined, // Try to get from existing orders
-                                cashierId: undefined,
-                                cashierName: undefined,
-                                waiterId: undefined,
-                                displayOrderNumber: data.displayOrderNumber, // MAP displayOrderNumber from broadcast
-                            };
+                                    cashierId: undefined,
+                                    cashierName: undefined,
+                                    waiterId: undefined,
+                                    waiterName: undefined,
+                                    displayOrderNumber: data.displayOrderNumber, // MAP displayOrderNumber from broadcast
+                                    guestCharge: 0, // Default value
+                                    takeawayCharge: 0, // Default value
+                                };
                             console.log("StaffPickupConfirmation SignalR: Adding new order to list:", newOrder);
                             const displayIdForToastAndSpeech = newOrder.displayOrderNumber ?? newOrder.id.substring(newOrder.id.length-4).toUpperCase();
                             // Play sound and announce for new orders appearing on this staff page too

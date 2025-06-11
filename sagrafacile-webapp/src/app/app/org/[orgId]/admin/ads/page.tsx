@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react'; // Added useCallback
 import apiClient, { apiBaseUrl } from '@/services/apiClient';
 import { useParams } from 'next/navigation';
+import Image from 'next/image'; // Added Image import
 import { AdMediaItemDto, AdAreaAssignmentDto } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,7 +35,7 @@ export default function AdManagementPage() {
     const [assignmentToEdit, setAssignmentToEdit] = useState<AdAreaAssignmentDto | null>(null);
     const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
 
-    const fetchAds = () => {
+    const fetchAds = useCallback(() => { // Wrapped in useCallback
         if (orgId) {
             setLoading(true);
             setAds([]);
@@ -52,9 +53,9 @@ export default function AdManagementPage() {
         } else {
             setAds([]);
         }
-    };
+    }, [orgId]); // Dependency for useCallback
 
-    const fetchAssignments = () => {
+    const fetchAssignments = useCallback(() => { // Wrapped in useCallback
         if (selectedAreaId) {
             setLoadingAssignments(true);
             setAssignments([]);
@@ -72,15 +73,15 @@ export default function AdManagementPage() {
         } else {
             setAssignments([]);
         }
-    };
+    }, [selectedAreaId]); // Dependency for useCallback
 
     useEffect(() => {
         fetchAds();
-    }, [orgId]);
+    }, [fetchAds]); // Added fetchAds to dependency array
 
     useEffect(() => {
         fetchAssignments();
-    }, [selectedAreaId]);
+    }, [fetchAssignments]); // Added fetchAssignments to dependency array
 
     const handleAddAdClick = () => {
         setAdToEdit(null);
@@ -181,7 +182,14 @@ export default function AdManagementPage() {
                                 <TableRow key={ad.id}>
                                     <TableCell>
                                         {ad.mediaType === 'Image' ? (
-                                            <img src={getMediaUrl(ad.filePath)} alt="Ad preview" className="h-16 w-auto object-cover rounded" />
+                                            <Image
+                                                src={getMediaUrl(ad.filePath)}
+                                                alt="Ad preview"
+                                                width={100} // Example fixed width
+                                                height={64} // h-16 is 64px
+                                                className="rounded"
+                                                style={{ objectFit: 'cover' }}
+                                            />
                                         ) : (
                                             <video src={getMediaUrl(ad.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
                                         )}
@@ -246,7 +254,14 @@ export default function AdManagementPage() {
                                         <TableRow key={assignment.id}>
                                             <TableCell>
                                                 {assignment.adMediaItem.mediaType === 'Image' ? (
-                                                    <img src={getMediaUrl(assignment.adMediaItem.filePath)} alt="Ad preview" className="h-16 w-auto object-cover rounded" />
+                                                    <Image
+                                                        src={getMediaUrl(assignment.adMediaItem.filePath)}
+                                                        alt="Ad preview"
+                                                        width={100} // Example fixed width
+                                                        height={64} // h-16 is 64px
+                                                        className="rounded"
+                                                        style={{ objectFit: 'cover' }}
+                                                    />
                                                 ) : (
                                                     <video src={getMediaUrl(assignment.adMediaItem.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
                                                 )}
