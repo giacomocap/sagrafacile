@@ -15,7 +15,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432" # Expose DB port for direct access if needed during setup/debug
 
   backend:
-    image: yourdockerhub_username/sagrafacile-api:latest # TODO: Replace with your actual image
+    image: ghcr.io/giacomocap/sagrafacile-api:latest
     container_name: sagrafacile_backend
     restart: unless-stopped
     depends_on:
@@ -33,7 +33,7 @@ services:
     # No ports exposed directly to host; Caddy will proxy
 
   frontend:
-    image: yourdockerhub_username/sagrafacile-frontend:latest # TODO: Replace with your actual image
+    image: ghcr.io/giacomocap/sagrafacile-frontend:latest
     container_name: sagrafacile_frontend
     restart: unless-stopped
     environment:
