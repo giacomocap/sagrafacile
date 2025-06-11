@@ -1,34 +1,39 @@
 # Stage 1: Build the Next.js application
-FROM node:22.16.0-alpine AS builder
-
-# Set working directory
+FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package.json and package-lock.json to leverage Docker cache
-COPY package*.json ./
+# Copy package.json and package-lock.json (or yarn.lock)
+COPY package.json ./
+# If you use package-lock.json, uncomment the next line
+COPY package-lock.json ./
+# If you use yarn.lock, uncomment the next two lines
+# COPY yarn.lock ./
+# RUN yarn install --frozen-lockfile
+
+# Install dependencies
 RUN npm install
 
-# Copy the rest of the application source code
+# Copy the rest of the application code
 COPY . .
 
-# Run the build script
+# Build the Next.js application
 RUN npm run build
 
 # Stage 2: Production image
-FROM node:22.16.0-alpine AS runner
-
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Copy production dependencies
+# Set environment to production
+ENV NODE_ENV production
+
+# Copy built assets from the builder stage
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
-# Copy Next.js build output
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-
-# Expose the port the app runs on
+# Expose port 3000
 EXPOSE 3000
 
-# Command to start the app
+# Command to run the application
 CMD ["npm", "start"]

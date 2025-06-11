@@ -12,16 +12,16 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["SagraFacile.NET.API/SagraPOS.NET.API.csproj", "SagraFacile.NET.API/"]
-RUN dotnet restore "./SagraPOS.NET.API/SagraPOS.NET.API.csproj"
+COPY ["SagraFacile.NET.API/SagraFacile.NET.API.csproj", "SagraFacile.NET.API/"]
+RUN dotnet restore "./SagraFacile.NET.API/SagraFacile.NET.API.csproj"
 COPY . .
-WORKDIR "/src/SagraPOS.NET.API"
-RUN dotnet build "./SagraPOS.NET.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/SagraFacile.NET.API"
+RUN dotnet build "./SagraFacile.NET.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Questa fase viene usata per pubblicare il progetto di servizio da copiare nella fase finale
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./SagraPOS.NET.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./SagraFacile.NET.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Questa fase viene usata nell'ambiente di produzione o durante l'esecuzione da Visual Studio in modalità normale (impostazione predefinita quando non si usa la configurazione di debug)
 FROM base AS final

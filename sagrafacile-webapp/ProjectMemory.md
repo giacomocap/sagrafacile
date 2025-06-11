@@ -12,6 +12,24 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-11) - Initiated Docker-Based Deployment Setup (Frontend Aspects)
+**Context:** Began implementing a comprehensive Docker-based deployment strategy for SagraFacile.
+**Accomplishments:**
+*   **Deployment Architecture Documented:** Created `DEPLOYMENT_ARCHITECTURE.md` in the repository root, detailing the 5-phase plan, core technologies (Docker, Docker Compose, Caddy), and setup workflows. This document also covers frontend aspects like the `NEXT_PUBLIC_API_BASE_URL=/api` configuration for use with Caddy.
+*   **Frontend Dockerfile (`sagrafacile-webapp/Dockerfile`):** Created a multi-stage Dockerfile for the Next.js application.
+    *   Stage 1 (builder): Uses `node:20-alpine`, copies `package.json` and `package-lock.json`, runs `npm install`, copies the rest of the code, and runs `npm run build`.
+    *   Stage 2 (runner): Uses `node:20-alpine`, sets `NODE_ENV=production`, copies built assets (`.next`, `public`, `node_modules`, `package.json`) from the builder stage, exposes port 3000, and sets `CMD ["npm", "start"]`.
+*   **Docker Compose (`docker-compose.yml`):** This file (in the repo root) now includes the `frontend` service definition, specifying its build context (`./sagrafacile-webapp`), Dockerfile, container name (`sagrafacile_frontend`), and environment variables (`NEXT_PUBLIC_API_BASE_URL=/api`, `NODE_ENV=production`).
+*   **Caddyfile:** This file (in the repo root) includes the rule `handle { reverse_proxy frontend:3000 }` to route traffic to the frontend service.
+*   **`.env.example`:** This file (in the repo root) notes that `NEXT_PUBLIC_API_BASE_URL` is handled by Caddy and generally doesn't need to be set by the user for the frontend in this deployment model.
+**Key Decisions:**
+*   The frontend will be served via Caddy, which handles HTTPS and routes appropriate requests to the Next.js container listening on port 3000.
+*   `NEXT_PUBLIC_API_BASE_URL` is set to `/api` to ensure frontend API calls are correctly routed through Caddy to the backend.
+**Next Steps (Overall Deployment Plan):**
+*   Create helper setup scripts (`setup.bat`, `setup.sh`).
+*   Write the main `README.md` installation guide.
+*   Package all components for distribution.
+
 ## (2025-06-10) - Unified Receipt Dialog Layout to Fix Overflow
 **Context:** The `ReceiptDialog` had persistent layout issues on both mobile and vertically-constrained desktop screens. When an order contained many items, the scrollable area would expand instead of scrolling, pushing the footer with action buttons out of view.
 **Accomplishments:**

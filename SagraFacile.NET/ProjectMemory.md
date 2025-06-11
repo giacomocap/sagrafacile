@@ -13,6 +13,24 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-11) - Initiated Docker-Based Deployment Setup (Backend Aspects)
+**Context:** Began implementing a comprehensive Docker-based deployment strategy for SagraFacile, aiming for a guided manual setup for end-users.
+**Accomplishments:**
+*   **Deployment Architecture Documented:** Created `DEPLOYMENT_ARCHITECTURE.md` detailing the 5-phase plan, core technologies (Docker, Docker Compose, Caddy), and setup workflows for Windows, macOS, and Linux.
+*   **Backend Dockerfile (`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`):** Verified and confirmed corrections to project names (from `SagraPOS.NET.API` to `SagraFacile.NET.API`) and paths within the Dockerfile, ensuring it aligns with the current project structure. Confirmed it exposes port 8080 for HTTP.
+*   **Docker Compose (`docker-compose.yml`):** Created the main `docker-compose.yml` file defining services for `db` (PostgreSQL), `backend` (.NET API), `frontend` (Next.js), and `caddy`. Configured build contexts, environment variables (including direct construction of `ConnectionStrings__DefaultConnection`), volumes, and dependencies. Set `container_name` for all services.
+*   **Caddyfile:** Created the `Caddyfile` to manage HTTPS via `local_certs`, redirect HTTP to HTTPS, and reverse proxy requests to the `backend:8080` and `frontend:3000` services.
+*   **`.env.example`:** Created the example environment file (`.env.example`) with placeholders for database credentials, JWT secrets, and other necessary configurations.
+**Key Decisions:**
+*   The backend service within Docker will listen on port 8080 (HTTP), and Caddy will handle external HTTPS termination and proxying.
+*   A specific container name (`sagrafacile_caddy`) will be used for Caddy to simplify CA certificate extraction commands.
+*   The `docker-compose.yml` directly constructs the backend's connection string from environment variables.
+**Next Steps (Overall Deployment Plan):**
+*   Create helper setup scripts (`setup.bat`, `setup.sh`).
+*   Write the main `README.md` installation guide.
+*   Finalize the Windows Printer Service application and installer.
+*   Package all components for distribution.
+
 ## (2025-06-11) - Resolved Static Web Asset Conflict After Project Rename
 **Context:** A build error occurred in the `SagraFacile.NET.API` project: "Conflicting assets with the same target path ... from different projects." This happened after the project was renamed from `SagraPOS.NET.API` to `SagraFacile.NET.API`. The build system was still detecting assets related to the old project name (`_content/SagraPOS.NET.API`) alongside the new one (`_content/SagraFacile.NET.API`), specifically for a Bootstrap CSS file.
 **Accomplishments:**
