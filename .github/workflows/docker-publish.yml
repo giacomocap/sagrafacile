@@ -1,0 +1,73 @@
+name: Docker Publish
+
+on:
+  push:
+    branches:
+      - main # Triggers the workflow on push events to the main branch
+
+jobs:
+  build-and-push-api:
+    name: Build and Push API Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Required to push to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for API Docker image
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/giacomocap/sagrafacile-api
+
+      - name: Build and push API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./SagraFacile.NET
+          file: ./SagraFacile.NET/SagraFacile.NET.API/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+
+  build-and-push-frontend:
+    name: Build and Push Frontend Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Required to push to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Frontend Docker image
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/giacomocap/sagrafacile-frontend
+
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sagrafacile-webapp
+          file: ./sagrafacile-webapp/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
