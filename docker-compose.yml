@@ -15,9 +15,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432" # Expose DB port for direct access if needed during setup/debug
 
   backend:
-    build:
-      context: ./SagraFacile.NET
-      dockerfile: SagraFacile.NET.API/Dockerfile
+    image: yourdockerhub_username/sagrafacile-api:latest # TODO: Replace with your actual image
     container_name: sagrafacile_backend
     restart: unless-stopped
     depends_on:
@@ -35,9 +33,7 @@ services:
     # No ports exposed directly to host; Caddy will proxy
 
   frontend:
-    build:
-      context: ./sagrafacile-webapp
-      dockerfile: Dockerfile
+    image: yourdockerhub_username/sagrafacile-frontend:latest # TODO: Replace with your actual image
     container_name: sagrafacile_frontend
     restart: unless-stopped
     environment:

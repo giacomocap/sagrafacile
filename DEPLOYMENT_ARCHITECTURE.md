@@ -6,7 +6,8 @@ This document outlines the deployment architecture for SagraFacile. The primary 
 
 Considerations for deploying on macOS and Linux systems with Docker are also included, primarily focusing on alternative helper scripts and certificate installation methods.
 
-The deployment will package the SagraFacile backend (.NET API), frontend (Next.js webapp), a PostgreSQL database, and a Caddy reverse proxy into a distributable format.
+The deployment strategy focuses on distributing pre-built Docker images for the SagraFacile backend (.NET API) and frontend (Next.js webapp). Users will download a package containing a `docker-compose.yml` file, helper scripts, and configuration templates. The `docker-compose.yml` will pull these pre-built images from a container registry (e.g., Docker Hub, GitHub Container Registry) along with official images for PostgreSQL and Caddy.
+This approach simplifies the user's setup significantly by removing the need for local builds.
 
 ## 2. Core Technologies
 
@@ -82,23 +83,19 @@ Ensure applications are configurable via environment variables.
 
 ---
 
-### Phase 2: Dockerization
+### Phase 2: Docker Image Creation & Publishing (Developer Responsibility)
 
-Create `Dockerfile`s for custom applications.
+This phase is now primarily a developer/CI-CD responsibility, not part of the end-user setup.
 
 **Task 2.1: Create/Update Backend Dockerfile (`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`)**
-*   Use a multi-stage build.
-    1.  **Build Stage:** Use `.NET SDK` image (`mcr.microsoft.com/dotnet/sdk:9.0`) to restore, build, and publish `SagraFacile.NET.API.csproj`.
-    2.  **Final Stage:** Use `ASP.NET Runtime` image (`mcr.microsoft.com/dotnet/aspnet:9.0`). Copy published output.
-    3.  Set `ENTRYPOINT` to `["dotnet", "SagraFacile.NET.API.dll"]`.
-    4.  Expose internal port `8080` (HTTP).
-*   *Note: The existing Dockerfile will be modified to ensure correct project names (`SagraFacile.NET.API.csproj`) and paths are used.*
+*   (Content remains the same as before, defining how the image is built by the developer/CI.)
 
 **Task 2.2: Create Frontend Dockerfile (`sagrafacile-webapp/Dockerfile`)**
-*   Use a multi-stage build.
-    1.  **Build Stage:** Use Node.js image (e.g., `node:20-alpine`) for `npm install` and `npm run build`.
-    2.  **Final Stage:** Use a smaller Node.js image. Copy `.next` directory, `public` directory, `package.json`, `package-lock.json` (if applicable). Run `npm install --production`.
-    3.  Set `CMD` to `npm start`. Expose internal port `3000`.
+*   (Content remains the same as before, defining how the image is built by the developer/CI.)
+
+**Task 2.3: Build and Push Images to Container Registry (Developer/CI)**
+*   The developer (or a CI/CD pipeline) will build the Docker images using the Dockerfiles from Task 2.1 and 2.2.
+*   These images will be tagged (e.g., `latest`, version-specific tags like `v1.0.0`) and pushed to a chosen container registry (e.g., `yourusername/sagrafacile-api:latest`, `yourusername/sagrafacile-frontend:latest`).
 
 ---
 
@@ -112,16 +109,16 @@ Create `Dockerfile`s for custom applications.
         *   `volumes:` map named volume (e.g., `sagrafacile_db_data`) to `/var/lib/postgresql/data`.
         *   `environment:` from `.env` file (`${POSTGRES_USER}`, etc.).
     *   **`backend` service:**
-        *   `build: ./SagraFacile.NET` (or `./SagraFacile.NET/SagraFacile.NET.API` if Dockerfile is nested and context needs to be specific)
+        *   `image: yourdockerhub_username/sagrafacile-api:latest` # Points to the pre-built image
         *   `restart: unless-stopped`
         *   `depends_on: [db]`
         *   `environment:` from `.env` file.
     *   **`frontend` service:**
-        *   `build: ./sagrafacile-webapp`
+        *   `image: yourdockerhub_username/sagrafacile-frontend:latest` # Points to the pre-built image
         *   `restart: unless-stopped`
-        *   `environment:` `NEXT_PUBLIC_API_BASE_URL` from `.env` file.
+        *   `environment:` `NEXT_PUBLIC_API_BASE_URL` from `.env` file (e.g., `/api`).
     *   **`caddy` service:**
-        *   `image: caddy:2`
+        *   `image: caddy:2-alpine` # Using alpine for smaller size
         *   `container_name: sagrafacile_caddy` (for consistent certificate extraction)
         *   `restart: unless-stopped`
         *   `ports:` map `"80:80"` and `"443:443"`.
@@ -165,22 +162,24 @@ Create `Dockerfile`s for custom applications.
 
 ### Phase 4: Deployment Package & User Experience
 
-**Task 4.1: Create Helper Scripts**
-*   **`setup.bat` (Windows):**
-    1.  Check if `.env` exists; if not, copy `.env.example` to `.env`.
-    2.  Prompt user to edit `.env` and press Enter.
-    3.  Run `docker-compose up -d --build`.
-    4.  Echo instructions for CA certificate installation and app access URL.
-*   **`setup.sh` (Linux/macOS):**
-    1.  Similar logic to `setup.bat` using shell commands (`cp`, `echo`, `read`).
-    2.  Provide platform-specific CA certificate installation instructions or commands.
+**Task 4.1: Create User-Facing Helper Scripts**
+*   **`start.bat` / `start.sh`:**
+    1.  Check if `.env` exists; if not, guide the user to copy `.env.example` to `.env` and configure it.
+    2.  Run `docker-compose up -d`. This will pull images if they are not present locally.
+    3.  Echo instructions for CA certificate installation and app access URL.
+*   **`stop.bat` / `stop.sh`:**
+    1.  Run `docker-compose down`.
+*   **`update.bat` / `update.sh`:**
+    1.  Run `docker-compose pull` to get the latest versions of the `backend` and `frontend` images.
+    2.  Run `docker-compose up -d` to restart services with the new images.
 
 **Task 4.2: Write `README.md` / Installation Guide**
-*   Structure for clarity:
-    *   **Prerequisites:** Docker Desktop (Windows/Mac), Docker Engine (Linux). Links to official installation guides.
-    *   **Installation (Platform-Specific Sections):**
-        *   Windows: Unzip, run `setup.bat`, follow prompts.
-        *   macOS/Linux: Unzip, run `setup.sh`, follow prompts.
+*   Update the guide to reflect the new simplified process:
+    *   **Prerequisites:** Docker Desktop (Windows/Mac), Docker Engine (Linux), Internet connection (for image download).
+    *   **Installation:**
+        *   Download and unzip the SagraFacile package.
+        *   Copy `.env.example` to `.env` and configure it.
+        *   Run `start.bat` (Windows) or `start.sh` (macOS/Linux), including `chmod +x *.sh` for Linux/macOS.
     *   **MANDATORY - Trusting the Security Certificate (Platform-Specific):**
         *   Explain *why* (for `https://localhost` or `https://<local-ip>`).
         *   Windows: `docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .` then `certutil -addstore -f "ROOT" "root.crt"` (Admin Prompt).
@@ -191,15 +190,57 @@ Create `Dockerfile`s for custom applications.
 
 **Task 4.3: Package for Distribution**
 *   Create a `.zip` file containing:
-    *   `SagraFacile.NET/` (source for backend build context)
-    *   `sagrafacile-webapp/` (source for frontend build context)
-    *   `docker-compose.yml`
+    *   `docker-compose.yml` (configured to use pre-built images)
     *   `Caddyfile`
     *   `.env.example`
-    *   `setup.bat`
-    *   `setup.sh`
-    *   `README.md` (the detailed installation guide)
+    *   `start.bat`, `start.sh`
+    *   `stop.bat`, `stop.sh`
+    *   `update.bat`, `update.sh`
+    *   `README.md` (the updated installation guide)
+    *   `docs/` directory (containing all architecture and supplementary documents)
     *   Installer for Windows Printer Service (from Phase 5).
+    *   **Exclusions:** The ZIP will no longer need to include the `SagraFacile.NET/` or `sagrafacile-webapp/` source code directories for the user. It should still exclude version control directories (e.g., `.git`), IDE-specific folders, etc., from the root package if any are present during packaging.
+
+**Task 4.4: Create ZIP Packaging Script(s) (Optional but Recommended)**
+*   To ensure consistency and simplify the creation of the distribution `.zip` file, consider creating a script (or scripts for different OS environments) to automate the packaging process.
+*   **Script Responsibilities:**
+    *   Define the list of files and directories to include (as per Task 4.3).
+    *   Implement logic to exclude specified files and directories (e.g., `.git`, `node_modules`, `bin/`, `obj/`, `.vscode`, `*.log`, etc.). This can be done via direct exclusion flags in the zipping command or by using an ignore file (e.g., a `.distignore` file, if the chosen zipping tool supports it).
+    *   Name the output ZIP file consistently (e.g., `SagraFacile-vX.Y.Z-dist.zip`).
+*   **Example (Conceptual for a `.sh` script using `zip`):**
+    ```bash
+    # #!/bin/bash
+    # VERSION="1.0.0" # Or get from a file/git tag
+    # FILENAME="SagraFacile-v${VERSION}-dist.zip"
+    # EXCLUDE_PATTERNS=(
+    #   '.git/*' '.vscode/*' '*/node_modules/*'
+    #   '*/bin/*' '*/obj/*' '*.DS_Store'
+    #   'SagraFacile.NET/SagraFacile.NET.API.Tests.Integration/*' # Exclude test projects
+    #   # Add other patterns as needed
+    # )
+    # 
+    # # Convert array to zip exclude options
+    # ZIP_EXCLUDE_OPTS=()
+    # for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+    #   ZIP_EXCLUDE_OPTS+=("-x" "$pattern")
+    # done
+    # 
+    # zip -r "$FILENAME" \
+    #   SagraFacile.NET \
+    #   sagrafacile-webapp \
+    #   docs \
+    #   docker-compose.yml \
+    #   Caddyfile \
+    #   .env.example \
+    #   setup.bat \
+    #   setup.sh \
+    #   README.md \
+    #   LICENSE.txt \
+    #   "${ZIP_EXCLUDE_OPTS[@]}"
+    # 
+    # echo "Created $FILENAME"
+    ```
+*   A similar script could be created for Windows using PowerShell (`Compress-Archive`) or a batch file with a command-line zip utility.
 
 ---
 
@@ -220,19 +261,18 @@ Runs parallel to main server setup.
 
 ## 5. Key Configuration Files Overview
 
-*   **`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`:** Defines how the .NET backend API is containerized.
-*   **`sagrafacile-webapp/Dockerfile`:** Defines how the Next.js frontend application is containerized.
-*   **`docker-compose.yml`:** Orchestrates the entire application stack (database, backend, frontend, caddy proxy). Defines services, networks, volumes, and environment variable sourcing.
+*   **`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`:** (Developer artifact) Defines how the .NET backend API image is built by the developer/CI.
+*   **`sagrafacile-webapp/Dockerfile`:** (Developer artifact) Defines how the Next.js frontend application image is built by the developer/CI.
+*   **`docker-compose.yml`:** (User-facing) Orchestrates the entire application stack by pulling pre-built images for backend, frontend, Caddy, and PostgreSQL. Defines services, networks, volumes, and environment variable sourcing.
 *   **`Caddyfile`:** Configuration for the Caddy reverse proxy, handling HTTPS, and request routing.
 *   **`.env.example`:** A template file showing all necessary environment variables for the application stack. Users will copy this to `.env` and customize it.
 
 ## 6. User Setup Workflow Summary (High-Level)
 
 1.  **Prerequisites:** Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
-2.  **Download & Unzip:** Obtain the SagraFacile deployment package and extract it.
-3.  **Run Setup Script:** Execute `setup.bat` (Windows) or `setup.sh` (macOS/Linux).
-4.  **Configure Environment:** Edit the created `.env` file with specific settings (database passwords, JWT secrets, etc.) when prompted by the script.
-5.  **Start Application:** The setup script will run `docker-compose up -d --build` to build and start all services.
-6.  **Install CA Certificate:** Follow instructions provided by the setup script and in `README.md` to install the Caddy-generated root CA certificate on the host machine (and any client devices) to trust the local HTTPS connection.
+2.  **Download & Unzip:** Obtain the SagraFacile deployment package (e.g., `SagraFacile-vX.Y.Z.zip`) and extract it.
+3.  **Configure Environment:** Navigate to the extracted folder, copy `.env.example` to `.env`, and edit `.env` with specific settings (database passwords, JWT secrets, etc.).
+4.  **Start Application:** Execute `start.bat` (Windows) or `start.sh` (macOS/Linux - remember to `chmod +x *.sh` first). This will pull images and start services.
+5.  **Install CA Certificate:** Follow instructions provided by the start script and in `README.md` to install the Caddy-generated root CA certificate on the host machine (and any client devices) to trust the local HTTPS connection.
 7.  **Access Application:** Open `https://localhost` (or `https://<host-ip>`) in a browser.
 8.  **Install Printer Service (if needed):** For PCs connected to printers, run the `SagraFacile.WindowsPrinterService.Setup.exe`.

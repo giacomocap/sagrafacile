@@ -12,6 +12,23 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
+**Context:** Aligned with the overall project shift, the frontend deployment will now rely on pre-built Docker images distributed via a container registry. This simplifies user setup by removing local build requirements.
+**Accomplishments (Overall Project & Frontend Impact):**
+*   **`docker-compose.yml` Updated:** The main `docker-compose.yml` was modified. The `frontend` service now uses an `image:` directive (e.g., `yourdockerhub_username/sagrafacile-frontend:latest`) instead of a `build:` directive. The `NEXT_PUBLIC_API_BASE_URL=/api` and `NODE_ENV=production` environment variables are retained.
+*   **New Helper Scripts Created:** `start.bat`/`start.sh`, `update.bat`/`update.sh`, and `stop.bat`/`stop.sh` were created in the repository root. These scripts manage the Docker Compose lifecycle, including pulling images.
+*   **Documentation Updated:**
+    *   `README.md`: The "Docker Deployment & Installation Guide" was rewritten to reflect the new process (download ZIP, configure `.env`, run `start` script).
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to detail the pre-built image strategy. The frontend Dockerfile (`sagrafacile-webapp/Dockerfile`) is now noted as a developer/CI artifact, not for user builds.
+**Key Decisions:**
+*   The SagraFacile frontend will be distributed as a pre-built Docker image.
+*   The existing `sagrafacile-webapp/Dockerfile` will be used by the developer/CI pipeline to build this image.
+*   End-users will no longer need the frontend source code in the distributable package.
+**Next Steps (Developer):**
+*   Ensure the CI/CD pipeline correctly builds and pushes the frontend Docker image to the chosen container registry.
+*   Verify that the `NEXT_PUBLIC_API_BASE_URL=/api` setting works as expected when the frontend image is pulled and run via the updated `docker-compose.yml` and Caddy routing.
+*   Update placeholder image names in `docker-compose.yml` and relevant documentation with actual registry paths.
+
 ## (2025-06-11) - Initiated Docker-Based Deployment Setup (Frontend Aspects)
 **Context:** Began implementing a comprehensive Docker-based deployment strategy for SagraFacile.
 **Accomplishments:**

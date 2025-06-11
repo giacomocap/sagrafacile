@@ -13,6 +13,28 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
+**Context:** Based on user reflection and agreement, the project's deployment strategy has been fundamentally changed from building Docker images on the user's machine to distributing pre-built Docker images via a container registry. This aims to simplify user setup, improve reliability, and speed up deployment.
+**Accomplishments (Overall Project):**
+*   **`docker-compose.yml` Updated:** Modified the main `docker-compose.yml` to use `image:` directives (with placeholders for actual image names like `yourdockerhub_username/sagrafacile-api:latest`) for the `backend` and `frontend` services, instead of `build:` directives.
+*   **New Helper Scripts Created:**
+    *   `start.bat` & `start.sh`: For starting SagraFacile services. They now run `docker-compose up -d` which will pull images.
+    *   `update.bat` & `update.sh`: For updating SagraFacile. They run `docker-compose pull` and then `docker-compose up -d`.
+    *   `stop.bat` & `stop.sh`: For stopping SagraFacile services using `docker-compose down`.
+*   **Documentation Updated:**
+    *   `README.md`: The "Docker Deployment & Installation Guide" section was significantly rewritten to reflect the new, simpler process: download ZIP, configure `.env`, run `start` script.
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to describe the pre-built image strategy, the new role of Dockerfiles (developer/CI artifact), changes to the deployment package contents, and the updated user setup workflow.
+**Key Decisions:**
+*   The SagraFacile backend and frontend applications will be distributed as pre-built Docker images hosted on a container registry (e.g., Docker Hub, GitHub Container Registry).
+*   End-users will download a small package containing `docker-compose.yml`, `Caddyfile`, `.env.example`, and helper scripts.
+*   This change significantly simplifies the end-user experience, removing the need for local source code or build environments.
+**Next Steps (Developer):**
+*   Set up a container registry (e.g., Docker Hub or GitHub Container Registry).
+*   Implement a CI/CD pipeline (e.g., GitHub Actions) to automatically build and push tagged Docker images for the backend (`SagraFacile.NET.API`) and frontend (`sagrafacile-webapp`) to the chosen registry upon code changes.
+*   Replace placeholder image names in `docker-compose.yml` with actual image paths from the registry.
+*   Update the `README.md` and `DEPLOYMENT_ARCHITECTURE.md` with the actual GitHub Releases page URL and container registry image names once available.
+*   Finalize the distributable ZIP package contents as per `DEPLOYMENT_ARCHITECTURE.md`.
+
 ## (2025-06-11) - Initiated Docker-Based Deployment Setup (Backend Aspects)
 **Context:** Began implementing a comprehensive Docker-based deployment strategy for SagraFacile, aiming for a guided manual setup for end-users.
 **Accomplishments:**
