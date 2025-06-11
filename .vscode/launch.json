@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Next.js: debug server-side (sagrafacile-webapp)", // Added subfolder name for clarity
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev",
+            // Specify the working directory relative to the workspace root
+            "cwd": "${workspaceFolder}/sagrafacile-webapp"
+        },
+        {
+            "name": "Next.js: debug client-side (sagrafacile-webapp)", // Added subfolder name for clarity
+            "type": "msedge", // Or "msedge", "firefox" etc. depending on your browser and extension
+            "request": "launch",
+            "url": "http://localhost:3000", // Make sure this port matches your Next.js dev server
+            // Specify the root directory of your web application's source files
+            "webRoot": "${workspaceFolder}/sagrafacile-webapp"
+        }
+    ],
+    "compounds": [
+        {
+            // Updated compound name for clarity
+            "name": "Next.js: debug full stack (sagrafacile-webapp)",
+            "configurations": [
+                // Reference the updated configuration names
+                "Next.js: debug server-side (sagrafacile-webapp)",
+                "Next.js: debug client-side (sagrafacile-webapp)"
+            ]
+        }
+    ]
+}

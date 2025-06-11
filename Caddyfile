@@ -1,0 +1,26 @@
+{
+    # This tells Caddy to generate its own self-signed certificate
+    # for internal/private IP addresses.
+    acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+    email your-email@example.com # Optional: Replace with your email
+}
+
+:443 {
+    # Enable internal TLS for automatic HTTPS
+    tls internal
+
+    # Route API requests to the backend service
+    handle_path /api/* {
+        reverse_proxy backend:8080
+    }
+
+    # Route all other requests to the frontend service
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
+
+:80 {
+    # Redirect all HTTP traffic to HTTPS
+    redir https://{host}{uri}
+}

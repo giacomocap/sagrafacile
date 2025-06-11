@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SagraFacile Printer Test</title>
+    <style>
+        body { font-family: sans-serif; }
+        #status { margin-top: 10px; font-weight: bold; }
+        textarea { width: 90%; height: 100px; margin-bottom: 10px; }
+        button { padding: 10px 15px; }
+    </style>
+</head>
+<body>
+    <h1>SagraFacile Printer Service Test</h1>
+    <p>Connects to ws://localhost:9101</p>
+
+    <label for="content">Print Content:</label><br>
+    <textarea id="content">Hello SagraFacile Printer!
+This is a test print job.
+Line 3.
+--------------------
+End of test.</textarea><br>
+
+    <button id="connectBtn">Connect</button>
+    <button id="sendBtn" disabled>Send Print Command</button>
+    <button id="disconnectBtn" disabled>Disconnect</button>
+
+    <div id="status">Status: Not Connected</div>
+    <div id="messages">
+        <h2>Responses:</h2>
+        <ul id="responseList"></ul>
+    </div>
+
+    <script>
+        const connectBtn = document.getElementById('connectBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const statusDiv = document.getElementById('status');
+        const contentTextArea = document.getElementById('content');
+        const responseList = document.getElementById('responseList');
+        let socket = null;
+
+        function updateStatus(message, isError = false) {
+            statusDiv.textContent = `Status: ${message}`;
+            statusDiv.style.color = isError ? 'red' : 'black';
+            console.log(`Status: ${message}`);
+        }
+
+        function addResponse(message) {
+            const li = document.createElement('li');
+            li.textContent = message;
+            responseList.appendChild(li);
+        }
+
+        connectBtn.onclick = () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                updateStatus("Already connected.");
+                return;
+            }
+
+            updateStatus("Connecting...");
+            socket = new WebSocket('ws://localhost:9101');
+
+            socket.onopen = () => {
+                updateStatus("Connected");
+                connectBtn.disabled = true;
+                sendBtn.disabled = false;
+                disconnectBtn.disabled = false;
+            };
+
+            socket.onmessage = (event) => {
+                console.log('Message from server:', event.data);
+                addResponse(`Server: ${event.data}`);
+                try {
+                    const response = JSON.parse(event.data);
+                    // Handle response if needed
+                } catch (e) {
+                    console.error("Failed to parse server response:", e);
+                }
+            };
+
+            socket.onerror = (error) => {
+                updateStatus(`WebSocket Error: ${error.message || 'Could not connect'}`, true);
+                console.error('WebSocket Error:', error);
+                connectBtn.disabled = false;
+                sendBtn.disabled = true;
+                disconnectBtn.disabled = true;
+            };
+
+            socket.onclose = (event) => {
+                updateStatus(`Disconnected: ${event.reason || 'Connection closed'} (Code: ${event.code})`, !event.wasClean);
+                console.log('WebSocket closed:', event);
+                socket = null;
+                connectBtn.disabled = false;
+                sendBtn.disabled = true;
+                disconnectBtn.disabled = true;
+            };
+        };
+
+        sendBtn.onclick = () => {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                updateStatus("Not connected.", true);
+                return;
+            }
+
+            const command = {
+                commandType: "PrintReceipt", // Or "PrintComanda"
+                printerName: "Default", // Service currently ignores this and uses hardcoded printer
+                content: contentTextArea.value
+            };
+
+            const message = JSON.stringify(command);
+            updateStatus("Sending command...");
+            console.log("Sending:", message);
+            socket.send(message);
+            addResponse(`Client: Sent command (Type: ${command.commandType})`);
+            // Status will update based on server response via onmessage
+        };
+
+        disconnectBtn.onclick = () => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                updateStatus("Disconnecting...");
+                socket.close(1000, "User disconnected"); // Normal closure
+            } else {
+                updateStatus("Not connected.");
+            }
+        };
+
+    </script>
+</body>
+</html>

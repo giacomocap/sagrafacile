@@ -1,0 +1,1475 @@
+pre-order-menu.tsx
+"use client";
+
+import { useEffect, useState, useRef, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MenuItemDto } from "@/app/types";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useForm, Controller, SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+    Plus,
+    Minus,
+    Trash2,
+    StickyNote,
+    ShoppingCart,
+    X,
+    Loader2,
+    AlertCircle
+} from "lucide-react";
+import { trackEvent } from "@/lib/analytics-tracker";
+
+// Zod schema for the pre-order form
+const preOrderFormSchema = z.object({
+    customerName: z.string().min(1, "Il tuo nome è obbligatorio."),
+    customerEmail: z.string().email("Inserisci un indirizzo email valido."),
+    isTakeaway: z.boolean(),
+    numberOfGuests: z.coerce
+        .number({
+            required_error: "Il numero degli ospiti è obbligatorio.",
+            invalid_type_error: "Deve essere un numero"
+        })
+        .int("Deve essere un numero intero.")
+        .min(1, "Almeno 1 persona."),
+}).refine(data => {
+    if (data.isTakeaway) {
+        return true;
+    }
+    return data.numberOfGuests >= 1;
+}, {
+    message: "Il numero degli ospiti deve essere almeno 1 se non è d'asporto.",
+    path: ["numberOfGuests"],
+});
+
+// Type inferred directly from the schema
+type PreOrderFormValues = z.infer<typeof preOrderFormSchema>;
+
+interface CartItem extends MenuItemDto {
+    quantity: number;
+    categoryName: string;
+    note?: string | null;
+    cartItemId: string;
+}
+
+interface MenuCategory {
+    id: string;
+    name: string;
+    items: MenuItemDto[];
+}
+
+interface MenuData {
+    organizationId: string;
+    organizationName: string;
+    area: {
+        id: string;
+        name: string;
+        categories: MenuCategory[];
+    };
+}
+
+interface PreOrderMenuProps {
+    organizationSlug: string;
+    areaSlug: string;
+}
+
+export function PreOrderMenu({ organizationSlug, areaSlug }: PreOrderMenuProps) {
+    const router = useRouter();
+    const [menuData, setMenuData] = useState<MenuData | null>(null);
+    const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+    const [errorData, setErrorData] = useState<string | null>(null);
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
+    const [sheetPosition, setSheetPosition] = useState(0);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
+    const [currentItemForNote, setCurrentItemForNote] = useState<CartItem | null>(null);
+    const [currentNote, setCurrentNote] = useState('');
+    const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+    const [pendingOrderData, setPendingOrderData] = useState<PreOrderFormValues | null>(null);
+
+    // Refs for sheet drag behavior
+    const cartSheetRef = useRef<HTMLDivElement>(null);
+    const startY = useRef(0);
+    const currentY = useRef(0);
+    const isDragging = useRef(false);
+
+    // react-hook-form setup
+    const form = useForm<PreOrderFormValues>({
+        resolver: zodResolver(preOrderFormSchema),
+        defaultValues: {
+            customerName: '',
+            customerEmail: '',
+            isTakeaway: false,
+            numberOfGuests: 1,
+        }
+    });
+
+    const { register, handleSubmit: handleFormSubmit, control, watch, setValue, formState: { errors }, getValues } = form;
+
+    // Watch 'isTakeaway' to adjust 'numberOfGuests'
+    const isTakeawayWatched = watch('isTakeaway');
+
+    useEffect(() => {
+        const currentNumberOfGuests = getValues("numberOfGuests");
+        if (isTakeawayWatched) {
+            if (currentNumberOfGuests !== 1) {
+                setValue('numberOfGuests', 1, { shouldValidate: true });
+            }
+        } else {
+            if (typeof currentNumberOfGuests !== 'number' || currentNumberOfGuests < 1) {
+                setValue('numberOfGuests', 1, { shouldValidate: true });
+            }
+        }
+    }, [isTakeawayWatched, setValue, getValues]);
+
+    useEffect(() => {
+        async function fetchMenuData() {
+            setIsLoadingData(true);
+            setErrorData(null);
+
+            try {
+                const response = await fetch(
+                    `/api/public/organizations/${organizationSlug}/areas/${areaSlug}/menu`
+                );
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch menu data");
+                }
+
+                const data: MenuData = await response.json();
+                for (const category of data.area.categories) {
+                    // Ensure each item has a price
+                    category.items.forEach(item => { item.price = +item.price || 0; });
+                }
+                setMenuData(data);
+            } catch (error) {
+                setErrorData("Error loading menu. Please try again later.");
+                console.error("Error fetching menu data:", error);
+            } finally {
+                setIsLoadingData(false);
+            }
+        }
+
+        fetchMenuData();
+    }, [organizationSlug, areaSlug]);
+
+    // Group menu items by category for easier display
+    // const groupedMenuItems = useMemo(() => {
+    //     if (!menuData) return {};
+
+    //     const groups: { [key: string]: MenuItemDto[] } = {};
+    //     menuData.area.categories.forEach(category => {
+    //         groups[category.id] = category.items;
+    //     });
+    //     return groups;
+    // }, [menuData]);
+
+    // Cart actions
+    const handleAddToCart = (item: MenuItemDto, categoryName: string) => {
+        // Find the index of the *first* item in the cart with the same menu item ID.
+        const existingItemIndex = cart.findIndex(cartItem => cartItem.id === item.id);
+
+        // If an item with the same ID exists, increment its quantity.
+        if (existingItemIndex > -1) {
+            const updatedCart = [...cart];
+            updatedCart[existingItemIndex].quantity += 1;
+            // If the newly added item requires a note and the existing one doesn't have one yet,
+            // add the default suggestion. This handles adding a note-required item to an existing non-noted one.
+            if (item.isNoteRequired && !updatedCart[existingItemIndex].note) {
+                updatedCart[existingItemIndex].note = item.noteSuggestion || '';
+            }
+            setCart(updatedCart);
+        } else {
+            // Otherwise (item not in cart yet), add it as a new entry.
+            setCart([...cart, {
+                ...item,
+                quantity: 1,
+                categoryName,
+                // Use Date.now() + random number for a simple unique ID
+                cartItemId: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+                note: item.isNoteRequired ? item.noteSuggestion || '' : null
+            }]);
+        }
+
+        // Track event
+        if (menuData) {
+            trackEvent({
+                eventType: 'ADD_TO_PREORDER_CLICK',
+                pagePath: `/preorder/${organizationSlug}/${areaSlug}`,
+                organizationId: menuData.organizationId,
+                areaId: menuData.area.id,
+                details: {
+                    itemId: item.id,
+                    itemName: item.name,
+                    itemPrice: item.price,
+                    quantity: 1 // This is the initial add, quantity in cart is handled separately
+                }
+            });
+        }
+
+        toast.success(`${item.name} aggiunto al carrello`);
+    };
+
+    const handleIncreaseQuantity = (cartItemId: string) => {
+        setCart(cart.map(item =>
+            item.cartItemId === cartItemId ? { ...item, quantity: item.quantity + 1 } : item
+        ));
+    };
+
+    const handleDecreaseQuantity = (cartItemId: string) => {
+        setCart(cart.map(item =>
+            item.cartItemId === cartItemId ? { ...item, quantity: Math.max(1, item.quantity - 1) } : item
+        ));
+    };
+
+    const handleRemoveFromCart = (cartItemId: string) => {
+        setCart(cart.filter(item => item.cartItemId !== cartItemId));
+
+        // Close sheet if cart becomes empty
+        if (cart.length === 1) {
+            setIsCartSheetOpen(false);
+        }
+    };
+
+    const handleOpenNoteDialog = (item: CartItem) => {
+        setCurrentItemForNote(item);
+        setCurrentNote(item.note || item.noteSuggestion || '');
+        setIsNoteDialogOpen(true);
+    };
+
+    const handleSaveNote = () => {
+        if (currentItemForNote) {
+            setCart(cart.map(item =>
+                item.cartItemId === currentItemForNote.cartItemId ? { ...item, note: currentNote || null } : item
+            ));
+        }
+        setIsNoteDialogOpen(false);
+    };
+
+    // Calculate cart total
+    const cartTotal = useMemo(() => {
+        return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    }, [cart]);
+
+    // Sheet drag behavior
+    useEffect(() => {
+        const handleTouchStart = (e: TouchEvent) => {
+            if (!cartSheetRef.current || !isCartSheetOpen) return;
+
+            // Allow drag from the header area or the first 100px from the top
+            const touchY = e.touches[0].clientY;
+            const headerArea = document.querySelector('.sheet-header');
+            const isInHeader = headerArea && headerArea.contains(e.target as Node);
+            const isNearTop = touchY < 100;
+
+            if (isInHeader || isNearTop) {
+                startY.current = e.touches[0].clientY;
+                isDragging.current = true;
+                // Add a visual indication that we're dragging
+                if (cartSheetRef.current) {
+                    cartSheetRef.current.style.transition = 'none';
+                }
+            }
+        };
+
+        const handleTouchMove = (e: TouchEvent) => {
+            if (!isDragging.current || !cartSheetRef.current) return;
+            currentY.current = e.touches[0].clientY;
+            const deltaY = currentY.current - startY.current;
+
+            if (deltaY > 0) { // Only allow dragging down
+                setSheetPosition(deltaY);
+                // Prevent scroll when dragging
+                e.preventDefault();
+            }
+        };
+
+        const handleTouchEnd = () => {
+            if (!isDragging.current) return;
+            isDragging.current = false;
+
+            // Restore transition for animation
+            if (cartSheetRef.current) {
+                cartSheetRef.current.style.transition = 'transform 0.3s ease-out';
+            }
+
+            // If dragged more than 150px down, close the sheet
+            if (sheetPosition > 150) {
+                setIsCartSheetOpen(false);
+            }
+
+            setSheetPosition(0);
+        };
+
+        document.addEventListener('touchstart', handleTouchStart, { passive: true });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd);
+
+        return () => {
+            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('touchend', handleTouchEnd);
+        };
+    }, [isCartSheetOpen, sheetPosition]);
+
+    // Effect to disable body scroll when sheet is open
+    useEffect(() => {
+        if (isCartSheetOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = ''; // Revert to default
+        }
+
+        // Cleanup function to ensure scroll is re-enabled if component unmounts while sheet is open
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isCartSheetOpen]);
+
+    // Handle order submission - now shows confirmation dialog first
+    const onSubmit: SubmitHandler<PreOrderFormValues> = async (formData) => {
+        // Ensure data is loaded before submitting
+        if (!menuData || !menuData.area || isLoadingData) {
+            toast.error("I dati sono ancora in caricamento. Impossibile inviare l'ordine.");
+            return;
+        }
+
+        if (cart.length === 0) {
+            toast.error("Il tuo carrello è vuoto.");
+            return;
+        }
+
+        // Store the form data and show confirmation dialog
+        setPendingOrderData(formData);
+        setIsConfirmDialogOpen(true);
+    };
+
+    // Handle confirmed order submission
+    const handleConfirmedSubmit = async () => {
+        if (!pendingOrderData || !menuData) return;
+
+        setIsSubmitting(true);
+        setIsConfirmDialogOpen(false);
+
+        const preOrderData = {
+            organizationSlug,
+            areaSlug,
+            customerName: pendingOrderData.customerName.trim(),
+            customerEmail: pendingOrderData.customerEmail.trim(),
+            isTakeaway: pendingOrderData.isTakeaway,
+            numberOfGuests: pendingOrderData.isTakeaway ? 1 : pendingOrderData.numberOfGuests,
+            items: cart.map(item => ({
+                syncedMenuItemId: item.id,
+                localMenuItemId: item.localMenuItemId,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                note: item.note
+            })),
+            totalAmount: cartTotal
+        };
+
+        try {
+            const response = await fetch("/api/public/preorders", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(preOrderData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Errore nell'invio dell'ordine");
+            }
+
+            const result = await response.json();
+            if (menuData && result.id) {
+                trackEvent({
+                    eventType: 'PREORDER_CONFIRMED',
+                    pagePath: `/preorder/${organizationSlug}/${areaSlug}`,
+                    organizationId: menuData.organizationId,
+                    areaId: menuData.area.id,
+                    details: {
+                        preOrderId: result.id,
+                        finalAmount: cartTotal,
+                        itemCount: cart.length,
+                        isTakeaway: pendingOrderData.isTakeaway,
+                        numberOfGuests: pendingOrderData.numberOfGuests,
+                    }
+                });
+            }
+
+            toast.success(`Ordine #${result?.id || ''} inviato! Riceverai un'email di conferma.`);
+
+            // Store QR code in sessionStorage before redirecting
+            if (result?.qrCodeBase64) {
+                try {
+                    sessionStorage.setItem(`preorderQrCode_${result.id}`, result.qrCodeBase64);
+                } catch (storageError) {
+                    console.error("Failed to save QR code to sessionStorage:", storageError);
+                    toast.warning("Impossibile salvare il QR code, controlla la tua email.");
+                }
+            }
+
+            // Use query params for success page
+            const successUrlParams = new URLSearchParams({
+                orderId: result?.id || '',
+                orgName: menuData.organizationName,
+                areaName: menuData.area.name,
+                orgSlug: organizationSlug,
+                email: pendingOrderData.customerEmail
+            });
+
+            router.push(`/preorder/success?${successUrlParams.toString()}`);
+
+            setCart([]);
+            form.reset(); // Reset form fields to defaultValues
+            setIsCartSheetOpen(false);
+            setPendingOrderData(null);
+
+        } catch (error) {
+            console.error("Error submitting order:", error);
+            const errorMsg = error instanceof Error ? error.message : "Si è verificato un errore sconosciuto";
+            toast.error(`Errore: ${errorMsg}`);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoadingData) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <Loader2 className="h-8 w-8 animate-spin mr-2 text-amber-600" />
+                <span className="text-amber-700 font-medium">Caricamento in corso...</span>
+            </div>
+        );
+    }
+
+    if (errorData) {
+        return (
+            <div className="flex flex-col justify-center items-center h-screen p-4 text-center">
+                <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+                <h2 className="text-xl font-semibold text-red-600 mb-2">Errore di caricamento</h2>
+                <p className="text-muted-foreground mb-4">{errorData}</p>
+                <Button onClick={() => window.location.reload()}>Riprova</Button>
+            </div>
+        );
+    }
+
+    if (!menuData || !menuData.area) {
+        return <div className="flex justify-center items-center h-screen">Errore: Dati mancanti dell'organizzazione o dell'area.</div>;
+    }
+
+    return (
+        // Use h-full and overflow-hidden on the root to contain height
+        <div className="flex flex-col h-full overflow-hidden">
+            {/* Main Menu View - Now the only view */}
+            <div className="px-4 py-2">
+                {/* All Items - Enhanced with better spacing and shadows */}
+                <div className="space-y-8">
+                    {menuData.area.categories.map((category) => (
+                        <div key={category.id} className="space-y-3">
+                            <h2 className="text-lg font-semibold border-b pb-2 text-amber-800">
+                                {category.name}
+                            </h2>
+                            <div className="grid grid-cols-1 gap-3">
+                                {category.items
+                                    .map((item) => (
+                                        <div
+                                            key={item.id}
+                                            className="bg-white rounded-lg shadow-sm p-4 flex justify-between items-center border border-gray-100 hover:border-amber-200 transition-colors"
+                                        >
+                                            <div className="flex-1">
+                                                <div className="flex justify-between items-start">
+                                                    <h3 className="font-medium text-gray-800">{item.name}</h3>
+                                                    <span className="font-semibold ml-2 text-amber-700">€{item.price?.toFixed(2)}</span>
+                                                </div>
+                                                {item.description && (
+                                                    <p className="text-sm text-gray-500 mt-1">{item.description}</p>
+                                                )}
+                                                {item.isNoteRequired && (
+                                                    <p className="text-xs text-amber-600 mt-1 flex items-center">
+                                                        <AlertCircle size={12} className="mr-1" />
+                                                        Nota richiesta
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <button
+                                                className="ml-3 p-2 rounded-full bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                                                onClick={() => handleAddToCart(item, category.name)}
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Floating Cart Button - Enhanced with amber styling */}
+            {cart.length > 0 && (
+                <div
+                    className="fixed inset-x-0 flex justify-center z-20"
+                    style={{
+                        bottom: 'max(1.5rem, calc(1.5rem + env(safe-area-inset-bottom)))', // Respect iOS safe area
+                    }}
+                >
+                    <button
+                        className="bg-amber-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center hover:bg-amber-700 transition-colors"
+                        onClick={() => {
+                            setIsCartSheetOpen(true)
+                            // Track event
+                            if (menuData) {
+                                trackEvent({
+                                    eventType: 'VIEW_CHECKOUT_CLICK',
+                                    pagePath: `/preorder/${organizationSlug}/${areaSlug}`,
+                                    organizationId: menuData.organizationId,
+                                    areaId: menuData.area.id,
+                                    details: {
+                                        cartItemCount: cart.length,
+                                        cartTotalValue: cartTotal
+                                    }
+                                });
+                            }
+                        }
+                        }
+                    >
+                        <ShoppingCart size={20} className="mr-2" />
+                        <span className="font-medium">Vedi Ordine</span>
+                        <Badge className="ml-2 bg-white text-amber-700">
+                            {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                        </Badge>
+                        <span className="ml-3 font-medium">€{cartTotal.toFixed(2)}</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Cart Sheet - Enhanced with better design and full-page on mobile with fixed header */}
+            {isCartSheetOpen && (
+                <>
+                    {/* Overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/60 z-30"
+                        onClick={() => setIsCartSheetOpen(false)}
+                    />
+
+                    {/* Sheet - now full height on mobile with fixed header */}
+                    <div
+                        ref={cartSheetRef}
+                        className="fixed inset-0 bg-white z-40 shadow-xl transition-transform flex flex-col sm:inset-auto sm:bottom-0 sm:left-0 sm:right-0 sm:rounded-t-xl"
+                        style={{
+                            transform: sheetPosition > 0 ? `translateY(${sheetPosition}px)` : 'translateY(0)',
+                            maxHeight: 'max(100vh, -webkit-fill-available)', // Combined for iOS Safari compatibility
+                        }}
+                    >
+                        {/* Drag Handle - only on desktop */}
+                        <div className="drag-handle flex justify-center p-2 cursor-grab active:cursor-grabbing sm:block hidden">
+                            <div className="w-12 h-1 bg-amber-200 rounded-full" />
+                        </div>
+
+                        {/* Header - Fixed positioning for iOS devices */}
+                        <div
+                            className="sheet-header flex justify-between items-center flex-shrink-0 bg-amber-50 border-b w-full"
+                            style={{
+                                position: 'fixed',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                zIndex: 60,
+                                paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+                                paddingBottom: '0.75rem',
+                                paddingLeft: '1rem',
+                                paddingRight: '1rem',
+                            }}
+                        >
+                            <h2 className="text-lg font-semibold text-amber-800">Il tuo ordine</h2>
+                            <button
+                                className="p-1 rounded-full hover:bg-amber-100 text-amber-600"
+                                onClick={() => setIsCartSheetOpen(false)}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Extra spacing to account for fixed header */}
+                        <div style={{
+                            marginTop: 'calc(3rem + env(safe-area-inset-top))'
+                        }}></div>
+
+                        {/* Content Area - Make this scrollable */}
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                            {/* Cart Items */}
+                            <div className="p-4">
+                                {cart.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <ShoppingCart size={48} className="mx-auto text-amber-200 mb-4" />
+                                        <p className="text-amber-800">Il tuo carrello è vuoto</p>
+                                        <button
+                                            className="mt-4 text-amber-600 font-medium"
+                                            onClick={() => {
+                                                setIsCartSheetOpen(false);
+                                            }}
+                                        >
+                                            Sfoglia il menu
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {/* Group cart items by category */}
+                                        {Object.entries(
+                                            cart.reduce((acc, item) => {
+                                                // Group items by category name
+                                                if (!acc[item.categoryName]) {
+                                                    acc[item.categoryName] = [];
+                                                }
+                                                acc[item.categoryName].push(item);
+                                                return acc;
+                                            }, {} as Record<string, CartItem[]>)
+                                        ).map(([categoryName, items]) => (
+                                            <div key={categoryName} className="space-y-4">
+                                                {/* Category separator - subtle and not impactful */}
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-amber-700 px-2 py-0.5 bg-amber-50 rounded">
+                                                        {categoryName}
+                                                    </span>
+                                                    <div className="h-px bg-amber-100 flex-grow"></div>
+                                                </div>
+
+                                                {/* Items in this category */}
+                                                {items.map(item => (
+                                                    <div key={item.cartItemId} className="border-b pb-4 last:border-b-0">
+                                                        <div className="flex justify-between">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center">
+                                                                    <h3 className="font-medium text-gray-800">{item.name}</h3>
+                                                                    {item.isNoteRequired && !item.note && (
+                                                                        <span className="ml-2 text-xs text-red-500">Nota richiesta</span>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-sm text-gray-500">€{item.price?.toFixed(2)}</p>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <button
+                                                                    className="p-1 rounded-full bg-gray-100 text-gray-600 hover:bg-amber-100 hover:text-amber-700"
+                                                                    onClick={() => handleDecreaseQuantity(item.cartItemId)}
+                                                                >
+                                                                    <Minus size={16} />
+                                                                </button>
+                                                                <span className="w-6 text-center">{item.quantity}</span>
+                                                                <button
+                                                                    className="p-1 rounded-full bg-gray-100 text-gray-600 hover:bg-amber-100 hover:text-amber-700"
+                                                                    onClick={() => handleIncreaseQuantity(item.cartItemId)}
+                                                                >
+                                                                    <Plus size={16} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {item.note && (
+                                                            <p className="text-sm mt-2 bg-amber-50 p-2 rounded border border-amber-100">
+                                                                <span className="font-medium text-amber-800">Nota:</span> {item.note}
+                                                            </p>
+                                                        )}
+
+                                                        <div className="flex justify-end gap-3 mt-2">
+                                                            <button
+                                                                className="text-sm flex items-center text-amber-600 hover:text-amber-800"
+                                                                onClick={() => handleOpenNoteDialog(item)}
+                                                            >
+                                                                <StickyNote size={14} className="mr-1" />
+                                                                {item.note ? 'Modifica nota' : 'Aggiungi nota'}
+                                                            </button>
+                                                            <button
+                                                                className="text-sm flex items-center text-red-500 hover:text-red-700"
+                                                                onClick={() => handleRemoveFromCart(item.cartItemId)}
+                                                            >
+                                                                <Trash2 size={14} className="mr-1" />
+                                                                Rimuovi
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Fixed Footer Area within Sheet */}
+                        {cart.length > 0 && (
+                            <div
+                                className="flex-shrink-0 p-4 border-t bg-amber-50 shadow-inner"
+                                style={{
+                                    paddingBottom: 'max(1rem, env(safe-area-inset-bottom))', // Add bottom safe area for iPhone home indicator
+                                }}
+                            >
+                                {/* Checkout header with Total inline */}
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-lg font-semibold text-amber-800">Checkout</h2>
+                                    <div className="font-semibold text-lg text-amber-800">
+                                        <span>Totale: </span>
+                                        <span>€{cartTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleFormSubmit(onSubmit)} className="space-y-4">
+                                    <div>
+                                        <Label htmlFor="customerName" className="text-amber-800">Il tuo nome</Label>
+                                        <Input
+                                            id="customerName"
+                                            type="text"
+                                            {...register("customerName")}
+                                            disabled={isSubmitting}
+                                            className="mt-1 border-amber-200 focus-visible:ring-amber-500"
+                                        />
+                                        {errors.customerName && <p className="text-sm text-red-500 mt-1">{errors.customerName.message}</p>}
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="customerEmail" className="text-amber-800">Indirizzo email</Label>
+                                        <Input
+                                            id="customerEmail"
+                                            type="email"
+                                            {...register("customerEmail")}
+                                            disabled={isSubmitting}
+                                            className="mt-1 border-amber-200 focus-visible:ring-amber-500"
+                                        />
+                                        {errors.customerEmail && <p className="text-sm text-red-500 mt-1">{errors.customerEmail.message}</p>}
+                                    </div>
+
+                                    {/* Combined row for Asporto and Coperti */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        {/* isTakeaway Checkbox */}
+                                        <div>
+                                            <Label className="text-amber-800 block mb-1">Tipo ordine</Label>
+                                            <div className="flex items-center h-10 mt-1">
+                                                <Controller
+                                                    name="isTakeaway"
+                                                    control={control}
+                                                    render={({ field }) => (
+                                                        <Checkbox
+                                                            id="isTakeaway"
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                            disabled={isSubmitting}
+                                                            className="text-amber-600 border-amber-400 data-[state=checked]:bg-amber-600 data-[state=checked]:text-white"
+                                                        />
+                                                    )}
+                                                />
+                                                <Label
+                                                    htmlFor="isTakeaway"
+                                                    className="text-sm ml-2 font-medium leading-none text-amber-800"
+                                                >
+                                                    Asporto
+                                                </Label>
+                                            </div>
+                                            {errors.isTakeaway && <p className="text-sm text-red-500 mt-1">{errors.isTakeaway.message}</p>}
+                                        </div>
+
+                                        {/* Number of Guests Input */}
+                                        <div>
+                                            <Label htmlFor="numberOfGuests" className="text-amber-800 block mb-1">Coperti</Label>
+                                            <Input
+                                                id="numberOfGuests"
+                                                type="number"
+                                                {...register("numberOfGuests", { valueAsNumber: true })}
+                                                disabled={isSubmitting || isTakeawayWatched}
+                                                className="border-amber-200 focus-visible:ring-amber-500 h-10 mt-1"
+                                                min="1"
+                                            />
+                                            {errors.numberOfGuests && <p className="text-sm text-red-500 mt-1">{errors.numberOfGuests.message}</p>}
+                                        </div>
+                                    </div>
+
+                                    <Button
+                                        type="submit"
+                                        className="w-full py-6 text-lg font-medium bg-amber-600 hover:bg-amber-700"
+                                        disabled={isSubmitting || cart.some(item => item.isNoteRequired && !item.note)}
+                                    >
+                                        {isSubmitting ? (
+                                            <span className="flex items-center justify-center">
+                                                <Loader2 className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" />
+                                                Elaborazione...
+                                            </span>
+                                        ) : (
+                                            'Effettua Ordine'
+                                        )}
+                                    </Button>
+                                </form>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* Note Dialog - Enhanced with amber styling */}
+            <AlertDialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
+                <AlertDialogContent className="border border-amber-200">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-amber-800">Nota per {currentItemForNote?.name}</AlertDialogTitle>
+                        {/* Conditionally render as div ONLY if the suggestion div exists to avoid p > div */}
+                        <AlertDialogDescription asChild={!!currentItemForNote?.noteSuggestion}>
+                            {currentItemForNote?.noteSuggestion ? (
+                                <div className="space-y-2"> {/* Wrap content in a div when asChild is true */}
+                                    <span>
+                                        {currentItemForNote?.isNoteRequired ?
+                                            'Questo piatto richiede una nota (es. preferenze di cottura, allergie).' :
+                                            'Aggiungi una nota opzionale per la preparazione.'}
+                                    </span>
+                                    <div className="mt-2 text-sm italic bg-amber-50 p-2 rounded border border-amber-100">
+                                        <AlertCircle className="inline-block h-4 w-4 mr-1 align-text-bottom text-amber-600" /> {/* Added icon */}
+                                        Suggerimento: {currentItemForNote.noteSuggestion}
+                                    </div>
+                                </div>
+                            ) : (
+                                // Render directly (as <p>) when no suggestion div is needed
+                                currentItemForNote?.isNoteRequired ?
+                                    'Questo piatto richiede una nota (es. preferenze di cottura, allergie).' :
+                                    'Aggiungi una nota opzionale per la preparazione.'
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Textarea
+                        value={currentNote}
+                        onChange={(e) => setCurrentNote(e.target.value)}
+                        placeholder="Scrivi qui la tua nota..."
+                        rows={3}
+                        className="mt-2 border-amber-200 focus-visible:ring-amber-500"
+                    />
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="border-amber-200 text-amber-800">Annulla</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleSaveNote}
+                            disabled={currentItemForNote?.isNoteRequired && !currentNote.trim()}
+                            className="bg-amber-600 hover:bg-amber-700"
+                        >
+                            Salva Nota
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Order Confirmation Dialog - Enhanced with detailed information */}
+            <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+                <AlertDialogContent className="border border-amber-200 max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle className="text-amber-800 flex items-center">
+                            <ShoppingCart className="h-5 w-5 mr-2" />
+                            Conferma il tuo ordine
+                        </AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-4">
+                                <p className="text-gray-700">
+                                    Stai per inviare un ordine per <strong>€{cartTotal.toFixed(2)}</strong> presso <strong>{menuData?.area.name}</strong>.
+                                </p>
+
+                                {/* Order summary */}
+                                <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                    <h4 className="font-medium text-amber-800 mb-2">Riepilogo ordine:</h4>
+                                    <ul className="text-sm space-y-1">
+                                        {cart.map(item => (
+                                            <li key={item.cartItemId} className="flex justify-between">
+                                                <span>{item.quantity}x {item.name}</span>
+                                                <span>€{(item.price * item.quantity).toFixed(2)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <div className="border-t border-amber-200 mt-2 pt-2 flex justify-between font-medium">
+                                        <span>Totale:</span>
+                                        <span>€{cartTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+
+                                {/* How it works info */}
+                                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                    <h4 className="font-medium text-blue-800 mb-2 flex items-center">
+                                        <AlertCircle className="h-4 w-4 mr-1" />
+                                        Come funziona:
+                                    </h4>
+                                    <ul className="text-sm text-blue-700 space-y-1">
+                                        <li>• Riceverai un'email di conferma con il QR code</li>
+                                        <li>• Mostra il QR code all'evento per ritirare l'ordine</li>
+                                        <li>• Il pagamento avviene alla consegna</li>
+                                        <li>• Nessuna commissione aggiuntiva</li>
+                                    </ul>
+                                </div>
+
+                                {pendingOrderData && (
+                                    <div className="text-sm text-gray-600">
+                                        <p><strong>Nome:</strong> {pendingOrderData.customerName}</p>
+                                        <p><strong>Email:</strong> {pendingOrderData.customerEmail}</p>
+                                        <p><strong>Tipo:</strong> {pendingOrderData.isTakeaway ? 'Asporto' : `${pendingOrderData.numberOfGuests} coperti`}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel
+                            className="border-amber-200 text-amber-800"
+                            disabled={isSubmitting}
+                        >
+                            Annulla
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleConfirmedSubmit}
+                            disabled={isSubmitting}
+                            className="bg-amber-600 hover:bg-amber-700"
+                        >
+                            {isSubmitting ? (
+                                <span className="flex items-center">
+                                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                    Invio...
+                                </span>
+                            ) : (
+                                'Conferma Ordine'
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
+    );
+}
+
+checkout-form.tsx"use client";
+
+import { useState } from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+
+interface CartItem {
+  id: string;
+  localMenuItemId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  note?: string;
+}
+
+interface CheckoutFormProps {
+  cart: CartItem[];
+  organizationSlug: string;
+  areaSlug: string;
+  onClose: () => void;
+  onSuccess: (orderId: string) => void;
+}
+
+const checkoutSchema = z.object({
+  customerName: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  customerEmail: z.string().email({ message: "Please enter a valid email address" }),
+});
+
+type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
+export function CheckoutForm({ 
+  cart, 
+  organizationSlug, 
+  areaSlug, 
+  onClose, 
+  onSuccess 
+}: CheckoutFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CheckoutFormData>({
+    resolver: zodResolver(checkoutSchema),
+  });
+
+  const calculateTotal = () => {
+    return cart.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    );
+  };
+
+  const onSubmit = async (data: CheckoutFormData) => {
+    if (cart.length === 0) {
+      setError("Your cart is empty");
+      return;
+    }
+
+    // Check if all required notes are provided
+    const missingNotes = cart.filter(item => 
+      item.note === undefined || item.note.trim() === ""
+    );
+    
+    if (missingNotes.length > 0) {
+      setError("Please provide notes for all required items");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/public/preorders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationSlug,
+          areaSlug,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          items: cart.map(item => ({
+            syncedMenuItemId: item.id,
+            localMenuItemId: item.localMenuItemId,
+            quantity: item.quantity,
+            unitPrice: item.price,
+            note: item.note,
+          })),
+          totalAmount: calculateTotal(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit order");
+      }
+
+      const responseData = await response.json();
+      onSuccess(responseData.orderId);
+    } catch (error) {
+      console.error("Error submitting order:", error);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Complete Your Order</DialogTitle>
+          <DialogDescription>
+            Please provide your contact information to complete the pre-order.
+          </DialogDescription>
+        </DialogHeader>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="customerName">Your Name</Label>
+              <Input
+                id="customerName"
+                placeholder="Enter your full name"
+                {...register("customerName")}
+              />
+              {errors.customerName && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.customerName.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="customerEmail">Email Address</Label>
+              <Input
+                id="customerEmail"
+                type="email"
+                placeholder="Enter your email address"
+                {...register("customerEmail")}
+              />
+              {errors.customerEmail && (
+                <p className="text-sm text-red-500 mt-1">
+                  {errors.customerEmail.message}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Card className="p-4">
+            <h3 className="text-md font-semibold mb-2">Order Summary</h3>
+            <div className="space-y-2 text-sm">
+              {cart.map((item) => (
+                <div key={item.id} className="flex justify-between">
+                  <span>
+                    {item.name} × {item.quantity}
+                  </span>
+                  <span>${(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
+                <span>Total</span>
+                <span>${calculateTotal().toFixed(2)}</span>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Place Order"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+
+page.tsximport { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { PreOrderMenu } from "@/components/preorder/pre-order-menu";
+import { type Metadata } from "next";
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, Utensils, MapPin, Clock, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import ShareButton from "@/components/preorder-org-details/ShareButton";
+import TrackEventPageView from "@/components/analytics/TrackEventPageView";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+const defaultOgImageEnvPath = process.env.NEXT_PUBLIC_DEFAULT_OG_IMAGE_URL || '/Sagra.webp';
+const DEFAULT_OG_IMAGE = defaultOgImageEnvPath.startsWith('http')
+  ? defaultOgImageEnvPath
+  : `${APP_URL}${defaultOgImageEnvPath.startsWith('/') ? '' : '/'}${defaultOgImageEnvPath}`;
+const SITE_NAME = 'SagraPreOrdine';
+
+interface PreOrderPageProps {
+  params: Promise<{
+    orgSlug: string;
+    areaSlug: string;
+  }>;
+}
+
+export async function generateMetadata({
+  params: paramsPromise,
+}: PreOrderPageProps): Promise<Metadata> {
+  const { orgSlug, areaSlug } = await paramsPromise;
+  
+  try {
+    // Find the organization by slug
+    const organization = await prisma.organization.findUnique({
+      where: { slug: orgSlug },
+      select: { 
+        name: true, 
+        slug: true, 
+        logo: true, 
+        backgroundImage: true,
+        id: true, // Keep id if needed by other parts of the function, e.g. for area query
+      },
+    });
+
+    if (!organization) {
+      return {
+        title: "Organizzazione Non Trovata",
+        description: "L'organizzazione che stai cercando non è disponibile.",
+      };
+    }
+
+    // Find the area by slug and organization ID
+    const area = await prisma.syncedArea.findUnique({
+      where: {
+        organizationId_slug: {
+          organizationId: organization.id,
+          slug: areaSlug,
+        },
+        isActive: true, // Only find active areas
+      },
+      select: { name: true },
+    });
+
+    if (!area) {
+      return {
+        title: "Area Non Trovata o Inattiva",
+        description: "L'area specificata non è disponibile o non è attiva per i preordini.",
+      };
+    }
+
+    const pageTitle = `${area.name} - ${organization.name} | Preordina | SagraPreOrdine`;
+    const description = `Preordina i tuoi piatti preferiti da ${area.name} per l'evento ${organization.name}. Scopri il menu e ordina online facilmente!`;
+
+    let imageUrl = DEFAULT_OG_IMAGE;
+    if (organization.backgroundImage) {
+      imageUrl = organization.backgroundImage.startsWith('http') ? organization.backgroundImage : `${APP_URL}${organization.backgroundImage}`;
+    } else if (organization.logo) {
+      imageUrl = organization.logo.startsWith('http') ? organization.logo : `${APP_URL}${organization.logo}`;
+    }
+
+    return {
+      title: pageTitle,
+      description: description,
+      openGraph: {
+        title: `${area.name} - ${organization.name}`,
+        description: description,
+        url: `${APP_URL}/preorder/${orgSlug}/${areaSlug}`,
+        siteName: SITE_NAME,
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: `${area.name} - ${organization.name}`,
+          },
+        ],
+        type: 'website',
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${area.name} - ${organization.name}`,
+        description: description,
+        images: [imageUrl],
+      },
+    };
+  } catch (error) {
+    console.error("Errore durante la generazione dei metadati per l'area:", error);
+    return {
+      title: "Menu Preordine",
+      description: "Visualizza il menu e preordina i tuoi piatti.",
+    };
+  }
+}
+
+export default async function PreOrderPage({ params }: PreOrderPageProps) {
+  const { orgSlug, areaSlug } = await params;
+  
+  try {
+    // Find the organization by slug with additional details for enhanced UI
+    const organization = await prisma.organization.findUnique({
+      where: { slug: orgSlug },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        region: true,
+        logo: true,
+        backgroundImage: true,
+        eventImageUrl: true,
+        eventDescription: true,
+        eventStartDate: true,
+        eventEndDate: true,
+      }
+    });
+
+    if (!organization) {
+      notFound();
+    }
+
+    // Find the area by slug and organization ID
+    const area = await prisma.syncedArea.findUnique({
+      where: {
+        organizationId_slug: {
+          organizationId: organization.id,
+          slug: areaSlug,
+        },
+        isActive: true, // Only find active areas
+      }
+    });
+
+    if (!area) {
+      notFound();
+    }
+
+    // Check if the event is happening now
+    const now = new Date();
+    const startDate = organization.eventStartDate ? new Date(organization.eventStartDate) : null;
+    const endDate = organization.eventEndDate ? new Date(organization.eventEndDate) : null;
+    
+    let eventStatus = "upcoming";
+    if (startDate && endDate) {
+      if (now > endDate) {
+        eventStatus = "past";
+      } else if (now >= startDate && now <= endDate) {
+        eventStatus = "now";
+      }
+    }
+
+    // Prioritize backgroundImage over eventImageUrl for hero
+    const heroImage = organization.backgroundImage || organization.eventImageUrl;
+
+    return (
+      <div className="flex flex-col h-full bg-gradient-to-b from-amber-50/30 via-white to-amber-50/50 relative overflow-hidden">
+        <TrackEventPageView
+          eventType="AREA_PREORDER_PAGE_VIEW"
+          pagePath={`/preorder/${orgSlug}/${areaSlug}`}
+          organizationId={organization.id}
+          areaId={area.id}
+        />
+
+        {/* Flowing gradient background */}
+        <div className="absolute inset-0 overflow-hidden -z-10">
+          <div className="absolute -inset-[10%] opacity-10">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 animate-gradient-slow"></div>
+          </div>
+        </div>
+
+        {/* Enhanced Header with hero-style background */}
+        <header className="relative bg-gradient-to-r from-white via-amber-50/50 to-white shadow-lg border-b border-amber-100/50 backdrop-blur-sm sticky top-0 z-20 flex-shrink-0">
+          {/* Subtle background pattern */}
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-100/20 via-transparent to-orange-100/20 opacity-50"></div>
+          
+          {/* Optional hero image overlay for visual richness */}
+          {heroImage && (
+            <div className="absolute inset-0 opacity-5">
+              <div 
+                className="w-full h-full bg-cover bg-center"
+                style={{ backgroundImage: `url(${heroImage})` }}
+              />
+            </div>
+          )}
+
+          <div className="relative container mx-auto py-3 sm:py-4 px-4">
+            <div className="flex items-center justify-between">
+              {/* Enhanced back button */}
+              <Button 
+                asChild 
+                variant="outline" 
+                size="sm" 
+                className="bg-white/90 backdrop-blur-md hover:bg-white border-white/20 shadow-lg flex-shrink-0 transition-all duration-300 hover:scale-105"
+              >
+                <Link href={`/preorder/${orgSlug}`}>
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only sm:not-sr-only sm:ml-1">Dettagli Evento</span>
+                </Link>
+              </Button>
+
+              {/* Enhanced center content with better hierarchy */}
+              <div className="flex flex-col items-center mx-auto space-y-1">
+                {/* Organization logo if available */}
+                {organization.logo && (
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white bg-white overflow-hidden shadow-md mb-1">
+                    <Image
+                      src={organization.logo}
+                      alt={`${organization.name} logo`}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
+                <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-amber-700 to-orange-700 bg-clip-text text-transparent leading-tight text-center">
+                  {organization.name}
+                </h1>
+                
+                {/* Enhanced area badge with icon */}
+                <Badge className="bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md px-3 py-1 text-xs sm:text-sm font-medium">
+                  <Utensils className="h-3 w-3 mr-1.5" />
+                  {area.name}
+                </Badge>
+                
+                {/* Location and status info */}
+                <div className="flex items-center space-x-3 text-xs text-amber-600/80">
+                  {organization.city && (
+                    <div className="flex items-center">
+                      <MapPin className="h-3 w-3 mr-1" />
+                      <span>{organization.city}</span>
+                      {organization.region && <span>, {organization.region}</span>}
+                    </div>
+                  )}
+                  
+                  {eventStatus === "now" && (
+                    <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full mr-1.5 animate-pulse"></div>
+                      Live
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              
+              {/* Enhanced share button */}
+              <div className="flex-shrink-0">
+                <ShareButton title={`${organization.name} - ${area.name}`} />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Quick info bar with helpful context */}
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100/50 py-2 px-4 flex-shrink-0">
+          <div className="container mx-auto">
+            <div className="flex items-center justify-center space-x-4 sm:space-x-6 text-xs sm:text-sm text-amber-700">
+              <div className="flex items-center">
+                <Info className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5" />
+                <span className="font-medium">Preordina e ritira senza code</span>
+              </div>
+              <div className="hidden sm:flex items-center">
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5" />
+                <span>Pagamento alla consegna</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content area with enhanced styling */}
+        <main className="flex-1 overflow-y-auto relative">
+          {/* Subtle content background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white/80 pointer-events-none"></div>
+          
+          <div className="relative container mx-auto px-4 py-2">
+            <PreOrderMenu organizationSlug={orgSlug} areaSlug={areaSlug} />
+          </div>
+        </main>
+      </div>
+    );
+  } catch (error) {
+    console.error("Error rendering pre-order page:", error);
+    return (
+      <div className="flex justify-center items-center h-screen p-4 text-center bg-gradient-to-b from-amber-50 to-white">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Info className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-red-600 mb-2">Errore di Caricamento</h2>
+          <p className="text-gray-600 mb-4">Si è verificato un errore durante il caricamento del menu. Riprova più tardi.</p>
+          <Button 
+            onClick={() => window.location.reload()}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            Riprova
+          </Button>
+        </div>
+      </div>
+    );
+  }
+}

@@ -1,0 +1,180 @@
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext'; // Necessario per l'email utente nel pulsante di logout
+import { useOrganization } from '@/contexts/OrganizationContext'; // Necessario per il selettore dell'organizzazione e lo stato della giornata
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Importa componenti Alert
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { AlertCircle, Menu } from 'lucide-react'; // Importa icone
+import { AdminNavigation } from '@/components/admin/AdminNavigation';
+
+// Questo layout presuppone che il genitore OrganizationLayout abbia già gestito
+// i controlli di autenticazione, la convalida dell'organizzazione e l'impostazione del contesto.
+// Fornisce solo la shell dell'interfaccia utente specifica per l'amministratore (barra laterale, intestazione).
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const params = useParams();
+  const pathname = usePathname();
+  const { user, logout } = useAuth(); // Ottiene l'utente per la visualizzazione dell'email e la funzione di logout
+  const {
+    organizations,
+    selectedOrganizationId,
+    isLoadingOrgs,
+    isSuperAdminContext,
+    setSelectedOrganizationId, // Necessario per handleOrgChange
+    currentDay, // Ottiene lo stato della giornata corrente
+    isLoadingDay, // Ottiene lo stato di caricamento per la giornata
+  } = useOrganization();
+  const router = useRouter(); // Necessario per handleOrgChange e logout
+
+  // Re-interpreta orgId qui perché è necessario per i link e la visualizzazione dell'intestazione
+  const currentOrgIdParam = params.orgId as string;
+  const currentOrgId = parseInt(currentOrgIdParam, 10);
+
+  const handleOrgChange = (newOrgIdStr: string) => {
+    const newOrgId = parseInt(newOrgIdStr, 10);
+    if (!isNaN(newOrgId) && newOrgId !== currentOrgId) {
+        setSelectedOrganizationId(newOrgId);
+        // Conserva il percorso corrente relativo alla radice dell'organizzazione
+        // Nota: siamo già dentro /admin, quindi sostituiamo in quel contesto
+        const basePath = `/app/org/${newOrgId}/admin`;
+        // Prova a trovare la parte del percorso *dopo* /admin/
+        const adminRelativePath = pathname.split(`/app/org/${currentOrgIdParam}/admin`)[1] || '';
+        const newPath = `${basePath}${adminRelativePath}`;
+
+        console.log(`AdminLayout: SuperAdmin sta cambiando organizzazione da ${currentOrgId} a ${newOrgId}. Navigazione a: ${newPath}`);
+        router.push(newPath); // Usa push per la cronologia di navigazione
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/app/login'); // Reindirizza al login dopo il logout
+  };
+
+  // Ottiene il nome dell'organizzazione corrente per l'intestazione
+  const currentOrgName = organizations.find(o => o.id === currentOrgId)?.name ?? `ID ${currentOrgId}`;
+
+  return (
+    <div className="flex h-full">
+      {/* Desktop Sidebar - Hidden on mobile */}
+      <aside className="hidden lg:flex w-64 bg-card text-card-foreground p-4 border-r border-border flex-col shrink-0">
+        <h2 className="text-xl font-semibold mb-6">Sagrafacile Admin</h2>
+        <AdminNavigation currentOrgId={currentOrgId} />
+        <div className="mt-auto space-y-2">
+          <div className="text-xs text-muted-foreground truncate px-1">
+            {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+          </div>
+          <Button variant="outline" className="w-full" onClick={handleLogout}>
+            Logout
+          </Button>
+        </div>
+      </aside>
+
+      {/* Mobile Navigation Sheet */}
+      <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm"
+          >
+            <Menu className="h-6 w-6" />
+            <span className="sr-only">Apri menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0 flex flex-col">
+          <div className="flex-shrink-0 p-4 border-b">
+            <h2 className="text-xl font-semibold">Sagrafacile Admin</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <AdminNavigation 
+              currentOrgId={currentOrgId} 
+              onLinkClick={() => setIsMobileMenuOpen(false)} 
+            />
+          </div>
+          <div className="flex-shrink-0 p-4 border-t bg-muted/30">
+            <div className="space-y-2">
+              <div className="text-xs text-muted-foreground truncate">
+                {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+              </div>
+              <Button variant="outline" className="w-full" onClick={handleLogout}>
+                Logout
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-card border-b border-border p-4 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-4">
+            {/* Mobile menu button space */}
+            <div className="lg:hidden w-10"></div>
+            <div>
+              <h1 className="text-lg font-semibold truncate">
+                <span className="hidden sm:inline">Organizzazione: </span>
+                {currentOrgName}
+              </h1>
+            </div>
+          </div>
+          {isSuperAdminContext && organizations.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-muted-foreground hidden sm:inline">Cambia Org:</span>
+              <Select
+                value={selectedOrganizationId?.toString() ?? ''}
+                onValueChange={handleOrgChange}
+                disabled={isLoadingOrgs}
+              >
+                <SelectTrigger className="w-[120px] sm:w-[180px]">
+                  <SelectValue placeholder="Seleziona..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map((org) => (
+                    <SelectItem key={org.id} value={org.id.toString()}>
+                      <span className="sm:hidden">{org.name}</span>
+                      <span className="hidden sm:inline">{org.name} (ID: {org.id})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </header>
+
+        {/* Warning Banner for No Open Day */}
+        {!isLoadingDay && !currentDay && !isSuperAdminContext && (
+          <div className="p-3 sm:p-4 border-b border-yellow-300 bg-yellow-50 text-yellow-800">
+            <Alert>
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertTitle className="text-yellow-900">Nessuna Giornata Operativa Aperta</AlertTitle>
+              <AlertDescription className="text-sm">
+                Attualmente non c'è una giornata operativa aperta per questa organizzazione. Le funzionalità principali potrebbero essere limitate.
+                <Link href={`/app/org/${currentOrgId}/admin/days`} className="font-medium underline hover:text-yellow-900 ml-1">
+                  Aprire una nuova giornata.
+                </Link>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
+        {/* Page Content */}
+        <main className={`flex-1 overflow-y-auto ${!isLoadingDay && !currentDay && !isSuperAdminContext ? 'p-3 sm:p-4' : 'p-4 sm:p-6'}`}>
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+// Necessario importare useRouter

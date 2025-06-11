@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sagrafacile_db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=sagrafacile
+      - POSTGRES_USER=sagrafacile
+      - POSTGRES_PASSWORD=sagrafacile_password # Replace with a strong password in production
+    ports:
+      - "5432:5432" # Expose for local development/debugging if needed
+    networks:
+      - sagrafacile-net
+
+  backend:
+    build:
+      context: ./SagraFacile.NET
+      dockerfile: SagraFacile.NET.API/Dockerfile
+    container_name: sagrafacile_backend
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=sagrafacile;Username=sagrafacile;Password=sagrafacile_password
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "8080:8080" # Expose for local development/debugging if needed
+    networks:
+      - sagrafacile-net
+
+  frontend:
+    build:
+      context: ./sagrafacile-webapp
+      dockerfile: Dockerfile
+    container_name: sagrafacile_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=/api
+    ports:
+      - "3000:3000" # Expose for local development/debugging if needed
+    networks:
+      - sagrafacile-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: sagrafacile_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - sagrafacile-net
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  sagrafacile-net:
+    driver: bridge
