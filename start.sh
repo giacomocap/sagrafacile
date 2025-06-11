@@ -31,8 +31,8 @@ if [ -z "$JWT_SECRET_EXISTS" ]; then
         else
             echo "ERROR: Failed to generate JWT_SECRET using openssl."
             echo "Please generate a secret manually (e.g., using 'openssl rand -hex 32') and add it to your .env file as JWT_SECRET=your_secret_here"
-            exit 1
-        fi
+    exit 1
+fi
     else
         echo "WARNING: openssl command not found. Cannot automatically generate JWT_SECRET."
         echo "Please generate a secret manually (e.g., using 'openssl rand -hex 32' on a system with openssl)"
@@ -44,7 +44,7 @@ else
     echo "INFO: JWT_SECRET found in .env file."
 fi
 
-docker-compose up -d
+docker compose up -d
 echo
 echo "SagraFacile services are starting up."
 echo
