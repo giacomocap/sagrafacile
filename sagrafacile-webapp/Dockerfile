@@ -16,6 +16,11 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Declare the build argument
+ARG NEXT_PUBLIC_API_BASE_URL
+# Set the environment variable for the build process
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+
 # Build the Next.js application
 RUN npm run build
 
