@@ -13,6 +13,21 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-12) - Configurable PreOrder Polling Service
+**Context:** Added the ability to enable or disable the `PreOrderPollingBackgroundService` (which polls SagraPèreOrdini) via an environment variable.
+**Accomplishments:**
+*   **`.env.example` Updated:** Added `ENABLE_PREORDER_POLLING_SERVICE` variable with a default of `true` and descriptive comments.
+*   **`docker-compose.yml` Updated:** The `backend` service now includes `ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true}` in its environment configuration, ensuring the variable is passed to the .NET application and defaults to `true` if not explicitly set in the `.env` file.
+*   **`SagraFacile.NET/SagraFacile.NET.API/Program.cs` Modified:**
+    *   The `PreOrderPollingBackgroundService` is now conditionally registered.
+    *   The application reads the `ENABLE_PREORDER_POLLING_SERVICE` configuration value.
+    *   If the value is `true` or not present (defaulting to `true` due to docker-compose), the service is registered.
+    *   If the value is explicitly `false`, the service is not registered.
+    *   Added `Console.WriteLine` statements to log whether the service is enabled or disabled at startup for clarity.
+**Key Decisions:**
+*   The polling service is enabled by default to maintain existing behavior unless explicitly disabled.
+*   Clear logging at application startup indicates the status of the polling service.
+
 ## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
 **Context:** Based on user reflection and agreement, the project's deployment strategy has been fundamentally changed from building Docker images on the user's machine to distributing pre-built Docker images via a container registry. This aims to simplify user setup, improve reliability, and speed up deployment.
 **Accomplishments (Overall Project):**

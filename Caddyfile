@@ -5,17 +5,15 @@
 # Handle any host/IP on HTTPS
 https:// {
     handle_path /api/* {
-        reverse_proxy backend:8080
+        reverse_proxy /api/* backend:8080
     }
     
     handle {
         reverse_proxy frontend:3000
     }
 
-    # Use internal certificates with on-demand
-    tls internal {
-        on_demand
-    }
+    # Use internal certificates
+    tls internal
     
     log {
         output stdout

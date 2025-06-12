@@ -77,8 +77,22 @@ builder.Services.AddScoped<IQueueService, QueueService>(); // Add QueueService r
 builder.Services.AddScoped<IAdMediaItemService, AdMediaItemService>();
 builder.Services.AddScoped<IAdAreaAssignmentService, AdAreaAssignmentService>();
 
-// Register the Background Service
-builder.Services.AddHostedService<PreOrderPollingBackgroundService>();
+// Register the Background Service conditionally
+var enablePollingService = builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
+
+// Explicitly check for null to distinguish from a "false" value.
+// If the variable is not present at all, we default to true (as per docker-compose).
+// If it's present and "false", we disable. If present and "true", we enable.
+if (enablePollingService == null || enablePollingService == true)
+{
+    builder.Services.AddHostedService<PreOrderPollingBackgroundService>();
+    Console.WriteLine("PreOrderPollingBackgroundService is ENABLED."); // Log for clarity
+}
+else
+{
+    Console.WriteLine("PreOrderPollingBackgroundService is DISABLED by configuration."); // Log for clarity
+}
+
 
 // 4. Configure Options Pattern for Settings
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
