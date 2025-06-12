@@ -13,6 +13,25 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
+**Context:** Addressed issues with printing special characters (e.g., Euro symbol, accented characters appearing as '?') and QR codes being too small. This was suspected to be due to encoding problems in the custom `EscPosDocumentBuilder` and limitations in its QR code generation.
+**Accomplishments:**
+*   **Added `ESCPOS_NET` NuGet Package:** The `ESCPOS_NET` library (version 3.0.0) was added to the `SagraFacile.NET.API.csproj`.
+*   **Refactored `SagraFacile.NET/SagraFacile.NET.API/Utils/EscPosDocumentBuilder.cs`:**
+    *   The class was rewritten to utilize the `ESCPOS_NET` library.
+    *   It now uses `ESCPOS_NET.Emitters.EPSON` for generating printer commands.
+    *   The default printer code page is set to `CodePage.PC858_EURO` in the constructor to ensure correct rendering of European special characters.
+    *   The `PrintQRCode` method was updated to use `_emitter.PrintQRCode()`, mapping the previous `moduleSizeMapping` parameter to `ESCPOS_NET.Size2DCode` (e.g., `Size2DCode.EXTRA` or `Size2DCode.LARGE`) to address the small QR code issue. The error correction level is set to `CorrectionLevel2DCode.PERCENT_15`.
+    *   Font size adjustments now use `_emitter.SetStyles()` with `PrintStyle.DoubleWidth` and `PrintStyle.DoubleHeight`.
+    *   The `SetDoubleStrike` method was found to not have a direct equivalent in the `PrintStyle` enum or easily accessible via the `EPSON` emitter's style methods; it currently logs a warning and is non-functional to prevent compilation errors.
+**Key Decisions:**
+*   Adopted `ESCPOS_NET` as the standard library for ESC/POS command generation to improve reliability and cross-platform compatibility.
+*   Prioritized fixing character encoding and QR code size.
+**Next Steps:**
+*   Thoroughly test printing functionality, especially receipts with Euro symbols, accented characters, and QR codes, to ensure the issues are resolved.
+*   Review `PrinterService.cs` to ensure it aligns with any subtle changes in `EscPosDocumentBuilder` usage, particularly around QR code sizing parameters if the default mapping isn't optimal.
+*   If `SetDoubleStrike` is a critical feature, further investigation into `ESCPOS_NET` capabilities or printer-specific raw commands will be needed.
+
 ## (2025-06-12) - Configurable PreOrder Polling Service
 **Context:** Added the ability to enable or disable the `PreOrderPollingBackgroundService` (which polls SagraPèreOrdini) via an environment variable.
 **Accomplishments:**
