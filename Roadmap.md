@@ -242,8 +242,8 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[~]` Create/apply migration. (Migration created, application deferred by user)
             *   `[x]` Update `PrinterDto`, `PrinterUpsertDto`, `PrinterService` to handle `PrintMode`.
             *   `[x]` Create `GET /api/printers/config/{instanceGuid}` endpoint to return `PrintMode` and `WindowsPrinterName`.
-        *   `[ ]` **Frontend - Admin UI:**
-            *   `[ ]` Add `PrintMode` selection to printer configuration form.
+        *   `[x]` **Frontend - Admin UI:**
+            *   `[x]` Add `PrintMode` selection to printer configuration form (`sagrafacile-webapp/src/components/admin/PrinterFormDialog.tsx`).
         *   `[ ]` **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
             *   `[ ]` **`SignalRService.cs`:**
                 *   `[ ]` Fetch `PrintMode` from backend on registration.
