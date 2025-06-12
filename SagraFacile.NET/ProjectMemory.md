@@ -13,6 +13,37 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
+**Context:** Started implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the backend changes required to support this.
+**Accomplishments:**
+*   **Models Updated:**
+    *   Created `SagraFacile.NET/SagraFacile.NET.API/Models/Enums/PrintMode.cs` with `Immediate` and `OnDemandWindows` values.
+    *   Added a `PrintMode` property (defaulting to `PrintMode.Immediate`) to the `SagraFacile.NET/SagraFacile.NET.API/Models/Printer.cs` entity.
+*   **Database Migration:**
+    *   Generated the `AddPrintModeToPrinter` EF Core migration to apply schema changes. (User deferred applying the migration as the database was offline).
+*   **DTOs Updated:**
+    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterDto.cs`.
+    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterUpsertDto.cs`.
+*   **Services Updated:**
+    *   `SagraFacile.NET/SagraFacile.NET.API/Services/Interfaces/IPrinterService.cs`: Added `Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid);` method.
+    *   `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs`:
+        *   Updated `MapPrinterToDto` to include `PrintMode`.
+        *   Updated `CreatePrinterAsync` and `UpdatePrinterAsync` to set/update `PrintMode`.
+        *   Implemented `GetPrinterConfigAsync(string instanceGuid)` to allow the Windows Companion App to fetch its `PrintMode` and `WindowsPrinterName` using its `ConnectionString` (GUID).
+*   **Controller Updated:**
+    *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/PrintersController.cs`: Added a new public (AllowAnonymous) endpoint `GET /api/printers/config/{instanceGuid}` that calls the new service method to return printer configuration.
+**Key Decisions:**
+*   The `PrintMode` defaults to `Immediate` to maintain existing behavior for printers not explicitly configured for on-demand.
+*   The new `/api/printers/config/{instanceGuid}` endpoint is made public to allow the companion app to fetch its configuration easily upon startup.
+**Next Steps:**
+*   User to apply the `AddPrintModeToPrinter` database migration when the database is available.
+*   **Frontend:** Update Admin UI to allow selection of `PrintMode` when creating/editing printers.
+*   **Windows Companion App:**
+    *   Implement logic to call `GET /api/printers/config/{instanceGuid}` on startup.
+    *   If `PrintMode` is `OnDemandWindows`, implement an in-memory queue for print jobs.
+    *   Create the `PrintStationForm.cs` UI for staff to view and print queued comandas.
+    *   Update `ApplicationLifetimeService.cs` to manage and display the `PrintStationForm`.
+
 ## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
 **Context:** Addressed issues with printing special characters (e.g., Euro symbol, accented characters appearing as '?') and QR codes being too small. This was suspected to be due to encoding problems in the custom `EscPosDocumentBuilder` and limitations in its QR code generation.
 **Accomplishments:**

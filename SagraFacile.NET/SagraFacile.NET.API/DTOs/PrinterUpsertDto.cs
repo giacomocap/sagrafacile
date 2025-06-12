@@ -28,7 +28,10 @@ namespace SagraFacile.NET.API.DTOs
         [Required]
         public bool IsEnabled { get; set; } = true;
 
+        [Required]
+        public PrintMode PrintMode { get; set; } = PrintMode.Immediate; // Added PrintMode, defaults to Immediate
+
         // Custom validation might be needed here, e.g., in the service/controller
         // to ensure WindowsPrinterName is provided if Type is WindowsUsb.
     }
-} 
+}

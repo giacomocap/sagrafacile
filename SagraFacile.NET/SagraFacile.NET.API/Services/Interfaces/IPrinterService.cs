@@ -21,6 +21,9 @@ namespace SagraFacile.NET.API.Services.Interfaces
 
         Task<(bool Success, string? Error)> ReprintOrderDocumentsAsync(string orderId, ReprintRequestDto reprintRequest);
 
+        // New method for Windows Companion App to get its configuration
+        Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid);
+
         // Placeholder for network printing logic (details TBD)
         // Task SendToNetworkPrinterAsync(int printerId, byte[] data); // Example
     }

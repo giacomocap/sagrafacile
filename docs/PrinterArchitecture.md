@@ -219,3 +219,79 @@ This document details the revised architecture for printing receipts and comanda
             *   Fallback to browser `window.print()` (for receipts, if feasible).
         3.  **Log and Alert:** Log the failure prominently and alert an administrator, requiring manual intervention.
         *   The chosen strategy should be configurable or at least well-defined.
+
+## 6. On-Demand Printing for Windows Companion App (Future Enhancement)
+
+This section outlines a planned enhancement for the `SagraFacile.WindowsPrinterService` to support on-demand printing of comandas, where jobs are queued locally and printed manually by staff at the print station.
+
+### 6.1. Concept
+
+*   **Local Queuing:** For printers configured for on-demand mode, the Windows Printer Service will not print comandas immediately upon receipt from the backend. Instead, it will add them to an internal, in-memory queue.
+*   **User-Triggered Printing:** Staff at the print station will use a new, simple UI (`PrintStationForm`) within the Windows Printer Service to manually trigger the printing of the next comanda(s) from the queue.
+*   **FIFO Order:** Comandas will be printed in a First-In, First-Out (FIFO) order.
+*   **Independence from KDS:** This printing mechanism will operate independently of KDS status updates.
+
+### 6.2. Configuration
+
+*   **Backend (`Printer` Entity):**
+    *   A new `PrintMode` enum (`Immediate`, `OnDemandWindows`) will be added to the `Printer` entity.
+    *   This will be configurable in the Admin UI for each `WindowsUsb` printer.
+*   **Windows Printer Service (`SettingsForm.cs`):**
+    *   An optional local setting for "Number of comandas to print per click" (e.g., 1, 2, 3; default 1) can be added in the future. For the initial version, it will print one comanda per click.
+
+### 6.3. Workflow and Component Changes
+
+*   **Backend API (`SagraFacile.NET`):**
+    *   **`Printer` Entity:** Updated with `PrintMode` property and enum.
+    *   **DTOs & Services:** `PrinterDto`, `PrinterUpsertDto`, and `PrinterService` updated to manage `PrintMode`.
+    *   **New Endpoint:** `GET /api/printers/config/{instanceGuid}` to allow the Windows service to fetch its `PrintMode` and `WindowsPrinterName`.
+*   **Windows Printer Service (`SagraFacile.WindowsPrinterService`):**
+    *   **`SignalRService.cs`:**
+        *   Fetches its `PrintMode` from the new backend endpoint upon registration.
+        *   If `PrintMode` is `OnDemandWindows`, incoming print jobs are added to an internal `ConcurrentQueue<PrintJobItem>`. An event (`OnDemandQueueCountChanged`) is raised.
+        *   If `PrintMode` is `Immediate`, jobs are printed directly as before.
+        *   Exposes methods to dequeue jobs and get the current queue count.
+    *   **`PrintStationForm.cs` (New UI Form):**
+        *   Launched from the tray icon menu.
+        *   Displays "Comande in Attesa: [X]".
+        *   Features a large "STAMPA PROSSIMA COMANDA" button (triggers on Enter key as well).
+        *   On button click, it requests `SignalRService` to dequeue and print the next job using `IRawPrinter`.
+        *   Updates pending count and optionally logs activity.
+    *   **`ApplicationLifetimeService.cs`:**
+        *   Adds a menu item to open/manage the `PrintStationForm`.
+        *   Passes necessary dependencies to `PrintStationForm`.
+
+### 6.4. Visual Flow (Windows Service Interaction)
+
+```mermaid
+sequenceDiagram
+    participant Backend
+    participant SignalRService_Win
+    participant PrintStationForm_Win
+    participant RawPrinter_Win
+
+    Backend->>+SignalRService_Win: Sends PrintJob (Data, JobID, TargetPrinterName)
+    SignalRService_Win->>SignalRService_Win: Check Stored PrintMode
+    alt PrintMode == OnDemandWindows
+        SignalRService_Win->>SignalRService_Win: Enqueue PrintJobItem
+        SignalRService_Win-->>PrintStationForm_Win: Notify: QueueCountChanged (event)
+    else PrintMode == Immediate
+        SignalRService_Win->>+RawPrinter_Win: SendBytesToPrinter(TargetPrinterName, Data)
+        RawPrinter_Win-->>-SignalRService_Win: Print Result
+    end
+    SignalRService_Win-->>-Backend: (Optional Ack)
+
+    Note over PrintStationForm_Win: User interacts
+    PrintStationForm_Win->>+SignalRService_Win: User clicks "Print Next"
+    SignalRService_Win->>SignalRService_Win: DequeueNextPrintJob()
+    alt Job Dequeued
+        SignalRService_Win->>PrintStationForm_Win: Return PrintJobItem
+        PrintStationForm_Win->>+RawPrinter_Win: SendBytesToPrinter(ConfiguredPrinterName, JobData)
+        RawPrinter_Win-->>-PrintStationForm_Win: Print Result
+        PrintStationForm_Win->>PrintStationForm_Win: Update Activity Log
+    else Queue Empty
+        SignalRService_Win-->>PrintStationForm_Win: Return null
+        PrintStationForm_Win->>PrintStationForm_Win: Show "No jobs"
+    end
+    SignalRService_Win-->>-PrintStationForm_Win: (Done)
+```

@@ -136,5 +136,29 @@ namespace SagraFacile.NET.API.Controllers
 
             return NoContent(); // Successful delete
         }
+
+        // GET: api/Printers/config/{instanceGuid}
+        // This endpoint is for the Windows Companion App to fetch its specific configuration
+        [HttpGet("config/{instanceGuid}")]
+        [AllowAnonymous] // Companion app might call this before full auth/registration
+        public async Task<IActionResult> GetPrinterConfig(string instanceGuid)
+        {
+            if (string.IsNullOrWhiteSpace(instanceGuid))
+            {
+                return BadRequest("Instance GUID cannot be empty.");
+            }
+
+            _logger.LogInformation("Received request for printer config with GUID: {InstanceGuid}", instanceGuid);
+            var config = await _printerService.GetPrinterConfigAsync(instanceGuid);
+
+            if (config == null)
+            {
+                _logger.LogWarning("No configuration found for printer with GUID: {InstanceGuid}", instanceGuid);
+                return NotFound(new { message = "Printer configuration not found or printer is disabled." });
+            }
+
+            // Return a simple object with the configuration
+            return Ok(new { config.Value.PrintMode, config.Value.WindowsPrinterName });
+        }
     }
-} 
+}

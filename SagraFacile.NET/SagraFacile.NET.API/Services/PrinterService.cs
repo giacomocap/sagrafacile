@@ -114,7 +114,8 @@ namespace SagraFacile.NET.API.Services
                 ConnectionString = printerDto.ConnectionString,
                 WindowsPrinterName = printerDto.WindowsPrinterName,
                 IsEnabled = printerDto.IsEnabled,
-                OrganizationId = printerDto.OrganizationId
+                OrganizationId = printerDto.OrganizationId,
+                PrintMode = printerDto.PrintMode // Added PrintMode
             };
 
             _context.Printers.Add(printer);
@@ -174,6 +175,7 @@ namespace SagraFacile.NET.API.Services
             existingPrinter.ConnectionString = printerDto.ConnectionString;
             existingPrinter.WindowsPrinterName = printerDto.WindowsPrinterName;
             existingPrinter.IsEnabled = printerDto.IsEnabled;
+            existingPrinter.PrintMode = printerDto.PrintMode; // Added PrintMode
             // OrganizationId is updated above if applicable
 
             try
@@ -256,7 +258,8 @@ namespace SagraFacile.NET.API.Services
                 ConnectionString = printer.ConnectionString,
                 WindowsPrinterName = printer.WindowsPrinterName,
                 IsEnabled = printer.IsEnabled,
-                OrganizationId = printer.OrganizationId
+                OrganizationId = printer.OrganizationId,
+                PrintMode = printer.PrintMode // Added PrintMode
             };
         }
 
@@ -1081,6 +1084,36 @@ namespace SagraFacile.NET.API.Services
                 _logger.LogError($"One or more reprint jobs failed for Order ID: {orderId} to printer {targetPrinter.Name}. Errors: {combinedErrors}");
                 return (false, $"One or more reprint jobs failed: {combinedErrors}");
             }
+        }
+
+        // New method for Windows Companion App to get its configuration
+        public async Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid)
+        {
+            if (string.IsNullOrWhiteSpace(instanceGuid))
+            {
+                _logger.LogWarning("GetPrinterConfigAsync called with empty instanceGuid.");
+                return null;
+            }
+
+            // Assuming instanceGuid is the Printer.ConnectionString for WindowsUsb printers
+            var printer = await _context.Printers
+                .AsNoTracking() // Read-only operation
+                .FirstOrDefaultAsync(p => p.Type == PrinterType.WindowsUsb && p.ConnectionString == instanceGuid);
+
+            if (printer == null)
+            {
+                _logger.LogWarning($"No WindowsUsb printer found with ConnectionString (instanceGuid): {instanceGuid}");
+                return null;
+            }
+
+            if (!printer.IsEnabled)
+            {
+                _logger.LogWarning($"WindowsUsb printer {printer.Name} (GUID: {instanceGuid}) is found but disabled. Configuration not returned.");
+                return null; // Or perhaps return config but indicate disabled status if frontend can handle
+            }
+
+            _logger.LogInformation($"Returning configuration for printer {printer.Name} (GUID: {instanceGuid}): PrintMode={printer.PrintMode}, WindowsPrinterName={printer.WindowsPrinterName}");
+            return (printer.PrintMode, printer.WindowsPrinterName);
         }
     }
 }
