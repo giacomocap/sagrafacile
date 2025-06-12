@@ -11,6 +11,9 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 
+// Ensure extended encodings are available
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Define CORS policy name

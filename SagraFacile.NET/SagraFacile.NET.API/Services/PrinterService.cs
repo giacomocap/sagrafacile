@@ -14,6 +14,7 @@ using System.Text;
 using Microsoft.AspNetCore.SignalR;
 using SagraFacile.NET.API.Hubs;
 using SagraFacile.NET.API.Utils;
+using ESCPOS_NET.Emitters; // Added for CodePage enum
 
 namespace SagraFacile.NET.API.Services
 {
@@ -434,10 +435,9 @@ namespace SagraFacile.NET.API.Services
                     if (receiptPrinter.IsEnabled)
                     {
                         var docBuilder = new EscPosDocumentBuilder();
-                        docBuilder.InitializePrinter();
-                        // Select character code table (e.g., PC858 for Euro symbol)
-                        // Assuming EscPosDocumentBuilder has a method like this, or use raw bytes: new byte[] { 0x1B, 0x74, 19 }
-                        docBuilder.SelectCharacterCodeTable(19); // 19 is often PC858
+                        docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
+                        // Explicitly re-select for absolute clarity in this service's logic.
+                        docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO); 
                         docBuilder.SetAlignment(EscPosAlignment.Center);
                         docBuilder.SetEmphasis(true);
                         docBuilder.AppendLine(order.Organization?.Name ?? "Sagrafacile");
@@ -656,10 +656,9 @@ namespace SagraFacile.NET.API.Services
                 if (testPrinter != null)
                 {
             var docBuilder = new EscPosDocumentBuilder();
-            docBuilder.InitializePrinter();
-            // Select character code table (e.g., PC858 for Euro symbol)
-            // Assuming EscPosDocumentBuilder has a method like this, or use raw bytes: new byte[] { 0x1B, 0x74, 19 }
-            docBuilder.SelectCharacterCodeTable(19); // 19 is often PC858
+            docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
+            // Explicitly re-select for absolute clarity in this service's logic.
+            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
             docBuilder.SetAlignment(EscPosAlignment.Center);
             docBuilder.SetEmphasis(true);
                     docBuilder.SetFontSize(2, 1);
@@ -930,9 +929,9 @@ namespace SagraFacile.NET.API.Services
             var docBuilder = new EscPosDocumentBuilder(); // Reusable builder
 
             // --- Receipt Reprinting --- (Always done if a printer is found)
-            docBuilder.InitializePrinter();
-            // Select character code table (e.g., PC858 for Euro symbol)
-            docBuilder.SelectCharacterCodeTable(19); // 19 is often PC858
+            docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
+            // Explicitly re-select for absolute clarity in this service's logic.
+            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
             docBuilder.SetAlignment(EscPosAlignment.Center);
             docBuilder.SetEmphasis(true);
             docBuilder.SetFontSize(1, 2); // Slightly larger for "RISTAMPA"

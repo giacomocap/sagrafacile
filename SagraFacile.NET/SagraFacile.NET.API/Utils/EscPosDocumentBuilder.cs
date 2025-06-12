@@ -23,11 +23,29 @@ namespace SagraFacile.NET.API.Utils
         private readonly List<byte[]> _commands;
         private readonly EPSON _emitter;
         private PrintStyle _currentStyles = PrintStyle.None;
+        private static readonly Encoding Pc858Encoding;
 
         // Static constructor to register code pages provider once.
         static EscPosDocumentBuilder()
         {
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            try
+            {
+                Pc858Encoding = Encoding.GetEncoding("IBM00858"); // MS-DOS Latin 1 + Euro - Try with uppercase
+            }
+            catch (NotSupportedException) // First attempt failed
+            {
+                try 
+                {
+                    // Fallback to using the code page number directly
+                    Pc858Encoding = Encoding.GetEncoding(858); 
+                }
+                catch (NotSupportedException ex) // Second attempt also failed
+                {
+                    Console.WriteLine($"FATAL: Could not load encoding for code page 858 (tried 'IBM858' and 858). Ensure CodePagesEncodingProvider is registered. {ex.Message}");
+                    throw new InvalidOperationException("Failed to initialize encoding for code page 858. Ensure CodePagesEncodingProvider is registered and the encoding is supported.", ex);
+                }
+            }
         }
 
         public EscPosDocumentBuilder()
@@ -37,7 +55,7 @@ namespace SagraFacile.NET.API.Utils
             
             // Initialize printer and set default code page for European characters
             AppendCommand(_emitter.Initialize());
-            // PC858 is a common choice for Latin 1 + Euro.
+            // PC858_EURO (Code Page 19)
             AppendCommand(_emitter.CodePage(CodePage.PC858_EURO));
         }
 
@@ -74,14 +92,23 @@ namespace SagraFacile.NET.API.Utils
 
         public EscPosDocumentBuilder AppendText(string text)
         {
-            // EPSON emitter's Print method uses its internal encoding,
-            // but the printer interprets bytes based on the selected CodePage.
-            return AppendCommand(_emitter.Print(text));
+            if (string.IsNullOrEmpty(text))
+            {
+                return this;
+            }
+            byte[] bytes = Pc858Encoding.GetBytes(text);
+            return AppendCommand(bytes);
         }
 
         public EscPosDocumentBuilder AppendLine(string text = "")
         {
-            return AppendCommand(_emitter.PrintLine(text));
+            // Append the text first (if any)
+            if (!string.IsNullOrEmpty(text))
+            {
+                AppendText(text);
+            }
+            // Then append a Line Feed character
+            return AppendCommand(new byte[] { 0x0A }); // LF
         }
 
         public EscPosDocumentBuilder NewLine(int lines = 1)
