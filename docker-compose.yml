@@ -1,21 +1,21 @@
 services:
   # Caddy is the new public-facing entry point and reverse proxy
   caddy:
-    image: caddy:2-builder
+    image: ghcr.io/slothcroissant/caddy-cloudflaredns:latest # Using pre-built image with cloudflare plugin
     container_name: sagrafacile-caddy
     restart: unless-stopped
     ports:
-      - "80:80"   # For HTTP traffic (Let's Encrypt HTTP-01 or redirect)
+      - "80:80"   # For HTTP traffic
       - "443:443" # For HTTPS traffic
-      - "443:443/udp" # For HTTP/3 (optional, kept from existing)
+      - "443:443/udp" # For HTTP/3
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile # Mount the Caddy configuration file
-      - sagrafacile_caddy_data:/data # Persists certificates and other Caddy data (using existing volume name)
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - sagrafacile_caddy_data:/data # Persists certificates and Caddy data
     environment:
-      # Pass your Cloudflare API token to the Caddy container
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      # The domain you are using
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL} # Added as per slothcroissant image docs
       - MY_DOMAIN=${MY_DOMAIN}
+      - ACME_AGREE=true # Added as per slothcroissant image docs, to agree to Let's Encrypt's SA
     depends_on:
       - api
       - frontend
@@ -38,7 +38,8 @@ services:
       # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   # The Next.js Frontend (NO LONGER EXPOSES PORTS TO HOST)
   frontend:
@@ -57,6 +58,11 @@ services:
     image: postgres:15
     container_name: sagrafacile-db # New container name
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-sagrafacile}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sagrafacile} # Preserved from existing (with fallback)
       POSTGRES_USER: ${POSTGRES_USER:-postgres} # Preserved from existing (with fallback)

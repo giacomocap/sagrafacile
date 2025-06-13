@@ -95,28 +95,73 @@ namespace SagraFacile.WindowsPrinterService.Services
             OnConnectionStatusChanged("Inizializzazione servizio SignalR...");
 
             _logger.LogInformation("Tentativo di caricamento impostazioni per SignalR...");
-            // _hubHostAndPort from settings should be the full base URL e.g. https://host:port or http://host:port
-            (_hubHostAndPort, _instanceGuid) = SettingsForm.GetSignalRConfig(); 
+            string rawHubHostSetting;
+            (rawHubHostSetting, _instanceGuid) = SettingsForm.GetSignalRConfig();
 
-            if (string.IsNullOrWhiteSpace(_hubHostAndPort) || string.IsNullOrWhiteSpace(_instanceGuid) || !Guid.TryParse(_instanceGuid, out _))
+            if (string.IsNullOrWhiteSpace(rawHubHostSetting) || string.IsNullOrWhiteSpace(_instanceGuid) || !Guid.TryParse(_instanceGuid, out _))
             {
                 _logger.LogError("Impostazioni SignalR (URL Base Hub o GUID Istanza) non valide o non configurate. Il servizio non può avviarsi.");
                 OnConnectionStatusChanged("Errore: Configurazione mancante/invalida");
                 return;
             }
 
-            // Validate _hubHostAndPort as a base URL
-            if (!Uri.TryCreate(_hubHostAndPort.Trim(), UriKind.Absolute, out Uri? baseUri) ||
+            _hubHostAndPort = rawHubHostSetting.Trim();
+
+            // Normalize _hubHostAndPort: ensure scheme and remove any path.
+            // It should end up like "https://your.domain.com" or "http://localhost:port"
+            try
+            {
+                string originalInputForLog = _hubHostAndPort;
+                Uri tempUri;
+
+                if (!_hubHostAndPort.Contains("://"))
+                {
+                    // No scheme, assume https for non-localhost, http for localhost
+                    if (_hubHostAndPort.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || _hubHostAndPort.StartsWith("127.0.0.1"))
+                        tempUri = new Uri("http://" + _hubHostAndPort); // Allow http for localhost development
+                    else
+                        tempUri = new Uri("https://" + _hubHostAndPort);
+                }
+                else
+                {
+                    tempUri = new Uri(_hubHostAndPort);
+                }
+                
+                // Reconstruct without path and query
+                _hubHostAndPort = $"{tempUri.Scheme}://{tempUri.DnsSafeHost}";
+                if (!tempUri.IsDefaultPort)
+                {
+                    _hubHostAndPort += $":{tempUri.Port}";
+                }
+
+                if(originalInputForLog != _hubHostAndPort)
+                {
+                    _logger.LogInformation($"URL Base Hub normalizzato da '{originalInputForLog}' a '{_hubHostAndPort}'.");
+                }
+            }
+            catch (UriFormatException ex)
+            {
+                _logger.LogError(ex, $"Formato URL Base Hub '{rawHubHostSetting}' non valido dopo tentativo di normalizzazione.");
+                OnConnectionStatusChanged("Errore: Formato URL Hub non valido (normalizzazione)");
+                return;
+            }
+            
+            // Validate the normalized _hubHostAndPort as a base URL
+            if (!Uri.TryCreate(_hubHostAndPort, UriKind.Absolute, out Uri? baseUri) ||
                 (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
             {
-                _logger.LogError($"URL Base Hub '{_hubHostAndPort}' non valido. Inserire un URL completo come 'http://localhost:5000' o 'https://tuoserver.com:7075'.");
-                OnConnectionStatusChanged("Errore: Formato URL Hub non valido");
+                // This error should ideally not be hit if normalization is correct
+                _logger.LogError($"URL Base Hub normalizzato '{_hubHostAndPort}' non è valido. Controllare la logica di normalizzazione.");
+                OnConnectionStatusChanged("Errore: Formato URL Hub non valido (post-normalizzazione)");
                 return;
             }
 
             // Fetch printer configuration before starting SignalR connection
+            // This uses the now-normalized _hubHostAndPort
             await FetchPrinterConfigurationAsync(_cts.Token);
 
+            // baseUri is now the normalized scheme://host:port
+            // The service appends "/api/orderhub" to this base.
             string constructedHubUrl = new Uri(baseUri, "api/orderhub").ToString();
             _logger.LogInformation($"Avvio Servizio SignalR. URL Hub: {constructedHubUrl}, GUID Istanza: {_instanceGuid}, PrintMode: {_currentPrintMode}");
 

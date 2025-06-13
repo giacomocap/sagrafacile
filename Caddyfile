@@ -3,13 +3,11 @@
         dns cloudflare {$CLOUDFLARE_API_TOKEN}
     }
 
-    handle_path /api/* {
-        reverse_proxy api:8080 # 'api' is the service name in docker-compose, .NET listens on 8080
-    }
+    # If path starts with /api/, proxy to backend, keeping /api/ in the path
+    reverse_proxy /api/* api:8080
 
-    handle {
-        reverse_proxy frontend:3000 # 'frontend' is the service name, Next.js listens on 3000
-    }
+    # For all other paths, proxy to frontend
+    reverse_proxy frontend:3000
 
     log {
         output stdout
