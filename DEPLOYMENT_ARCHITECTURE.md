@@ -13,7 +13,9 @@ This approach simplifies the user's setup significantly by removing the need for
 
 *   **Docker:** For containerizing individual application components (backend, frontend, database).
 *   **Docker Compose:** For defining and orchestrating the multi-container application stack.
-*   **Caddy Web Server:** As a reverse proxy to manage incoming traffic, provide automatic HTTPS (using self-signed certificates for local deployment), and route requests to the appropriate services.
+*   **Caddy Web Server:** As a reverse proxy to manage incoming traffic, provide automatic HTTPS using **Let's Encrypt with the DNS-01 challenge (via Cloudflare)**, and route requests to the appropriate services.
+*   **Cloudflare:** For DNS management to facilitate the Let's Encrypt DNS-01 challenge.
+*   **Registered Domain Name:** A publicly registered domain name is required.
 
 ## 3. Overall Architecture (Conceptual Flow)
 
@@ -22,8 +24,19 @@ End User Browser (HTTPS)
        |
        v
 +-----------------+
-| Caddy           | (Reverse Proxy, SSL Termination)
+End User Browser (HTTPS) --> your.domain.com
+       |
+       v
+Internet DNS (Cloudflare) resolves your.domain.com to your Public IP
+       |
+       v
+Your Router (Port Forwarding 80 & 443 to Server's Local IP)
+       |
+       v
++-----------------+
+| Caddy           | (Reverse Proxy, SSL Termination with Let's Encrypt)
 | (Container)     |
+| Server Local IP |
 | :80, :443       |
 +-----------------+
        |        \
@@ -42,6 +55,20 @@ End User Browser (HTTPS)
                         | (Container)     |
                         | :5432           |
                         +-----------------+
+
+Local Network Device Browser (HTTPS) --> your.domain.com
+       |
+       v
+Your Router (Local DNS Resolution: your.domain.com to Server's Local IP)
+       |
+       v
++-----------------+
+| Caddy           | (Same Caddy container as above)
+| (Container)     |
+| Server Local IP |
+| :80, :443       |
++-----------------+
+ (Traffic flows as above)
 ```
 
 ## 4. Phased Implementation Plan
@@ -118,45 +145,49 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
         *   `restart: unless-stopped`
         *   `environment:` `NEXT_PUBLIC_API_BASE_URL` from `.env` file (e.g., `/api`).
     *   **`caddy` service:**
-        *   `image: caddy:2-alpine` # Using alpine for smaller size
-        *   `container_name: sagrafacile_caddy` (for consistent certificate extraction)
+        *   `image: caddy:2-builder` # Use the builder image to include DNS plugins
+        *   `container_name: sagrafacile-caddy`
         *   `restart: unless-stopped`
         *   `ports:` map `"80:80"` and `"443:443"`.
         *   `volumes:`
             *   Map local `Caddyfile` to `/etc/caddy/Caddyfile`.
-            *   Map named volume `sagrafacile_caddy_data` to `/data`.
-            *   Map named volume `sagrafacile_caddy_config` to `/config`.
+            *   Map named volume `sagrafacile_caddy_data` to `/data` (for persisting certificates).
+        *   `environment:` from `.env` file (`${CLOUDFLARE_API_TOKEN}`, `${MY_DOMAIN}`).
+    *   The `backend` service should be renamed to `api` and `frontend` service name can remain. Ports for `api` and `frontend` should not be exposed directly.
 
 **Task 3.2: Create `Caddyfile` (Repository Root)**
-*   Configure routing and automatic HTTPS with Caddy's internal CA.
+*   Configure routing and automatic HTTPS using Let's Encrypt with the Cloudflare DNS challenge.
     ```caddy
-    {
-        local_certs
-    }
+    {$MY_DOMAIN} {
+        tls {
+            dns cloudflare {$CLOUDFLARE_API_TOKEN}
+        }
 
-    :443 {
         handle_path /api/* {
-            reverse_proxy backend:8080 # Target backend's HTTP port
-        }
-        
-        handle {
-            reverse_proxy frontend:3000
+            reverse_proxy api:8080 # 'api' is the service name in docker-compose
         }
 
-        tls internal
+        handle {
+            reverse_proxy frontend:3000 # 'frontend' is the service name
+        }
         log {
             output stdout
             format console
         }
     }
 
-    :80 {
-        redir https://{host}{uri}
-    }
+    # Optional: HTTP to HTTPS redirect if not handled by default by Caddy for the domain
+    # http://{$MY_DOMAIN} {
+    #    redir https://{$MY_DOMAIN}{uri}
+    # }
     ```
 
 **Task 3.3: Create `.env.example` (Repository Root)**
-*   Template with all required environment variables, comments, and placeholders (e.g., `JWT_SECRET=CHANGE_THIS_TO_A_VERY_LONG_RANDOM_STRING`).
+*   Template with all required environment variables. Ensure it includes:
+    *   `MY_DOMAIN=your.domain.com`
+    *   `CLOUDFLARE_API_TOKEN=your_cloudflare_api_token_here`
+    *   And all other existing necessary variables (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `JWT_SECRET`, etc.).
+    *   Remove any variables specific to Caddy's old `local_certs` setup if they existed.
 
 ---
 
@@ -165,8 +196,8 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
 **Task 4.1: Create User-Facing Helper Scripts**
 *   **`start.bat` / `start.sh`:**
     1.  Check if `.env` exists; if not, guide the user to copy `.env.example` to `.env` and configure it.
-    2.  Run `docker-compose up -d`. This will pull images if they are not present locally.
-    3.  Echo instructions for CA certificate installation and app access URL.
+    2.  Run `docker-compose up -d`. This will pull images if they are not present locally and start the services. Caddy will attempt to obtain SSL certificates.
+    3.  Echo instructions for configuring local DNS (router) and app access URL (e.g., `https://your.domain.com`).
 *   **`stop.bat` / `stop.sh`:**
     1.  Run `docker-compose down`.
 *   **`update.bat` / `update.sh`:**
@@ -174,18 +205,28 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
     2.  Run `docker-compose up -d` to restart services with the new images.
 
 **Task 4.2: Write `README.md` / Installation Guide**
-*   Update the guide to reflect the new simplified process:
-    *   **Prerequisites:** Docker Desktop (Windows/Mac), Docker Engine (Linux), Internet connection (for image download).
+*   Update the guide to reflect the new process:
+    *   **Prerequisites:**
+        *   Docker Desktop (Windows/Mac), Docker Engine (Linux).
+        *   A registered domain name (e.g., `my-restaurant-pos.com`).
+        *   A Cloudflare account (free tier is sufficient).
+        *   Internet connection (for image download and Let's Encrypt).
     *   **Installation:**
         *   Download and unzip the SagraFacile package.
-        *   Copy `.env.example` to `.env` and configure it.
+        *   **Domain & Cloudflare Setup:**
+            *   Add your domain to Cloudflare and update nameservers at your domain registrar.
+            *   In Cloudflare, create an API Token with "Edit zone DNS" permissions for your domain. Securely store this token.
+        *   Copy `.env.example` to `.env`. Configure it with your `MY_DOMAIN` (e.g., `pos.my-restaurant-pos.com`), `CLOUDFLARE_API_TOKEN`, database credentials, JWT secrets, etc.
         *   Run `start.bat` (Windows) or `start.sh` (macOS/Linux), including `chmod +x *.sh` for Linux/macOS.
-    *   **MANDATORY - Trusting the Security Certificate (Platform-Specific):**
-        *   Explain *why* (for `https://localhost` or `https://<local-ip>`).
-        *   Windows: `docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .` then `certutil -addstore -f "ROOT" "root.crt"` (Admin Prompt).
-        *   macOS: `docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .` then `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain root.crt`.
-        *   Linux: `docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .` then provide general instructions (e.g., copy to `/usr/local/share/ca-certificates/` and run `sudo update-ca-certificates`, noting variance by distribution).
-    *   **Connecting Other Devices:** Explain browser warning and need to install `root.crt` on them.
+    *   **MANDATORY - Local DNS Configuration:**
+        *   Explain *why*: Devices on your local Wi-Fi need to resolve `your.domain.com` to the *private IP address* of the server running Docker.
+        *   Find the server's private IP (e.g., `192.168.1.50`).
+        *   Log into your Wi-Fi router.
+        *   Find settings like "DNS," "Local DNS," "Static Hostnames," or "DHCP Reservation."
+        *   Add an entry mapping `your.domain.com` (the one in `MY_DOMAIN`) to the server's private IP.
+        *   This ensures that when a local device tries to access `https://your.domain.com`, it's directed to your local Caddy instance, which serves the valid Let's Encrypt certificate. No certificate installation is needed on client devices because the certificate is publicly trusted.
+    *   **Accessing the Application:**
+        *   From any device on the local network: `https://your.domain.com`.
     *   **Basic Usage:** `docker-compose down`, `docker-compose up -d`, updating.
 
 **Task 4.3: Package for Distribution**
@@ -249,8 +290,8 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
 Runs parallel to main server setup.
 
 **Task 5.1: Finalize Application**
-*   Ensure configurable to point to SagraFacile backend URL (e.g., `https://localhost/api` or `https://<host-ip>/api`).
-*   Ensure it trusts the custom root CA once installed on the host Windows machine.
+*   Ensure configurable to point to SagraFacile backend URL (e.g., `https://your.domain.com/api`).
+*   The Windows Printer Service will automatically trust the Let's Encrypt certificate as it's publicly valid. No special CA installation is needed for it, provided the Windows machine it runs on has internet access for standard certificate chain validation. If the machine is offline, this could be an issue, but the primary setup assumes internet connectivity for Let's Encrypt.
 
 **Task 5.2: Create Windows Installer (e.g., Inno Setup)**
 *   Wizard for backend URL.
@@ -264,15 +305,28 @@ Runs parallel to main server setup.
 *   **`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`:** (Developer artifact) Defines how the .NET backend API image is built by the developer/CI.
 *   **`sagrafacile-webapp/Dockerfile`:** (Developer artifact) Defines how the Next.js frontend application image is built by the developer/CI.
 *   **`docker-compose.yml`:** (User-facing) Orchestrates the entire application stack by pulling pre-built images for backend, frontend, Caddy, and PostgreSQL. Defines services, networks, volumes, and environment variable sourcing.
-*   **`Caddyfile`:** Configuration for the Caddy reverse proxy, handling HTTPS, and request routing.
-*   **`.env.example`:** A template file showing all necessary environment variables for the application stack. Users will copy this to `.env` and customize it.
+*   **`Caddyfile`:** Configuration for the Caddy reverse proxy (service name `caddy`, container name `sagrafacile-caddy`), handling HTTPS via Let's Encrypt (Cloudflare DNS challenge), and request routing to `api` (container `sagrafacile-api`) and `frontend` (container `sagrafacile-frontend`).
+*   **`.env.example`:** A template file showing all necessary environment variables, including `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN`. Users will copy this to `.env` and customize it.
+The database service is named `db` (container `sagrafacile-db`).
 
 ## 6. User Setup Workflow Summary (High-Level)
 
 1.  **Prerequisites:** Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
 2.  **Download & Unzip:** Obtain the SagraFacile deployment package (e.g., `SagraFacile-vX.Y.Z.zip`) and extract it.
-3.  **Configure Environment:** Navigate to the extracted folder, copy `.env.example` to `.env`, and edit `.env` with specific settings (database passwords, JWT secrets, etc.).
-4.  **Start Application:** Execute `start.bat` (Windows) or `start.sh` (macOS/Linux - remember to `chmod +x *.sh` first). This will pull images and start services.
-5.  **Install CA Certificate:** Follow instructions provided by the start script and in `README.md` to install the Caddy-generated root CA certificate on the host machine (and any client devices) to trust the local HTTPS connection.
-7.  **Access Application:** Open `https://localhost` (or `https://<host-ip>`) in a browser.
-8.  **Install Printer Service (if needed):** For PCs connected to printers, run the `SagraFacile.WindowsPrinterService.Setup.exe`.
+1.  **Prerequisites:**
+    *   Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
+    *   A registered domain name.
+    *   A Cloudflare account.
+2.  **Download & Unzip:** Obtain the SagraFacile deployment package and extract it.
+3.  **Domain & Cloudflare Setup:**
+    *   Add your domain to Cloudflare, update nameservers.
+    *   Create a Cloudflare API Token ("Edit zone DNS" permission for the domain).
+4.  **Configure Environment:**
+    *   Navigate to the extracted folder, copy `.env.example` to `.env`.
+    *   Edit `.env` with `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database passwords, JWT secrets, etc.
+5.  **Start Application:** Execute `start.bat` (Windows) or `start.sh` (macOS/Linux - remember to `chmod +x *.sh` first). This will pull images and start services. Caddy will attempt to get a Let's Encrypt certificate.
+6.  **Configure Local DNS Resolution:**
+    *   Find your server's local IP address.
+    *   Log into your router and add a DNS entry mapping `MY_DOMAIN` to the server's local IP.
+7.  **Access Application:** Open `https://your.domain.com` (as specified in `MY_DOMAIN`) in a browser from any device on your local network.
+8.  **Install Printer Service (if needed):** For PCs connected to printers, run the `SagraFacile.WindowsPrinterService.Setup.exe`, configuring it to point to `https://your.domain.com/api`.

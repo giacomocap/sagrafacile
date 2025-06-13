@@ -1,27 +1,23 @@
-{
-    local_certs
-}
+{$MY_DOMAIN} {
+    tls {
+        dns cloudflare {$CLOUDFLARE_API_TOKEN}
+    }
 
-# Handle any host/IP on HTTPS
-https:// {
     handle_path /api/* {
-        reverse_proxy /api/* backend:8080
-    }
-    
-    handle {
-        reverse_proxy frontend:3000
+        reverse_proxy api:8080 # 'api' is the service name in docker-compose, .NET listens on 8080
     }
 
-    # Use internal certificates
-    tls internal
-    
+    handle {
+        reverse_proxy frontend:3000 # 'frontend' is the service name, Next.js listens on 3000
+    }
+
     log {
         output stdout
         format console
     }
 }
 
-# Handle any host/IP on HTTP and redirect
-http:// {
-    redir https://{host}{uri}
-}
+# Optional: HTTP to HTTPS redirect if Caddy doesn't handle it automatically for the primary domain block
+# http://{$MY_DOMAIN} {
+#    redir https://{$MY_DOMAIN}{uri}
+# }

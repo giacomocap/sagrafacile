@@ -222,14 +222,15 @@ Use the provided scripts in the SagraFacile root directory:
 
 For printing receipts and comandas to USB-connected printers on Windows machines:
 
-1.  Locate the `SagraFacile.WindowsPrinterService.Setup.exe` installer (this will be part of the final distribution package - for now, you'd build it from the `SagraFacile.NET/SagraFacile.WindowsPrinterService/` project).
+1.  Locate the `SagraFacile.WindowsPrinterService.Setup.exe` installer (this will be part of the final distribution package).
 2.  Run the installer on each Windows PC that has a USB printer to be used with SagraFacile.
 3.  During installation, or by editing its settings post-installation, configure the companion app:
-    *   **Server Base URL:** Point it to your SagraFacile server's address (e.g., `https://192.168.1.10`).
+    *   **Server Base URL:** Point it to your SagraFacile server's address using your domain (e.g., `https://pos.my-restaurant-pos.com`).
     *   **Instance GUID:** Generate a unique GUID for each printer instance.
     *   **Selected Printer:** Choose the correct Windows printer from the dropdown.
-4.  Ensure the Windows PC can access the SagraFacile server URL and trusts the self-signed CA certificate.
+4.  Ensure the Windows PC can access the SagraFacile server URL (e.g., `https://pos.my-restaurant-pos.com`). The Let's Encrypt certificate will be trusted automatically by Windows if the PC has internet access.
 5.  In the SagraFacile Admin interface, configure these printers using their GUIDs.
+>>>>>>> REPLACE
 
 See `docs/PrinterArchitecture.md` for more details.
 

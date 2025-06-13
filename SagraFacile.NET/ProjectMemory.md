@@ -13,6 +13,39 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-13) - Architectural Shift to Let's Encrypt with DNS-01 for HTTPS
+**Context:** Transitioned the project's deployment architecture from using Caddy with self-signed local certificates to a more robust solution using Let's Encrypt with the DNS-01 challenge, facilitated by Cloudflare for DNS management. This provides publicly trusted SSL certificates for the application, even when primarily accessed on a local network.
+**Accomplishments (Overall Project):**
+*   **`docker-compose.yml` Updated:**
+    *   The `caddy` service image changed to `caddy:2-builder` to include DNS plugins.
+    *   Caddy service now takes `CLOUDFLARE_API_TOKEN` and `MY_DOMAIN` environment variables.
+    *   The `backend` service was renamed to `api`.
+    *   Container names updated for consistency: `sagrafacile-caddy`, `sagrafacile-api`, `sagrafacile-frontend`, `sagrafacile-db`.
+    *   Ports for `api` and `frontend` services are no longer directly exposed to the host; Caddy handles all external traffic.
+    *   Database port is no longer exposed to the host by default.
+*   **New `Caddyfile` Created:**
+    *   Configured to use `tls { dns cloudflare {$CLOUDFLARE_API_TOKEN} }` for certificate acquisition.
+    *   Routes `/api/*` to `api:8080` and other requests to `frontend:3000`.
+*   **`.env.example` Updated:**
+    *   Added `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN` variables.
+    *   Removed old Caddy local certificate variables.
+*   **Documentation Updated:**
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Rewritten to detail the new Let's Encrypt/Cloudflare/DNS-01 approach, including prerequisites (domain, Cloudflare account, API token), updated Caddy configuration, and revised user setup workflow (Cloudflare setup, local DNS router configuration). Container names were also updated.
+    *   `README.md`: The "Docker Deployment & Installation Guide" section was significantly updated to reflect the new requirements and steps: Cloudflare setup, API token, `MY_DOMAIN` configuration, and mandatory local DNS resolution on the user's router. The section on trusting self-signed certificates was removed. Service descriptions updated.
+**Key Decisions:**
+*   Adopted Let's Encrypt via DNS-01 challenge with Cloudflare for robust, publicly trusted SSL certificates.
+*   This simplifies client setup as no custom CA certificate installation is needed on devices accessing the application.
+*   Requires users to own a domain name and manage it via Cloudflare.
+*   Local network access relies on the user configuring their router to resolve `MY_DOMAIN` to the server's local IP address.
+**Next Steps:**
+*   User to test the new deployment by:
+    *   Purchasing a domain name and configuring it with Cloudflare.
+    *   Obtaining a Cloudflare API token.
+    *   Setting up the `.env` file with `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN`.
+    *   Running `docker-compose up -d`.
+    *   Configuring their local router's DNS to point `MY_DOMAIN` to the server's local IP.
+    *   Accessing the application via `https://{MY_DOMAIN}` from various devices on the local network.
+
 ## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
 **Context:** Completed the implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the Windows Printer Service (`SagraFacile.WindowsPrinterService`) changes, including making it a full-window application that can minimize to tray.
 **Accomplishments:**
