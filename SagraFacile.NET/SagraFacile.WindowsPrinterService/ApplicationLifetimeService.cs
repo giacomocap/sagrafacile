@@ -18,6 +18,10 @@ namespace SagraFacile.WindowsPrinterService
         private SynchronizationContext? _uiContext; // To marshal UI updates
         private readonly ManualResetEvent _uiThreadReady = new ManualResetEvent(false); // Signal when UI thread is ready
 
+        private SettingsForm? _settingsFormInstance; // To keep track of the settings form instance
+        private PrintStationForm? _printStationFormInstance; // To keep track of the print station form instance
+        private ToolStripMenuItem? _printStationMenuItem; // Menu item for print station
+
         // Icons for different states
         private Icon? _iconDefault;
         private Icon? _iconConnecting;
@@ -154,6 +158,8 @@ namespace SagraFacile.WindowsPrinterService
 
             // Create Context Menu
             var contextMenu = new ContextMenuStrip();
+            _printStationMenuItem = new ToolStripMenuItem("Stazione Stampa Comande...", null, OnPrintStationClicked);
+            contextMenu.Items.Add(_printStationMenuItem);
             contextMenu.Items.Add("Settings...", null, OnSettingsClicked);
             contextMenu.Items.Add("-"); // Separator
             contextMenu.Items.Add("Exit", null, OnExitClicked);
@@ -258,6 +264,38 @@ namespace SagraFacile.WindowsPrinterService
             // ShowDialog ensures the form is modal and blocks until closed.
             settingsForm.ShowDialog();
             _logger.LogDebug("Settings form closed.");
+
+            // Clear the reference to the SettingsForm when it's closed
+            // to allow SignalRService to potentially link a new one if settings is opened again.
+            if (_signalRService != null)
+            {
+                _signalRService.ClearSettingsFormReference();
+                _logger.LogDebug("Cleared SettingsForm reference in SignalRService.");
+            }
+            _settingsFormInstance = null; // Clear our own instance tracking
+        }
+
+        private void OnPrintStationClicked(object? sender, EventArgs e)
+        {
+            _logger.LogDebug("Print Station menu item clicked.");
+
+            if (_printStationFormInstance == null || _printStationFormInstance.IsDisposed)
+            {
+                _logger.LogInformation("Creating new PrintStationForm instance.");
+                using var scope = _serviceProvider.CreateScope();
+                _printStationFormInstance = scope.ServiceProvider.GetRequiredService<PrintStationForm>();
+                _printStationFormInstance.FormClosed += (s, args) => 
+                {
+                    _logger.LogInformation("PrintStationForm closed.");
+                    _printStationFormInstance = null; // Clear instance when closed
+                };
+                _printStationFormInstance.Show();
+            }
+            else
+            {
+                _logger.LogInformation("PrintStationForm instance already exists, bringing to front.");
+                _printStationFormInstance.Activate(); // Bring to front if already open
+            }
         }
 
         private void OnExitClicked(object? sender, EventArgs e)
