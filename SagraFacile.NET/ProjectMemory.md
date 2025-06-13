@@ -31,7 +31,49 @@
 **Next Steps:**
 *   User to test the Windows Printer Service with the updated URL normalization logic to confirm it connects successfully to the SignalR hub.
 
+## (2025-06-13) - Implemented Multi-Instance Support for Windows Printer Service via Profiles
+**Context:** Modified the `SagraFacile.WindowsPrinterService` to allow multiple instances to run on the same PC, each managing a different printer. This was achieved by introducing a profile-based configuration system.
+**Accomplishments:**
+*   **`Models/ProfileSettings.cs` Created:** Defined a class to hold settings for each printer profile (ProfileName, SelectedPrinter, HubHostAndPort, InstanceGuid).
+*   **`ProfileSelectionForm.cs` & `ProfileSelectionForm.Designer.cs` Created:**
+    *   A new form that appears on application startup.
+    *   Lists existing profiles from `AppData\Local\SagraFacilePrinterService\profiles\*.json`.
+    *   Allows users to load an existing profile, or create, edit, and delete profiles.
+    *   Each profile is stored as a separate JSON file (e.g., `KitchenPrinter.json`).
+*   **`InputDialogForm.cs` & `InputDialogForm.Designer.cs` Created:** A simple dialog to get user input, used for naming new profiles.
+*   **`SettingsForm.cs` Modified:**
+    *   Constructor now accepts a profile name and the profiles directory.
+    *   Loads and saves settings to individual profile JSON files instead of a single global `settings.json`.
+    *   Uses `InputDialogForm` to prompt for a name when creating a new profile.
+    *   The static `GetSignalRConfig()` method was removed.
+*   **`SignalRService.cs` Modified:**
+    *   Now holds an `_activeProfileSettings` field.
+    *   `StartAsync` is initiated after a profile is selected and its settings are passed via a new `SetActiveProfile()` method.
+    *   Uses `HubHostAndPort` and `InstanceGuid` from the active profile.
+    *   Logging and status messages now often include the profile name for clarity.
+*   **`Program.cs` Modified:**
+    *   Launches `ProfileSelectionForm` at startup.
+    *   If a profile is selected, its settings are retrieved and stored in `Program.SelectedProfile`.
+    *   These settings are then used to configure and start the `SignalRService` and `ApplicationLifetimeService`.
+    *   The application exits if no profile is selected.
+*   **`ApplicationLifetimeService.cs` Modified:**
+    *   Accepts `ProfileSettings` via constructor injection.
+    *   Displays the active profile name in the `PrintStationForm` title and tray icon tooltips/menu items.
+    *   Correctly passes profile context when opening `SettingsForm`.
+**Key Decisions:**
+*   Adopted a profile-based system for multi-instance capability, where each instance is launched by selecting a distinct configuration profile.
+*   Profile settings are stored in individual JSON files in a dedicated `profiles` subdirectory within the application's local data folder.
+*   The application presents a profile selection dialog on startup, making it user-friendly to manage and launch different printer configurations.
+**Next Steps:**
+*   User to build and test the `SagraFacile.WindowsPrinterService`:
+    *   Verify the `ProfileSelectionForm` appears on startup.
+    *   Test creating new profiles, ensuring they are saved correctly.
+    *   Test loading different profiles and confirming that each instance connects with its correct `InstanceGuid` and uses the correct settings.
+    *   Test editing and deleting profiles.
+    *   Confirm that UI elements (tray icon, PrintStationForm title) reflect the active profile.
+
 ## (2025-06-13) - Architectural Shift to Let's Encrypt with DNS-01 for HTTPS
+>>>>>>> REPLACE
 **Context:** Transitioned the project's deployment architecture from using Caddy with self-signed local certificates to a more robust solution using Let's Encrypt with the DNS-01 challenge, facilitated by Cloudflare for DNS management. This provides publicly trusted SSL certificates for the application, even when primarily accessed on a local network.
 **Accomplishments (Overall Project):**
 *   **`docker-compose.yml` Updated:**

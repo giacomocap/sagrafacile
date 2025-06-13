@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using SagraFacile.WindowsPrinterService.Printing; // For IRawPrinter
-using SagraFacile.WindowsPrinterService.Models; // For PrintMode, PrinterConfigDto, PrintJobItem
+using SagraFacile.WindowsPrinterService.Models; // For PrintMode, PrinterConfigDto, PrintJobItem, ProfileSettings
 using System;
 using System.Collections.Concurrent; // For ConcurrentQueue
 using System.Drawing; // For Color
@@ -12,7 +12,7 @@ using System.Text.Json.Serialization; // For JsonStringEnumConverter
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
-using SagraFacile.WindowsPrinterService; // Added to resolve SettingsForm type
+// using SagraFacile.WindowsPrinterService; // No longer needed directly if SettingsForm doesn't expose static config methods
 
 namespace SagraFacile.WindowsPrinterService.Services
 {
@@ -22,32 +22,28 @@ namespace SagraFacile.WindowsPrinterService.Services
         private readonly IRawPrinter _rawPrinter;
         private HubConnection? _hubConnection;
         private CancellationTokenSource? _cts;
-        private SettingsForm? _settingsForm;
-        private string _lastStatusMessage = "Inizializzazione..."; // Store last status
-        private Color _lastStatusColor = Color.Orange; // Store color for last status
+        private SettingsForm? _settingsForm; // For UI updates if settings form is open
+        private string _lastStatusMessage = "Inizializzazione..."; 
+        private Color _lastStatusColor = Color.Orange; 
 
-        private string _hubHostAndPort = "localhost:7055"; // Default, will be overridden by settings
-        private string _instanceGuid = "";
-        // RegistrationToken removed
+        private ProfileSettings? _activeProfileSettings; // To store the loaded profile
+        public string? CurrentProfileName => _activeProfileSettings?.ProfileName;
 
         private PrintMode _currentPrintMode = PrintMode.Immediate;
-        private string? _configuredWindowsPrinterName; // This will be the printer name fetched from backend config for OnDemand mode
+        private string? _configuredWindowsPrinterName; 
         private readonly ConcurrentQueue<PrintJobItem> _onDemandPrintQueue = new ConcurrentQueue<PrintJobItem>();
-        private static readonly HttpClient _httpClient; // For fetching printer config
+        private static readonly HttpClient _httpClient; 
         private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
         };
 
-        static SignalRService() // Static constructor for _httpClient initialization
+        static SignalRService() 
         {
             var httpClientHandler = new HttpClientHandler();
-            // DANGER: Trusts all certificates. For DEBUGGING/DEVELOPMENT ONLY.
-            // TODO: Implement proper certificate validation for production environments.
             httpClientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
             {
-                // This warning will appear in the console output of the WindowsPrinterService.
                 Console.WriteLine("[WARN] SOLO SVILUPPO: Validazione certificato SSL bypassata per HttpClient (recupero configurazione stampante). NON USARE IN PRODUZIONE.");
                 return true;
             };
@@ -61,20 +57,27 @@ namespace SagraFacile.WindowsPrinterService.Services
         {
             _logger = logger;
             _rawPrinter = rawPrinter;
-            // Initialize with a default status
-            _lastStatusMessage = "Servizio non avviato";
+            _lastStatusMessage = "Servizio non avviato (nessun profilo caricato)";
             _lastStatusColor = Color.Gray;
-            // Configure HttpClient timeout if necessary
-            // _httpClient.Timeout = TimeSpan.FromSeconds(30); 
         }
 
-        public void SetSettingsForm(SettingsForm? form) // Allow null to also detach if needed, though Clear is more explicit
+        public void SetActiveProfile(ProfileSettings profileSettings)
+        {
+            _activeProfileSettings = profileSettings ?? throw new ArgumentNullException(nameof(profileSettings));
+            _logger.LogInformation($"Profilo attivo impostato su: {profileSettings.ProfileName}");
+            _lastStatusMessage = "Profilo caricato, in attesa di avvio...";
+            _lastStatusColor = Color.Orange;
+            // ConnectionStatusChanged?.Invoke(this, _lastStatusMessage); // Optionally notify immediately
+        }
+
+        public void SetSettingsForm(SettingsForm? form) 
         {
             _settingsForm = form;
-            // The SettingsForm will now request the initial status update itself via GetCurrentStatus() on its Load event.
             if (_settingsForm != null)
             {
-                 _logger.LogDebug($"SettingsForm linked. It should request initial status on Load/Shown event using GetCurrentStatus(). Last known status internally: {_lastStatusMessage}");
+                 _logger.LogDebug($"SettingsForm linked. Last known status internally: {_lastStatusMessage}");
+                 // Immediately update the form with the current status
+                 _settingsForm.UpdateConnectionStatus(_lastStatusMessage, _lastStatusColor);
             }
         }
 
@@ -91,79 +94,76 @@ namespace SagraFacile.WindowsPrinterService.Services
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            OnConnectionStatusChanged("Inizializzazione servizio SignalR...");
-
-            _logger.LogInformation("Tentativo di caricamento impostazioni per SignalR...");
-            string rawHubHostSetting;
-            (rawHubHostSetting, _instanceGuid) = SettingsForm.GetSignalRConfig();
-
-            if (string.IsNullOrWhiteSpace(rawHubHostSetting) || string.IsNullOrWhiteSpace(_instanceGuid) || !Guid.TryParse(_instanceGuid, out _))
+            if (_activeProfileSettings == null)
             {
-                _logger.LogError("Impostazioni SignalR (URL Base Hub o GUID Istanza) non valide o non configurate. Il servizio non può avviarsi.");
-                OnConnectionStatusChanged("Errore: Configurazione mancante/invalida");
+                _logger.LogError("Impossibile avviare SignalRService: nessun profilo attivo impostato.");
+                OnConnectionStatusChanged("Errore: Nessun profilo caricato");
                 return;
             }
 
-            _hubHostAndPort = rawHubHostSetting.Trim();
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            OnConnectionStatusChanged($"Inizializzazione servizio SignalR per profilo: {_activeProfileSettings.ProfileName}...");
 
-            // Normalize _hubHostAndPort: ensure scheme and remove any path.
-            // It should end up like "https://your.domain.com" or "http://localhost:port"
+            string? rawHubHostSetting = _activeProfileSettings.HubHostAndPort;
+            string? instanceGuid = _activeProfileSettings.InstanceGuid;
+
+            if (string.IsNullOrWhiteSpace(rawHubHostSetting) || string.IsNullOrWhiteSpace(instanceGuid) || !Guid.TryParse(instanceGuid, out _))
+            {
+                _logger.LogError($"Impostazioni SignalR per il profilo '{_activeProfileSettings.ProfileName}' (URL Base Hub o GUID Istanza) non valide. Il servizio non può avviarsi.");
+                OnConnectionStatusChanged($"Errore Config Profilo '{_activeProfileSettings.ProfileName}'");
+                return;
+            }
+            
+            string hubHostAndPort = rawHubHostSetting.Trim();
+            string currentInstanceGuid = instanceGuid;
+
             try
             {
-                string originalInputForLog = _hubHostAndPort;
+                string originalInputForLog = hubHostAndPort;
                 Uri tempUri;
 
-                if (!_hubHostAndPort.Contains("://"))
+                if (!hubHostAndPort.Contains("://"))
                 {
-                    // No scheme, assume https for non-localhost, http for localhost
-                    if (_hubHostAndPort.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || _hubHostAndPort.StartsWith("127.0.0.1"))
-                        tempUri = new Uri("http://" + _hubHostAndPort); // Allow http for localhost development
+                    if (hubHostAndPort.StartsWith("localhost", StringComparison.OrdinalIgnoreCase) || hubHostAndPort.StartsWith("127.0.0.1"))
+                        tempUri = new Uri("http://" + hubHostAndPort);
                     else
-                        tempUri = new Uri("https://" + _hubHostAndPort);
+                        tempUri = new Uri("https://" + hubHostAndPort);
                 }
                 else
                 {
-                    tempUri = new Uri(_hubHostAndPort);
+                    tempUri = new Uri(hubHostAndPort);
                 }
                 
-                // Reconstruct without path and query
-                _hubHostAndPort = $"{tempUri.Scheme}://{tempUri.DnsSafeHost}";
+                hubHostAndPort = $"{tempUri.Scheme}://{tempUri.DnsSafeHost}";
                 if (!tempUri.IsDefaultPort)
                 {
-                    _hubHostAndPort += $":{tempUri.Port}";
+                    hubHostAndPort += $":{tempUri.Port}";
                 }
 
-                if(originalInputForLog != _hubHostAndPort)
+                if(originalInputForLog != hubHostAndPort)
                 {
-                    _logger.LogInformation($"URL Base Hub normalizzato da '{originalInputForLog}' a '{_hubHostAndPort}'.");
+                    _logger.LogInformation($"URL Base Hub normalizzato da '{originalInputForLog}' a '{hubHostAndPort}' per profilo '{_activeProfileSettings.ProfileName}'.");
                 }
             }
             catch (UriFormatException ex)
             {
-                _logger.LogError(ex, $"Formato URL Base Hub '{rawHubHostSetting}' non valido dopo tentativo di normalizzazione.");
+                _logger.LogError(ex, $"Formato URL Base Hub '{rawHubHostSetting}' (Profilo: {_activeProfileSettings.ProfileName}) non valido dopo tentativo di normalizzazione.");
                 OnConnectionStatusChanged("Errore: Formato URL Hub non valido (normalizzazione)");
                 return;
             }
             
-            // Validate the normalized _hubHostAndPort as a base URL
-            if (!Uri.TryCreate(_hubHostAndPort, UriKind.Absolute, out Uri? baseUri) ||
+            if (!Uri.TryCreate(hubHostAndPort, UriKind.Absolute, out Uri? baseUri) ||
                 (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
             {
-                // This error should ideally not be hit if normalization is correct
-                _logger.LogError($"URL Base Hub normalizzato '{_hubHostAndPort}' non è valido. Controllare la logica di normalizzazione.");
+                _logger.LogError($"URL Base Hub normalizzato '{hubHostAndPort}' (Profilo: {_activeProfileSettings.ProfileName}) non è valido.");
                 OnConnectionStatusChanged("Errore: Formato URL Hub non valido (post-normalizzazione)");
                 return;
             }
 
-            // Fetch printer configuration before starting SignalR connection
-            // This uses the now-normalized _hubHostAndPort
-            await FetchPrinterConfigurationAsync(_cts.Token);
+            await FetchPrinterConfigurationAsync(hubHostAndPort, currentInstanceGuid, _cts.Token);
 
-            // baseUri is now the normalized scheme://host:port
-            // The service appends "/api/orderhub" to this base.
             string constructedHubUrl = new Uri(baseUri, "api/orderhub").ToString();
-            _logger.LogInformation($"Avvio Servizio SignalR. URL Hub: {constructedHubUrl}, GUID Istanza: {_instanceGuid}, PrintMode: {_currentPrintMode}");
+            _logger.LogInformation($"Avvio Servizio SignalR per Profilo '{_activeProfileSettings.ProfileName}'. URL Hub: {constructedHubUrl}, GUID Istanza: {currentInstanceGuid}, PrintMode: {_currentPrintMode}");
 
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl(constructedHubUrl, options =>
@@ -172,11 +172,9 @@ namespace SagraFacile.WindowsPrinterService.Services
                     {
                         if (message is HttpClientHandler clientHandler)
                         {
-                            // DANGER: Trusts all certificates. For DEBUGGING/DEVELOPMENT ONLY.
-                            // TODO: Implement proper certificate validation for production environments.
                             clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
                             {
-                                _logger.LogWarning("SOLO SVILUPPO: Validazione certificato SSL bypassata (SignalR Hub). NON USARE IN PRODUZIONE.");
+                                _logger.LogWarning($"SOLO SVILUPPO (Profilo: {_activeProfileSettings.ProfileName}): Validazione certificato SSL bypassata (SignalR Hub). NON USARE IN PRODUZIONE.");
                                 return true;
                             };
                         }
@@ -188,14 +186,14 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             _hubConnection.Reconnecting += error =>
             {
-                _logger.LogWarning(error, "Riconnessione SignalR in corso...");
+                _logger.LogWarning(error, $"Riconnessione SignalR in corso... (Profilo: {_activeProfileSettings.ProfileName})");
                 OnConnectionStatusChanged("Riconnessione in corso...");
                 return Task.CompletedTask;
             };
 
             _hubConnection.Reconnected += connectionId =>
             {
-                _logger.LogInformation($"Connessione SignalR ristabilita con ID: {connectionId}. Nuova registrazione client...");
+                _logger.LogInformation($"Connessione SignalR ristabilita con ID: {connectionId}. Nuova registrazione client... (Profilo: {_activeProfileSettings.ProfileName})");
                 OnConnectionStatusChanged("Riconnesso. Registrazione...");
                 _ = RegisterClientAsync(); 
                 return Task.CompletedTask;
@@ -203,11 +201,8 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             _hubConnection.Closed += async (error) =>
             {
-                _logger.LogError(error, "Connessione SignalR chiusa.");
+                _logger.LogError(error, $"Connessione SignalR chiusa. (Profilo: {_activeProfileSettings.ProfileName})");
                 OnConnectionStatusChanged("Disconnesso");
-                // Consider attempting to reconnect after a delay if the closure was unexpected
-                // await Task.Delay(TimeSpan.FromSeconds(5), _cts?.Token ?? CancellationToken.None);
-                // if (_cts != null && !_cts.IsCancellationRequested) await ConnectWithRetriesAsync();
             };
 
             _hubConnection.On<string, string, byte[]>("PrintJob", HandlePrintJobAsync);
@@ -219,7 +214,7 @@ namespace SagraFacile.WindowsPrinterService.Services
         {
             if (_hubConnection == null || _cts == null || _cts.IsCancellationRequested)
             {
-                _logger.LogWarning("ConnectWithRetriesAsync chiamato ma la connessione hub è nulla o la cancellazione è richiesta.");
+                _logger.LogWarning($"ConnectWithRetriesAsync chiamato ma la connessione hub è nulla o la cancellazione è richiesta. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return;
             }
 
@@ -227,39 +222,39 @@ namespace SagraFacile.WindowsPrinterService.Services
             try
             {
                 await _hubConnection.StartAsync(_cts.Token);
-                _logger.LogInformation("Connessione SignalR stabilita. Registrazione client...");
+                _logger.LogInformation($"Connessione SignalR stabilita. Registrazione client... (Profilo: {_activeProfileSettings?.ProfileName})");
                 OnConnectionStatusChanged("Connesso. Registrazione...");
                 await RegisterClientAsync();
             }
             catch (Exception ex) 
             {
-                _logger.LogError(ex, "Connessione all'Hub SignalR fallita.");
+                _logger.LogError(ex, $"Connessione all'Hub SignalR fallita. (Profilo: {_activeProfileSettings?.ProfileName})");
                 string shortErrorMessage = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ex.Message;
                 OnConnectionStatusChanged($"Connessione Fallita: {shortErrorMessage}");
             }
         }
         
-        private async Task FetchPrinterConfigurationAsync(CancellationToken cancellationToken)
+        private async Task FetchPrinterConfigurationAsync(string hubHostAndPort, string instanceGuid, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(_hubHostAndPort) || string.IsNullOrWhiteSpace(_instanceGuid))
+            if (string.IsNullOrWhiteSpace(hubHostAndPort) || string.IsNullOrWhiteSpace(instanceGuid))
             {
-                _logger.LogError("Impossibile recuperare la configurazione della stampante: URL Base Hub o GUID Istanza mancanti.");
-                _currentPrintMode = PrintMode.Immediate; // Default to immediate if config cannot be fetched
-                _configuredWindowsPrinterName = null;
-                return;
-            }
-
-            if (!Uri.TryCreate(_hubHostAndPort.Trim(), UriKind.Absolute, out Uri? baseUri) ||
-                (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
-            {
-                _logger.LogError($"URL Base Hub '{_hubHostAndPort}' non valido durante il recupero della configurazione.");
+                _logger.LogError($"Impossibile recuperare la configurazione della stampante per profilo '{_activeProfileSettings?.ProfileName}': URL Base Hub o GUID Istanza mancanti.");
                 _currentPrintMode = PrintMode.Immediate;
                 _configuredWindowsPrinterName = null;
                 return;
             }
 
-            string configUrl = new Uri(baseUri, $"/api/printers/config/{_instanceGuid}").ToString();
-            _logger.LogInformation($"Recupero configurazione stampante da: {configUrl}");
+            if (!Uri.TryCreate(hubHostAndPort.Trim(), UriKind.Absolute, out Uri? baseUri) ||
+                (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
+            {
+                _logger.LogError($"URL Base Hub '{hubHostAndPort}' (Profilo: {_activeProfileSettings?.ProfileName}) non valido durante il recupero della configurazione.");
+                _currentPrintMode = PrintMode.Immediate;
+                _configuredWindowsPrinterName = null;
+                return;
+            }
+
+            string configUrl = new Uri(baseUri, $"/api/printers/config/{instanceGuid}").ToString();
+            _logger.LogInformation($"Recupero configurazione stampante per profilo '{_activeProfileSettings?.ProfileName}' da: {configUrl}");
 
             try
             {
@@ -269,40 +264,40 @@ namespace SagraFacile.WindowsPrinterService.Services
                 {
                     _currentPrintMode = printerConfig.PrintMode;
                     _configuredWindowsPrinterName = printerConfig.WindowsPrinterName;
-                    _logger.LogInformation($"Configurazione stampante recuperata: PrintMode={_currentPrintMode}, WindowsPrinterName='{_configuredWindowsPrinterName}'");
+                    _logger.LogInformation($"Configurazione stampante recuperata per profilo '{_activeProfileSettings?.ProfileName}': PrintMode={_currentPrintMode}, WindowsPrinterName='{_configuredWindowsPrinterName}'");
                 }
                 else
                 {
-                    _logger.LogWarning("Configurazione stampante non trovata o vuota dal backend. Utilizzo PrintMode.Immediate.");
+                    _logger.LogWarning($"Configurazione stampante non trovata o vuota dal backend per profilo '{_activeProfileSettings?.ProfileName}'. Utilizzo PrintMode.Immediate.");
                     _currentPrintMode = PrintMode.Immediate;
                     _configuredWindowsPrinterName = null;
                 }
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, $"Errore HTTP durante il recupero della configurazione della stampante da {configUrl}.");
-                _currentPrintMode = PrintMode.Immediate; // Fallback
+                _logger.LogError(ex, $"Errore HTTP durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
+                _currentPrintMode = PrintMode.Immediate; 
                 _configuredWindowsPrinterName = null;
                 OnConnectionStatusChanged($"Errore Config: {ex.StatusCode}");
             }
             catch (JsonException ex)
             {
-                _logger.LogError(ex, $"Errore JSON durante il parsing della configurazione della stampante da {configUrl}.");
-                _currentPrintMode = PrintMode.Immediate; // Fallback
+                _logger.LogError(ex, $"Errore JSON durante il parsing della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
+                _currentPrintMode = PrintMode.Immediate; 
                 _configuredWindowsPrinterName = null;
                 OnConnectionStatusChanged("Errore Config: JSON Invalido");
             }
             catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
             {
-                _logger.LogError(ex, $"Timeout durante il recupero della configurazione della stampante da {configUrl}.");
-                _currentPrintMode = PrintMode.Immediate; // Fallback
+                _logger.LogError(ex, $"Timeout durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
+                _currentPrintMode = PrintMode.Immediate; 
                 _configuredWindowsPrinterName = null;
                 OnConnectionStatusChanged("Errore Config: Timeout");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Errore generico durante il recupero della configurazione della stampante da {configUrl}.");
-                _currentPrintMode = PrintMode.Immediate; // Fallback
+                _logger.LogError(ex, $"Errore generico durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
+                _currentPrintMode = PrintMode.Immediate; 
                 _configuredWindowsPrinterName = null;
                 OnConnectionStatusChanged("Errore Config: Generico");
             }
@@ -312,21 +307,29 @@ namespace SagraFacile.WindowsPrinterService.Services
         {   
             if (_hubConnection == null || _hubConnection.State != HubConnectionState.Connected)
             {
-                _logger.LogWarning("Impossibile registrare il client, HubConnection non è connesso.");
+                _logger.LogWarning($"Impossibile registrare il client per profilo '{_activeProfileSettings?.ProfileName}', HubConnection non è connesso.");
                 OnConnectionStatusChanged("Registrazione Fallita (Non Connesso)");
+                return;
+            }
+            
+            string? currentInstanceGuid = _activeProfileSettings?.InstanceGuid;
+            if (string.IsNullOrEmpty(currentInstanceGuid))
+            {
+                _logger.LogError($"Impossibile registrare il client: GUID Istanza nullo o vuoto per profilo '{_activeProfileSettings?.ProfileName}'.");
+                OnConnectionStatusChanged("Errore: GUID Istanza mancante per registrazione");
                 return;
             }
 
             try
             {
-                _logger.LogInformation($"Invocazione RegisterPrinterClient con GUID: {_instanceGuid}");
-                await _hubConnection.InvokeAsync("RegisterPrinterClient", _instanceGuid, _cts?.Token ?? CancellationToken.None);
-                _logger.LogInformation("Registrazione client avvenuta con successo.");
-                OnConnectionStatusChanged($"Registrato ({_currentPrintMode})");
+                _logger.LogInformation($"Invocazione RegisterPrinterClient per profilo '{_activeProfileSettings?.ProfileName}' con GUID: {currentInstanceGuid}");
+                await _hubConnection.InvokeAsync("RegisterPrinterClient", currentInstanceGuid, _cts?.Token ?? CancellationToken.None);
+                _logger.LogInformation($"Registrazione client per profilo '{_activeProfileSettings?.ProfileName}' avvenuta con successo.");
+                OnConnectionStatusChanged($"Registrato ({_activeProfileSettings?.ProfileName} - {_currentPrintMode})");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Registrazione client con l'Hub SignalR fallita.");
+                _logger.LogError(ex, $"Registrazione client con l'Hub SignalR fallita (Profilo: {_activeProfileSettings?.ProfileName}).");
                 string shortErrorMessage = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ex.Message;
                 OnConnectionStatusChanged($"Registrazione Fallita: {shortErrorMessage}");
             }
@@ -334,24 +337,22 @@ namespace SagraFacile.WindowsPrinterService.Services
 
         private async void HandlePrintJobAsync(string jobId, string windowsPrinterName, byte[] rawData)
         {
-            _logger.LogInformation($"Print job received. JobID: {jobId}, Printer: {windowsPrinterName}, Data Length: {rawData?.Length ?? 0}, Mode: {_currentPrintMode}");
+            _logger.LogInformation($"Print job received for profile '{_activeProfileSettings?.ProfileName}'. JobID: {jobId}, Printer: {windowsPrinterName}, Data Length: {rawData?.Length ?? 0}, Mode: {_currentPrintMode}");
 
             if (rawData != null)
             {
-                string hexString = string.Join(" ", rawData.Select(b => b.ToString("X2")));
-                _logger.LogInformation("Received Print Job Data (HEX) for JobID {JobId}: {HexString}", jobId, hexString);
+                // string hexString = string.Join(" ", rawData.Select(b => b.ToString("X2"))); // Can be very verbose
+                // _logger.LogDebug("Received Print Job Data (HEX) for JobID {JobId}: {HexString}", jobId, hexString);
             }
 
             if (string.IsNullOrWhiteSpace(windowsPrinterName))
             {
-                _logger.LogWarning("Print job received with no target printer name specified. JobID: {JobId}", jobId);
-                // Potentially report back error to hub if feedback mechanism exists
+                _logger.LogWarning($"Print job received with no target printer name specified. JobID: {jobId} (Profilo: {_activeProfileSettings?.ProfileName})");
                 return;
             }
             if (rawData == null || rawData.Length == 0)
             {
-                _logger.LogWarning("Print job received with empty ESC/POS data. JobID: {JobId}, Printer: {PrinterName}", jobId, windowsPrinterName);
-                // Potentially report back error to hub
+                _logger.LogWarning($"Print job received with empty ESC/POS data. JobID: {jobId}, Printer: {windowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName})");
                 return;
             }
 
@@ -359,54 +360,48 @@ namespace SagraFacile.WindowsPrinterService.Services
             {
                 var printJobItem = new PrintJobItem(jobId, windowsPrinterName, rawData);
                 _onDemandPrintQueue.Enqueue(printJobItem);
-                _logger.LogInformation($"Job {jobId} accodato per la stampante {windowsPrinterName}. Comande in coda: {_onDemandPrintQueue.Count}");
+                _logger.LogInformation($"Job {jobId} accodato per la stampante {windowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName}). Comande in coda: {_onDemandPrintQueue.Count}");
                 OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
-                // Optionally, send an ack to the hub that the job was queued
             }
-            else // Immediate mode
+            else 
             {
                 try
                 {
                     bool success = await _rawPrinter.PrintRawAsync(windowsPrinterName, rawData);
                     if (success)
                     {
-                        _logger.LogInformation($"Print job {jobId} sent successfully to printer {windowsPrinterName}.");
-                        // Optionally, report success back to hub
+                        _logger.LogInformation($"Print job {jobId} sent successfully to printer {windowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                     }
                     else
                     {
-                        _logger.LogError($"Failed to send print job {jobId} to printer {windowsPrinterName}. Check RawPrinter logs.");
-                        // Optionally, report failure back to hub
+                        _logger.LogError($"Failed to send print job {jobId} to printer {windowsPrinterName}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Exception while processing print job {jobId} for printer {windowsPrinterName}.");
-                    // Optionally, report failure back to hub
+                    _logger.LogError(ex, $"Exception while processing print job {jobId} for printer {windowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
             }
         }
 
         protected virtual void OnConnectionStatusChanged(string status)
         {
-            ConnectionStatusChanged?.Invoke(this, status);
-            _logger.LogInformation("Stato SignalR: {Status}", status); 
+            string statusWithProfile = _activeProfileSettings?.ProfileName != null ? $"[{_activeProfileSettings.ProfileName}] {status}" : status;
+            ConnectionStatusChanged?.Invoke(this, statusWithProfile); // Send status with profile name to subscribers (like PrintStationForm)
+            _logger.LogInformation($"Stato SignalR (Profilo: {_activeProfileSettings?.ProfileName}): {status}"); 
 
-            _lastStatusMessage = status; // Update last known status
-            _lastStatusColor = DetermineColorForStatus(status); // Update last known color
+            _lastStatusMessage = status; // Store the base status message
+            _lastStatusColor = DetermineColorForStatus(status);
 
-            if (_settingsForm != null && !_settingsForm.IsDisposed && _settingsForm.IsHandleCreated) // Added IsHandleCreated check
+            if (_settingsForm != null && !_settingsForm.IsDisposed && _settingsForm.IsHandleCreated)
             {
                 try
                 {
-                    // The call to UpdateConnectionStatus will use _lastStatusMessage and _lastStatusColor
-                    // if invoked directly from SetSettingsForm, or the current 'status' and 'statusColor' if called during an event.
-                    // For consistency, always use the just-determined status and color here.
+                    // SettingsForm should display the base status, as it's specific to its own context
                     _settingsForm.UpdateConnectionStatus(status, _lastStatusColor);
                 }
                 catch (Exception ex) when (ex is ObjectDisposedException || ex is InvalidOperationException)
                 {
-                    // This can happen if the form is closed/disposed right as a status update comes in.
                     _logger.LogWarning(ex, $"Failed to update SettingsForm status due to form/control being disposed. Status was: {status}");
                 }
             }
@@ -414,35 +409,34 @@ namespace SagraFacile.WindowsPrinterService.Services
 
         private Color DetermineColorForStatus(string status)
         {
-            // Status messages passed here will be in Italian from OnConnectionStatusChanged calls
             string lowerStatus = status.ToLowerInvariant(); 
             if (lowerStatus.Contains("errore") || lowerStatus.Contains("fallita") || lowerStatus.Contains("non valido") || lowerStatus.Contains("disconnesso"))
                 return Color.Red;
             if (lowerStatus.Contains("riconnessione") || lowerStatus.Contains("connessione in corso") || lowerStatus.Contains("inizializzazione"))
                 return Color.Orange;
-            if (lowerStatus.Contains("connesso") || lowerStatus.Contains("registrazione") || lowerStatus.Contains("registrato")) // Adjusted for new status
+            if (lowerStatus.Contains("connesso") || lowerStatus.Contains("registrazione") || lowerStatus.Contains("registrato"))
                 return Color.Green;
             
-            return Color.Black; // Colore predefinito
+            return Color.Black; 
         }
 
         public async Task StopAsync()
         {
             OnConnectionStatusChanged("Arresto del servizio...");
-            _logger.LogInformation("SignalRService stopping...");
+            _logger.LogInformation($"SignalRService stopping... (Profilo: {_activeProfileSettings?.ProfileName})");
             if (_cts != null)
             {
                 _cts.Cancel();
             }
             if (_hubConnection != null)
             {
-                await _hubConnection.StopAsync(); // Use the CancellationToken from _cts if StopAsync overload supports it
+                await _hubConnection.StopAsync(); 
             }
         }
 
         public async ValueTask DisposeAsync()
         {
-            _logger.LogInformation("Disposing SignalRService...");
+            _logger.LogInformation($"Disposing SignalRService... (Profilo: {_activeProfileSettings?.ProfileName})");
             if (_cts != null) 
             {
                 if (!_cts.IsCancellationRequested) _cts.Cancel();
@@ -452,16 +446,17 @@ namespace SagraFacile.WindowsPrinterService.Services
             {
                 await _hubConnection.DisposeAsync();
             }
-            _httpClient.Dispose(); // Dispose HttpClient
+            // _httpClient is static and shared, should not be disposed here per instance.
+            // It will be disposed when the application exits if it's managed by DI, or never if truly static.
+            // For this service, it's fine as is.
             GC.SuppressFinalize(this);
         }
 
         public async Task RestartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("SignalRService restarting...");
-            OnConnectionStatusChanged("Riavvio del servizio in corso..."); // New status for UI
+            _logger.LogInformation($"SignalRService restarting... (Profilo: {_activeProfileSettings?.ProfileName})");
+            OnConnectionStatusChanged("Riavvio del servizio in corso..."); 
             await StopAsync(); 
-            // Small delay to ensure resources are released if needed, though StopAsync should handle it.
             await Task.Delay(500, cancellationToken); 
             await StartAsync(cancellationToken);
         }
@@ -470,47 +465,45 @@ namespace SagraFacile.WindowsPrinterService.Services
         {
             if (string.IsNullOrWhiteSpace(printerName))
             {
-                _logger.LogWarning("Test print requested with no printer name specified.");
+                _logger.LogWarning($"Test print requested with no printer name specified. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
             if (string.IsNullOrWhiteSpace(testData))
             {
-                _logger.LogWarning("Test print requested with no data for printer {PrinterName}.", printerName);
+                _logger.LogWarning($"Test print requested with no data for printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
 
-            _logger.LogInformation("Attempting test print to printer: {PrinterName}", printerName);
+            _logger.LogInformation($"Attempting test print to printer: {printerName} (Profilo: {_activeProfileSettings?.ProfileName})");
             try
             {
-                // For test print, we always print immediately, regardless of _currentPrintMode
-                bool success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(testData)); // Assuming testData is string
+                bool success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(testData)); 
                 if (success)
                 {
-                    _logger.LogInformation("Test print sent successfully to printer {PrinterName}.", printerName);
+                    _logger.LogInformation($"Test print sent successfully to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
                 else
                 {
-                    _logger.LogError("Failed to send test print to printer {PrinterName}. Check RawPrinter logs.", printerName);
+                    _logger.LogError($"Failed to send test print to printer {printerName}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
                 return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception during test print to printer {PrinterName}.", printerName);
+                _logger.LogError(ex, $"Exception during test print to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
         }
 
-        // New methods for OnDemand Queue Management
         public PrintJobItem? DequeuePrintJob()
         {
             if (_onDemandPrintQueue.TryDequeue(out PrintJobItem? jobItem))
             {
-                _logger.LogInformation($"Dequeued job {jobItem.JobId}. Remaining in queue: {_onDemandPrintQueue.Count}");
+                _logger.LogInformation($"Dequeued job {jobItem.JobId} (Profilo: {_activeProfileSettings?.ProfileName}). Remaining in queue: {_onDemandPrintQueue.Count}");
                 OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
                 return jobItem;
             }
-            _logger.LogInformation("Attempted to dequeue job, but queue is empty.");
+            _logger.LogInformation($"Attempted to dequeue job, but queue is empty. (Profilo: {_activeProfileSettings?.ProfileName})");
             return null;
         }
 
@@ -519,44 +512,41 @@ namespace SagraFacile.WindowsPrinterService.Services
             return _onDemandPrintQueue.Count;
         }
 
-        // Method to be called by PrintStationForm to print a dequeued job
         public async Task<bool> PrintQueuedJobAsync(PrintJobItem jobItem)
         {
             if (jobItem == null)
             {
-                _logger.LogError("PrintQueuedJobAsync called with null jobItem.");
+                _logger.LogError($"PrintQueuedJobAsync called with null jobItem. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
 
-            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName}");
+            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName})");
             try
             {
-                // Use the TargetWindowsPrinterName from the job item, 
-                // or fall back to _configuredWindowsPrinterName if the job's target is somehow empty (should not happen with current logic)
                 string printerToUse = !string.IsNullOrWhiteSpace(jobItem.TargetWindowsPrinterName) 
                                       ? jobItem.TargetWindowsPrinterName 
-                                      : _configuredWindowsPrinterName ?? string.Empty;
+                                      : _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter ?? string.Empty; // Fallback to profile's selected printer
 
                 if (string.IsNullOrWhiteSpace(printerToUse))
                 {
-                    _logger.LogError($"Cannot print job {jobItem.JobId}: No target printer name specified in job and no default configured printer name.");
+                    _logger.LogError($"Cannot print job {jobItem.JobId}: No target printer name specified. (Profilo: {_activeProfileSettings?.ProfileName})");
                     return false;
                 }
 
                 bool success = await _rawPrinter.PrintRawAsync(printerToUse, jobItem.RawData);
                 if (success)
                 {
-                    _logger.LogInformation($"Successfully printed queued job {jobItem.JobId} to {printerToUse}.");
+                    _logger.LogInformation($"Successfully printed queued job {jobItem.JobId} to {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
                 else
                 {
-                    _logger.LogError($"Failed to print queued job {jobItem.JobId} to {printerToUse}.");
+                    _logger.LogError($"Failed to print queued job {jobItem.JobId} to {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
                 return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Exception while printing queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName}.");
+                _logger.LogError(ex, $"Exception while printing queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
         }

@@ -2,60 +2,94 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SagraFacile.WindowsPrinterService.Services;
-using SagraFacile.WindowsPrinterService.Printing; // For IRawPrinter and RawPrinterHelperService
-using System.Text; // Required for Encoding
+using SagraFacile.WindowsPrinterService.Printing;
+using SagraFacile.WindowsPrinterService.Models; // Required for ProfileSettings
+using System.Text;
+using System.Windows.Forms; // Required for Application.Run and DialogResult
+using System; // Required for STAThread
 
 namespace SagraFacile.WindowsPrinterService;
 
 static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
+    public static ProfileSettings? SelectedProfile { get; private set; }
+
     [STAThread]
-    static void Main(string[] args) // Add args parameter
+    static void Main(string[] args)
     {
-        // Register encoding providers for extended character sets like IBM850
+        ApplicationConfiguration.Initialize(); // Standard WinForms initialization
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
-        // ApplicationConfiguration.Initialize(); // Moved initialization to where Application runs
+        // Show ProfileSelectionForm first
+        Application.EnableVisualStyles(); // Ensure visual styles are enabled for all forms
+        Application.SetCompatibleTextRenderingDefault(false);
 
-        var host = CreateHostBuilder(args).Build();
+        ProfileSettings? selectedProfile = null;
+        using (var profileForm = new ProfileSelectionForm())
+        {
+            if (profileForm.ShowDialog() == DialogResult.OK)
+            {
+                selectedProfile = profileForm.SelectedProfileSettings;
+            }
+        }
 
-        // We don't run the main form directly anymore.
-        // The ApplicationLifetimeService will manage the WinForms message loop.
-        host.Run();
+        if (selectedProfile == null)
+        {
+            MessageBox.Show("Nessun profilo selezionato. L'applicazione verrà chiusa.", "Chiusura Applicazione", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return; // Exit if no profile selected
+        }
+        
+        SelectedProfile = selectedProfile; // Store for services to access
+
+        var host = CreateHostBuilder(args, selectedProfile).Build();
+        
+        // Set the active profile in SignalRService before the host runs and ApplicationLifetimeService starts it.
+        var signalRService = host.Services.GetRequiredService<SignalRService>();
+        signalRService.SetActiveProfile(selectedProfile);
+
+        // Pass selected profile to ApplicationLifetimeService if needed, or it can get it from Program.SelectedProfile
+        // For now, ApplicationLifetimeService will be modified to use Program.SelectedProfile
+
+        host.Run(); // This will start ApplicationLifetimeService, which in turn starts SignalRService
     }
 
-    public static IHostBuilder CreateHostBuilder(string[] args) =>
+    public static IHostBuilder CreateHostBuilder(string[] args, ProfileSettings profileSettings) =>
         Host.CreateDefaultBuilder(args)
-            // Configure host options if needed, e.g., shutdown timeout
             .ConfigureServices((hostContext, services) =>
             {
-                // Register Logging
-                services.AddLogging(configure => configure.AddConsole().AddDebug()); // Add basic logging providers
-
-                // Register new Raw Printer Service
+                services.AddLogging(configure => configure.AddConsole().AddDebug());
                 services.AddTransient<IRawPrinter, RawPrinterHelperService>();
+                
+                // SignalRService is singleton, its active profile is set before host.Run()
+                services.AddSingleton<SignalRService>(); 
+                
+                // Forms
+                // SettingsForm constructor now requires profileName and profilesDirectory.
+                // When resolved by DI (e.g. from ApplicationLifetimeService), it needs these.
+                // This might require ApplicationLifetimeService to pass them or a factory.
+                // For now, we assume SettingsForm opened via ProfileSelectionForm or ApplicationLifetimeService will handle this.
+                services.AddTransient<SettingsForm>(sp => {
+                    // This factory is a placeholder. SettingsForm is typically opened with context.
+                    // If DI needs to create it without context, this would be an issue.
+                    // However, our current flow is:
+                    // 1. ProfileSelectionForm -> new SettingsForm(profileName, dir) -> OK
+                    // 2. ApplicationLifetimeService -> new SettingsForm(Program.SelectedProfile.ProfileName, dir) -> OK
+                    // So direct DI resolution of SettingsForm without parameters might not be strictly needed.
+                    // Let's provide a basic one that would imply creating a new profile if used directly.
+                    string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SagraFacilePrinterService");
+                    string profilesDir = Path.Combine(appDataFolder, "profiles");
+                    return new SettingsForm(null, profilesDir); 
+                });
+                services.AddTransient<PrintStationForm>(); 
+                services.AddTransient<InputDialogForm>((sp) => new InputDialogForm("Default Title", "Default Prompt"));
 
-                // Register SignalR Service
-                services.AddSingleton<SignalRService>();
 
-                // Register Forms
-                // Remove the default Form1 registration if it's no longer needed
-                // services.AddTransient<Form1>();
-                services.AddTransient<SettingsForm>(); // Register SettingsForm
-                services.AddTransient<PrintStationForm>(); // Register PrintStationForm
-
-                // Register the main application lifetime manager as a Hosted Service
+                // Pass ProfileSettings to ApplicationLifetimeService
+                services.AddSingleton(profileSettings); // Make selected profile settings available via DI
                 services.AddHostedService<ApplicationLifetimeService>();
             })
-            // Optional: Configure logging further if needed
             .ConfigureLogging(logging =>
             {
-                logging.SetMinimumLevel(LogLevel.Information); // Set default log level
-                // Add other providers like EventLog if necessary
+                logging.SetMinimumLevel(LogLevel.Information);
             });
 }

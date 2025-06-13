@@ -1,46 +1,49 @@
-﻿using System;
-using System.Drawing; // Required for Color
-using System.Drawing.Printing; // Required for PrinterSettings
-using System.IO; // Required for File operations
-using System.Text.Json; // Required for JSON serialization
+﻿using SagraFacile.WindowsPrinterService.Models;
+using System;
+using System.Drawing;
+using System.Drawing.Printing;
+using System.IO;
+using System.Text.Json;
 using System.Windows.Forms;
 using System.Linq;
-using System.Threading; // Required for CancellationToken
-using System.ComponentModel; // Required for Browsable and DesignerSerializationVisibility attributes
-using SagraFacile.WindowsPrinterService.Services; // Added for SignalRService
+using System.Threading;
+using System.ComponentModel;
+using SagraFacile.WindowsPrinterService.Services;
 
 namespace SagraFacile.WindowsPrinterService
 {
     public partial class SettingsForm : Form
     {
-        private class AppSettings
-        {
-            public string? SelectedPrinter { get; set; }
-            public string? HubHostAndPort { get; set; }
-            public string? InstanceGuid { get; set; }
-        }
-
-        private readonly string _settingsFilePath;
-        private AppSettings _currentSettings;
+        private readonly string _profilesDirectory;
+        private string? _currentProfileName; 
+        private ProfileSettings _currentSettings;
 
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public SignalRService? SignalRServiceInstance { get; set; }
 
-
-        public SettingsForm()
+        public SettingsForm(string? profileName, string profilesDirectory)
         {
             InitializeComponent();
+            _profilesDirectory = profilesDirectory ?? throw new ArgumentNullException(nameof(profilesDirectory));
+            _currentProfileName = profileName;
 
-            string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SagraFacilePrinterService");
-            Directory.CreateDirectory(appDataFolder);
-            _settingsFilePath = Path.Combine(appDataFolder, "settings.json");
+            // Ensure profiles directory exists (it should, but good practice)
+            Directory.CreateDirectory(_profilesDirectory);
 
-            _currentSettings = LoadSettingsFromFile();
-            PopulatePrinters();
+            PopulatePrinters(); 
+            _currentSettings = LoadProfileSettings(_currentProfileName);
             PopulateControlsFromSettings();
 
-            // Ensure btnGenerateGuid click handler is assigned if the control exists
+            if (string.IsNullOrEmpty(profileName))
+            {
+                this.Text = "Crea Nuovo Profilo Stampante";
+            }
+            else
+            {
+                this.Text = $"Modifica Profilo: {profileName}";
+            }
+
             if (this.Controls.Find("btnGenerateGuid", true).FirstOrDefault() is Button btnGenGuid)
             {
                 btnGenGuid.Click += BtnGenerateGuid_Click;
@@ -49,13 +52,10 @@ namespace SagraFacile.WindowsPrinterService
             buttonSave.Click += ButtonSave_Click;
             buttonCancel.Click += ButtonCancel_Click;
 
-            // Wire up Test Printer button if it exists
             if (this.Controls.Find("btnTestPrinter", true).FirstOrDefault() is Button btnTest)
             {
                 btnTest.Click += BtnTestPrinter_Click;
             }
-
-            // Wire up the Load event
             this.Load += SettingsForm_Load;
         }
 
@@ -86,54 +86,112 @@ namespace SagraFacile.WindowsPrinterService
             }
             else if (comboBoxPrinters.Items.Count > 0)
             {
-                comboBoxPrinters.SelectedIndex = 0;
+                var firstRealPrinter = comboBoxPrinters.Items.Cast<string>().FirstOrDefault(p => p != "Microsoft Print to PDF");
+                if (firstRealPrinter != null)
+                {
+                    comboBoxPrinters.SelectedItem = firstRealPrinter;
+                }
+                else
+                {
+                    comboBoxPrinters.SelectedIndex = 0;
+                }
             }
 
-            if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHost) txtHubHost.Text = _currentSettings.HubHostAndPort ?? "localhost:7055";
+            if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHost) txtHubHost.Text = _currentSettings.HubHostAndPort ?? string.Empty;
             if (this.Controls.Find("txtInstanceGuid", true).FirstOrDefault() is TextBox txtInstanceGuid) txtInstanceGuid.Text = _currentSettings.InstanceGuid ?? string.Empty;
         }
 
-        private AppSettings LoadSettingsFromFile()
+        private ProfileSettings LoadProfileSettings(string? profileName)
         {
+            if (string.IsNullOrEmpty(profileName))
+            {
+                return new ProfileSettings(); // Return new settings for a new profile
+            }
+
+            string profilePath = Path.Combine(_profilesDirectory, $"{profileName}.json");
             try
             {
-                if (File.Exists(_settingsFilePath))
+                if (File.Exists(profilePath))
                 {
-                    string json = File.ReadAllText(_settingsFilePath);
-                    var settings = JsonSerializer.Deserialize<AppSettings>(json);
-                    return settings ?? new AppSettings();
+                    string json = File.ReadAllText(profilePath);
+                    var settings = JsonSerializer.Deserialize<ProfileSettings>(json);
+                    if (settings != null)
+                    {
+                        settings.ProfileName = profileName; // Ensure ProfileName is consistent
+                        return settings;
+                    }
+                     MessageBox.Show($"Impossibile deserializzare il profilo '{profileName}'. Verranno usati valori di default.", "Errore Profilo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading settings: {ex.Message}");
-                MessageBox.Show($"Error loading settings: {ex.Message}\nWill use default values.", "Settings Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Console.WriteLine($"Error loading profile '{profileName}': {ex.Message}");
+                MessageBox.Show($"Errore durante il caricamento del profilo '{profileName}': {ex.Message}\nVerranno usati valori di default.", "Errore Profilo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-            return new AppSettings();
+            // If file doesn't exist or error, return new settings for the named profile
+            return new ProfileSettings { ProfileName = profileName };
         }
 
-        private void SaveSettingsToFile()
+        private bool SaveProfileSettings()
         {
+            string? profileNameToSave = _currentProfileName;
+
+            if (string.IsNullOrEmpty(profileNameToSave))
+            {
+                using (var inputDialog = new InputDialogForm("Inserisci Nome Profilo", "Nome del Profilo:"))
+                {
+                    if (inputDialog.ShowDialog(this) == DialogResult.OK) // Pass 'this' as owner
+                    {
+                        profileNameToSave = inputDialog.UserInput;
+                        if (string.IsNullOrWhiteSpace(profileNameToSave))
+                        {
+                            MessageBox.Show("Il nome del profilo non può essere vuoto.", "Nome Profilo Richiesto", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return false;
+                        }
+                        
+                        profileNameToSave = string.Join("_", profileNameToSave.Split(Path.GetInvalidFileNameChars()));
+                        string existingProfilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
+                        if (File.Exists(existingProfilePath))
+                        {
+                             MessageBox.Show($"Un profilo con nome '{profileNameToSave}' esiste già. Scegli un nome diverso.", "Nome Profilo Duplicato", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        return false; 
+                    }
+                }
+            }
+            
+            if (string.IsNullOrWhiteSpace(profileNameToSave)) return false;
+
             string? hubHostAndPort = null, instanceGuid = null;
             if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHostCtrl) hubHostAndPort = txtHubHostCtrl.Text;
             if (this.Controls.Find("txtInstanceGuid", true).FirstOrDefault() is TextBox txtInstanceGuidCtrl) instanceGuid = txtInstanceGuidCtrl.Text;
 
-            var settingsToSave = new AppSettings
+            var settingsToSave = new ProfileSettings
             {
+                ProfileName = profileNameToSave,
                 SelectedPrinter = comboBoxPrinters.SelectedItem?.ToString(),
                 HubHostAndPort = hubHostAndPort,
                 InstanceGuid = instanceGuid
             };
 
+            string profilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
             try
             {
                 string json = JsonSerializer.Serialize(settingsToSave, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_settingsFilePath, json);
-                _currentSettings = settingsToSave;
+                File.WriteAllText(profilePath, json);
+                _currentSettings = settingsToSave; 
+                _currentProfileName = profileNameToSave; 
+                this.Text = $"Modifica Profilo: {_currentProfileName}"; // Update title if it was a new profile
+                return true;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error saving settings: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Errore durante il salvataggio del profilo '{profileNameToSave}': {ex.Message}", "Errore Salvataggio", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
         }
 
@@ -152,19 +210,19 @@ namespace SagraFacile.WindowsPrinterService
                 return;
             }
 
-            SaveSettingsToFile();
-
-            if (SignalRServiceInstance != null)
+            if (!SaveProfileSettings())
             {
-                // Consider providing a proper CancellationToken if available from the application's context
-                // For now, CancellationToken.None is used for simplicity.
-                // This will stop the current SignalR connection and start a new one with the new settings.
-                MessageBox.Show("Impostazioni salvate. Riavvio del servizio di connessione in corso...", "Salvataggio", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return; 
+            }
+
+            if (SignalRServiceInstance != null && SignalRServiceInstance.CurrentProfileName == _currentProfileName)
+            {
+                MessageBox.Show($"Impostazioni per il profilo '{_currentProfileName}' salvate. Riavvio del servizio di connessione in corso...", "Salvataggio Profilo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 await SignalRServiceInstance.RestartAsync(CancellationToken.None);
             }
             else
             {
-                MessageBox.Show("Impostazioni salvate. Riavviare manualmente il servizio per applicare le modifiche alla connessione.", "Salvataggio", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                 MessageBox.Show($"Impostazioni per il profilo '{_currentProfileName}' salvate.", "Salvataggio Profilo", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
 
             this.DialogResult = DialogResult.OK;
@@ -185,32 +243,6 @@ namespace SagraFacile.WindowsPrinterService
             }
         }
 
-        public static (string HubHostAndPort, string InstanceGuid) GetSignalRConfig()
-        {
-            string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SagraFacilePrinterService");
-            string settingsFilePath = Path.Combine(appDataFolder, "settings.json");
-            AppSettings settings = new AppSettings();
-
-            try
-            {
-                if (File.Exists(settingsFilePath))
-                {
-                    string json = File.ReadAllText(settingsFilePath);
-                    var loadedSettings = JsonSerializer.Deserialize<AppSettings>(json);
-                    if (loadedSettings != null) settings = loadedSettings;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error loading settings for SignalRService: {ex.Message}");
-            }
-
-            return (
-                settings.HubHostAndPort ?? "localhost:7055",
-                settings.InstanceGuid ?? string.Empty
-            );
-        }
-
         private async void BtnTestPrinter_Click(object? sender, EventArgs e)
         {
             string? selectedPrinter = comboBoxPrinters.SelectedItem?.ToString();
@@ -226,12 +258,11 @@ namespace SagraFacile.WindowsPrinterService
                 return;
             }
 
-            string testData = $"Test di stampa Sagrafacile!\r\nStampante: {selectedPrinter}\r\nOra: {DateTime.Now}\r\n\r\n------------------------\r\n";
-            // Add a few more lines for a better test
+            string testData = $"Test di stampa Sagrafacile!\r\nProfilo: {_currentProfileName}\r\nStampante: {selectedPrinter}\r\nOra: {DateTime.Now}\r\n\r\n------------------------\r\n";
             testData += "Riga 1\r\n";
             testData += "Riga 2\r\n";
             testData += "Riga 3 - Caratteri speciali: àèìòù €!?\r\n";
-            testData += "------------------------\r\n\r\n\r\n\r\n"; // Extra newlines for paper feed/cut
+            testData += "------------------------\r\n\r\n\r\n\r\n"; 
             testData += (char)0x1D;
             testData += 'V';
             testData += (char)0;
@@ -256,13 +287,11 @@ namespace SagraFacile.WindowsPrinterService
 
         public void UpdateConnectionStatus(string statusMessage, Color statusColor)
         {
-            // If the form is disposed, or its handle isn't created, it's unsafe to proceed.
             if (this.IsDisposed || !this.IsHandleCreated)
             {
                 return;
             }
 
-            // Check lblStatus specifically. If it's null or disposed, we can't update it.
             if (lblStatus == null || lblStatus.IsDisposed)
             {
                 return;
@@ -272,11 +301,8 @@ namespace SagraFacile.WindowsPrinterService
             {
                 try
                 {
-                    // Use BeginInvoke for asynchronous dispatch.
-                    // The delegate will execute on the UI thread.
                     this.BeginInvoke(new Action(() =>
                     {
-                        // Re-check conditions on the UI thread before accessing lblStatus.
                         if (!this.IsDisposed && this.IsHandleCreated && lblStatus != null && !lblStatus.IsDisposed && lblStatus.IsHandleCreated)
                         {
                             lblStatus.Text = $"Stato: {statusMessage}";
@@ -286,14 +312,11 @@ namespace SagraFacile.WindowsPrinterService
                 }
                 catch (Exception ex) when (ex is ObjectDisposedException || ex is InvalidOperationException)
                 {
-                    // Catch exceptions if BeginInvoke itself fails (e.g., form handle is being destroyed).
-                    // Logging here can be helpful for diagnostics if issues persist.
                     // Console.WriteLine($"Exception during BeginInvoke in UpdateConnectionStatus: {ex.Message}");
                 }
             }
-            else // Already on the UI thread
+            else 
             {
-                // Direct update, but still check if lblStatus is valid and its handle created.
                 if (!lblStatus.IsDisposed && lblStatus.IsHandleCreated)
                 {
                     lblStatus.Text = $"Stato: {statusMessage}";
