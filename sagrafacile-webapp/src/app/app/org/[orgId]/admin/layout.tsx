@@ -43,16 +43,16 @@ export default function AdminLayout({
   const handleOrgChange = (newOrgIdStr: string) => {
     const newOrgId = parseInt(newOrgIdStr, 10);
     if (!isNaN(newOrgId) && newOrgId !== currentOrgId) {
-        setSelectedOrganizationId(newOrgId);
-        // Conserva il percorso corrente relativo alla radice dell'organizzazione
-        // Nota: siamo già dentro /admin, quindi sostituiamo in quel contesto
-        const basePath = `/app/org/${newOrgId}/admin`;
-        // Prova a trovare la parte del percorso *dopo* /admin/
-        const adminRelativePath = pathname.split(`/app/org/${currentOrgIdParam}/admin`)[1] || '';
-        const newPath = `${basePath}${adminRelativePath}`;
+      setSelectedOrganizationId(newOrgId);
+      // Conserva il percorso corrente relativo alla radice dell'organizzazione
+      // Nota: siamo già dentro /admin, quindi sostituiamo in quel contesto
+      const basePath = `/app/org/${newOrgId}/admin`;
+      // Prova a trovare la parte del percorso *dopo* /admin/
+      const adminRelativePath = pathname.split(`/app/org/${currentOrgIdParam}/admin`)[1] || '';
+      const newPath = `${basePath}${adminRelativePath}`;
 
-        console.log(`AdminLayout: SuperAdmin sta cambiando organizzazione da ${currentOrgId} a ${newOrgId}. Navigazione a: ${newPath}`);
-        router.push(newPath); // Usa push per la cronologia di navigazione
+      console.log(`AdminLayout: SuperAdmin sta cambiando organizzazione da ${currentOrgId} a ${newOrgId}. Navigazione a: ${newPath}`);
+      router.push(newPath); // Usa push per la cronologia di navigazione
     }
   };
 
@@ -68,7 +68,10 @@ export default function AdminLayout({
     <div className="flex h-full">
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside className="hidden lg:flex w-64 bg-card text-card-foreground p-4 border-r border-border flex-col shrink-0">
-        <h2 className="text-xl font-semibold mb-6">Sagrafacile Admin</h2>
+
+        <Link href={`/app/org/${currentOrgId}`}>
+          <h2 className="text-xl font-semibold mb-6">Sagrafacile Admin</h2>
+        </Link>
         <AdminNavigation currentOrgId={currentOrgId} />
         <div className="mt-auto space-y-2">
           <div className="text-xs text-muted-foreground truncate px-1">
@@ -97,9 +100,9 @@ export default function AdminLayout({
             <h2 className="text-xl font-semibold">Sagrafacile Admin</h2>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
-            <AdminNavigation 
-              currentOrgId={currentOrgId} 
-              onLinkClick={() => setIsMobileMenuOpen(false)} 
+            <AdminNavigation
+              currentOrgId={currentOrgId}
+              onLinkClick={() => setIsMobileMenuOpen(false)}
             />
           </div>
           <div className="flex-shrink-0 p-4 border-t bg-muted/30">

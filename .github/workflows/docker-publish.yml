@@ -4,10 +4,37 @@ on:
   push:
     branches:
       - main # Triggers the workflow on push events to the main branch
+    paths:
+      - 'SagraFacile.NET/SagraFacile.NET.API/**'
+      - 'sagrafacile-webapp/**'
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'SagraFacile.NET/SagraFacile.NET.API/**'
+            frontend:
+              - 'sagrafacile-webapp/**'
+
   build-and-push-api:
     name: Build and Push API Image
+    needs: changes
+    if: ${{ needs.changes.outputs.api == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,6 +68,8 @@ jobs:
 
   build-and-push-frontend:
     name: Build and Push Frontend Image
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

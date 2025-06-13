@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import apiClient, { getPublicReadyForPickupOrders, apiBaseUrl } from '@/services/apiClient';
+import apiClient, { getPublicReadyForPickupOrders } from '@/services/apiClient'; // Removed apiBaseUrl
 import { OrderDto, OrderStatus, OrderStatusBroadcastDto, AdAreaAssignmentDto } from '@/types';
 import useSignalRHub from '@/hooks/useSignalRHub';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,9 +78,32 @@ export default function PublicPickupDisplayPage() {
     }, [areaId]);
 
     const getMediaUrl = (filePath: string) => {
-        if (!apiBaseUrl || !filePath) return "";
-        const baseUrl = apiBaseUrl.replace(/\/api$/, '');
-        return `${baseUrl}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
+        if (!filePath) return "";
+        const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+        if (!configuredApiBase) return "";
+
+        // filePath from backend is like "/media/promo/orgId/file.jpg" (always starts with /)
+
+        // In development, if NEXT_PUBLIC_API_BASE_URL is a full URL (e.g., http://localhost:xxxx/api),
+        // we assume the API serves static files from its root (e.g., http://localhost:xxxx/media/...).
+        // The original code stripped '/api' for this.
+        // In production, NEXT_PUBLIC_API_BASE_URL is typically a relative path like '/api',
+        // and Caddy handles routing, so we need '/api' + filePath.
+        
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        // Check if configuredApiBase is a full URL like http://... or https://...
+        const isFullUrl = configuredApiBase.startsWith('http');
+
+        if (isDevelopment && isFullUrl && configuredApiBase.endsWith('/api')) {
+            // Local dev scenario with full URL like "http://localhost:5000/api"
+            // We want "http://localhost:5000" + filePath (e.g., "http://localhost:5000/media/promo/...")
+            const rootUrl = configuredApiBase.substring(0, configuredApiBase.length - '/api'.length);
+            return `${rootUrl}${filePath}`;
+        } else {
+            // Production (configuredApiBase="/api") -> "/api/media/promo/..."
+            // Or local dev with relative proxy path (configuredApiBase="/api") -> "/api/media/promo/..."
+            return `${configuredApiBase}${filePath}`;
+        }
     };
 
     const fetchAds = useCallback(async () => {

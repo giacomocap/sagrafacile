@@ -41,7 +41,10 @@ import {
     Coins,
     History,
     ScanLine,
+    Home,
 } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import apiClient from "@/services/apiClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -86,6 +89,8 @@ const tableOrderFormSchema = z.object({
 type TableOrderFormValues = z.infer<typeof tableOrderFormSchema>;
 
 const MobileTableOrderPage = () => {
+    const params = useParams();
+    const orgId = params.orgId as string; // orgId is a guaranteed part of the route
     const { user, isLoading: isAuthLoading } = useAuth();
 
     const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
@@ -295,7 +300,15 @@ const MobileTableOrderPage = () => {
     return (
         <div className="flex flex-col h-full overflow-hidden bg-background">
             <header className="bg-card shadow-md p-4 sticky top-0 z-10 flex items-center justify-between">
-                <div className="flex-1"></div>
+                <div className="flex-1">
+                    {orgId && (
+                        <Link href={`/app/org/${orgId}`}>
+                            <Button variant="outline" size="icon" aria-label="Torna alla dashboard admin">
+                                <Home className="h-5 w-5" />
+                            </Button>
+                        </Link>
+                    )}
+                </div>
                 <h1 className="text-xl font-semibold text-center text-foreground flex-grow">
                     {currentArea.name}
                 </h1>
