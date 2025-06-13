@@ -13,6 +13,48 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
+**Context:** Completed the implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the Windows Printer Service (`SagraFacile.WindowsPrinterService`) changes, including making it a full-window application that can minimize to tray.
+**Accomplishments:**
+*   **Models Created (Windows Service):**
+    *   `SagraFacile.WindowsPrinterService/Models/PrintMode.cs`: Enum for `Immediate` and `OnDemandWindows`.
+    *   `SagraFacile.WindowsPrinterService/Models/PrinterConfigDto.cs`: DTO to receive printer configuration from the backend.
+    *   `SagraFacile.WindowsPrinterService/Models/PrintJobItem.cs`: Class to represent a queued print job.
+*   **`SignalRService.cs` Updated:**
+    *   Fetches printer configuration (including `PrintMode` and `WindowsPrinterName`) from the backend API (`GET /api/printers/config/{instanceGuid}`) on startup.
+    *   If `PrintMode` is `OnDemandWindows`, incoming print jobs (received via SignalR `PrintJob` message) are enqueued into an internal `ConcurrentQueue<PrintJobItem>`.
+    *   If `PrintMode` is `Immediate`, jobs are printed directly.
+    *   Exposes methods to dequeue print jobs (`DequeuePrintJob`), get queue count (`GetOnDemandQueueCount`), and print a specific queued job (`PrintQueuedJobAsync`).
+    *   Raises an `OnDemandQueueCountChanged` event when the queue size changes.
+    *   Fixed an SSL validation issue for the `HttpClient` fetching the printer configuration by configuring a development-mode bypass in a static constructor. This addressed an `HttpRequestException` caused by `RemoteCertificateNameMismatch` or `RemoteCertificateChainErrors` with self-signed certificates.
+*   **`PrintStationForm.cs` & `PrintStationForm.Designer.cs` Created & Configured:**
+    *   A new Windows Form to manage the on-demand print queue.
+    *   Displays "Comande in Attesa: [X]" (pending count), connection status, and an activity log.
+    *   Features a "STAMPA PROSSIMA COMANDA" button.
+    *   Subscribes to `SignalRService` events to update queue count and connection status.
+    *   On button click, dequeues and requests `SignalRService` to print the next job.
+    *   UI elements (button, log, status label) are anchored for better responsiveness on resize/fullscreen.
+*   **`ApplicationLifetimeService.cs` Refactored:**
+    *   Modified to launch `PrintStationForm` as the main application window on startup.
+    *   Handles `PrintStationForm.FormClosing` event to minimize the form to the system tray instead of exiting when the user clicks the 'X' button.
+    *   Tray icon context menu updated with "Show/Hide Print Station", "Settings...", and "Exit".
+    *   Manages the lifecycle of `PrintStationForm`.
+    *   Fixed an `ObjectDisposedException` related to `PrintStationForm` by ensuring correct DI scope for form resolution (resolving directly from `IServiceProvider` instead of a short-lived scope).
+*   **`Program.cs` Updated (Windows Service):**
+    *   Registered `PrintStationForm` with the dependency injection container as a transient service.
+**Key Decisions:**
+*   The Windows Printer Service now operates as a full-window application by default, providing a direct UI for on-demand print management, per user request.
+*   SSL certificate validation for the configuration-fetching `HttpClient` is bypassed in development to match SignalR client behavior, addressing `HttpRequestException`.
+*   `PrintStationForm`'s lifecycle and visibility are managed by `ApplicationLifetimeService`, including minimize-to-tray functionality.
+**Next Steps:**
+*   User to thoroughly test the `SagraFacile.WindowsPrinterService`:
+    *   Verify it starts as a full window with `PrintStationForm`.
+    *   Test fetching printer configuration (especially with `PrintMode.OnDemandWindows`).
+    *   Test queuing of print jobs when in on-demand mode.
+    *   Test printing jobs from the `PrintStationForm`.
+    *   Verify UI responsiveness and tray icon functionality (show/hide, settings, exit, minimize to tray).
+*   (Optional Later) Implement "Number of comandas to print per click" setting in `SettingsForm.cs`.
+
 ## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
 **Context:** Started implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the backend changes required to support this.
 **Accomplishments:**

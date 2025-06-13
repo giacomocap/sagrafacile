@@ -15,6 +15,7 @@ namespace SagraFacile.WindowsPrinterService
         private readonly IServiceProvider _serviceProvider; // To resolve forms/services later
         private ApplicationContext? _applicationContext; // To manage WinForms lifecycle
         private NotifyIcon? _notifyIcon; // Tray Icon
+        private PrintStationForm? _printStationForm; // Main application form
         private SynchronizationContext? _uiContext; // To marshal UI updates
         private readonly ManualResetEvent _uiThreadReady = new ManualResetEvent(false); // Signal when UI thread is ready
 
@@ -69,26 +70,25 @@ namespace SagraFacile.WindowsPrinterService
                     _logger.LogInformation("Explicitly set WindowsFormsSynchronizationContext for UI thread.");
 
                     // Initialize WinForms application context first
-                    // We don't show a main form initially, just run the message loop
-                    // for tray icon support etc.
-                    // Initialize WinForms application context and Tray Icon
-                    InitializeTrayIcon();
+                    InitializeMainUI(); // This will now create and show PrintStationForm
 
-                    // Ensure the context was initialized before running the message loop
-                    if (_applicationContext == null)
+                    if (_printStationForm == null || _applicationContext == null)
                     {
-                        _logger.LogError("ApplicationContext failed to initialize. Cannot start WinForms message loop.");
+                        _logger.LogError("Main UI (PrintStationForm or ApplicationContext) failed to initialize. Cannot start WinForms message loop.");
                         _appLifetime.StopApplication(); // Signal host to shut down
                         return; // Exit the thread
                     }
-
-                    _logger.LogInformation("WinForms message loop starting.");
+                    
+                    _logger.LogInformation("WinForms UI initialized. Starting message loop.");
 
                     // Signal that the UI thread is ready
                     _uiThreadReady.Set();
                     _logger.LogInformation("UI thread ready, signaled main thread to start SignalR service.");
 
-                    Application.Run(_applicationContext); // Now safe from null warning
+                    // Application.Run will use the ApplicationContext which is aware of the main form if set,
+                    // or just run the message loop if no main form is explicitly passed to Application.Run.
+                    // If PrintStationForm is shown before Application.Run(ApplicationContext), it works.
+                    Application.Run(_applicationContext); 
                     _logger.LogInformation("WinForms message loop stopped.");
                 }
                 catch (Exception ex)
@@ -119,18 +119,28 @@ namespace SagraFacile.WindowsPrinterService
             // Signal the SignalR service to stop
             await _signalRService.StopAsync(); // Call StopAsync on SignalRService
 
-            // Clean up NotifyIcon
+            // Clean up NotifyIcon and main form
+            if (_printStationForm != null && !_printStationForm.IsDisposed)
+            {
+                _printStationForm.Close(); // This should trigger FormClosing, then Dispose
+                _printStationForm.Dispose();
+                _printStationForm = null;
+            }
             if (_notifyIcon != null)
             {
-                // _webSocketListenerService.ListenerStatusChanged -= UpdateTrayIconTooltip; // Removed
-                if (_signalRService != null) // Check if _signalRService is not null before unsubscribing
+                if (_signalRService != null) 
                 {
-                    _signalRService.ConnectionStatusChanged -= UpdateTrayIconTooltip; // Added
+                    _signalRService.ConnectionStatusChanged -= UpdateTrayIconTooltip; 
                 }
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
                 _logger.LogInformation("Tray icon disposed.");
+            }
+             // Ensure Application.ExitThread is called if the message loop is still technically running
+            if (Application.MessageLoop)
+            {
+                Application.ExitThread();
             }
         }
 
@@ -141,9 +151,23 @@ namespace SagraFacile.WindowsPrinterService
             await _signalRService.StartAsync(cancellationToken); // Pass CancellationToken
         }
 
-        private void InitializeTrayIcon()
+        private void InitializeMainUI()
         {
-            _applicationContext = new ApplicationContext(); // Create the context for the message loop
+            // Create the main form first
+            _printStationForm = ResolvePrintStationForm();
+            if (_printStationForm == null)
+            {
+                _logger.LogError("Failed to resolve PrintStationForm. Application cannot start main UI.");
+                // _appLifetime.StopApplication(); // This might be too early or cause issues if called from UI thread setup
+                return;
+            }
+
+            _printStationForm.FormClosing += PrintStationForm_FormClosing;
+            
+            // ApplicationContext can be created with the main form, or the main form can be shown before Application.Run(new ApplicationContext())
+            // Using ApplicationContext(mainForm) is cleaner.
+            _applicationContext = new ApplicationContext(_printStationForm); 
+            // _printStationForm.Show(); // ApplicationContext(mainForm) should show it.
 
             // Capture the synchronization context for the UI thread *after* ApplicationContext is created
             _uiContext = SynchronizationContext.Current;
@@ -154,6 +178,7 @@ namespace SagraFacile.WindowsPrinterService
 
             // Create Context Menu
             var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add("Show/Hide Print Station", null, OnShowHidePrintStationClicked);
             contextMenu.Items.Add("Settings...", null, OnSettingsClicked);
             contextMenu.Items.Add("-"); // Separator
             contextMenu.Items.Add("Exit", null, OnExitClicked);
@@ -176,10 +201,81 @@ namespace SagraFacile.WindowsPrinterService
             };
 
             // Set initial tooltip (handler is already subscribed in constructor)
-            UpdateTrayIconTooltip(null, "Initializing...");
+            UpdateTrayIconTooltip(null, "Initializing..."); // Initial status
 
-            _logger.LogInformation("Tray icon initialized.");
+            _logger.LogInformation("Main UI and Tray icon initialized.");
         }
+
+        private PrintStationForm? ResolvePrintStationForm()
+        {
+            try
+            {
+                // Resolve directly from the service provider available to ApplicationLifetimeService.
+                // ApplicationLifetimeService is a singleton, and PrintStationForm is transient.
+                // This instance will be managed by ApplicationLifetimeService.
+                var form = _serviceProvider.GetRequiredService<PrintStationForm>();
+                return form;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to resolve or create PrintStationForm.");
+                return null;
+            }
+        }
+
+        private void PrintStationForm_FormClosing(object? sender, FormClosingEventArgs e)
+        {
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                _logger.LogInformation("PrintStationForm closing by user. Minimizing to tray.");
+                e.Cancel = true; // Prevent the form from actually closing
+                _printStationForm?.Hide();
+                if (_notifyIcon != null)
+                {
+                    _notifyIcon.ShowBalloonTip(1000, "SagraFacile Printer Service", "L'applicazione è stata minimizzata nell'area di notifica.", ToolTipIcon.Info);
+                }
+            }
+            else
+            {
+                _logger.LogInformation($"PrintStationForm closing due to {e.CloseReason}. Allowing close.");
+                // If it's not user closing (e.g. ApplicationExitCall, TaskManagerShutdown), let it close.
+                // This will eventually lead to ApplicationContext exiting the message loop.
+            }
+        }
+        
+        private void OnShowHidePrintStationClicked(object? sender, EventArgs e)
+        {
+            if (_printStationForm == null || _printStationForm.IsDisposed)
+            {
+                _logger.LogInformation("PrintStationForm is null or disposed. Recreating and showing.");
+                _printStationForm = ResolvePrintStationForm();
+                if (_printStationForm != null)
+                {
+                    _printStationForm.FormClosing += PrintStationForm_FormClosing;
+                    _printStationForm.Show();
+                    _printStationForm.Activate();
+                }
+                else
+                {
+                     _logger.LogError("Failed to recreate PrintStationForm on Show/Hide click.");
+                }
+            }
+            else
+            {
+                if (_printStationForm.Visible)
+                {
+                    _logger.LogInformation("Hiding PrintStationForm.");
+                    _printStationForm.Hide();
+                }
+                else
+                {
+                    _logger.LogInformation("Showing PrintStationForm.");
+                    _printStationForm.Show();
+                    _printStationForm.Activate(); // Bring to front
+                }
+            }
+        }
+
 
         // Modified to accept string status directly
         private void UpdateTrayIconTooltip(object? sender, string status)
@@ -263,7 +359,13 @@ namespace SagraFacile.WindowsPrinterService
         private void OnExitClicked(object? sender, EventArgs e)
         {
             _logger.LogInformation("Exit menu item clicked. Stopping application.");
-            _appLifetime.StopApplication(); // Trigger graceful shutdown
+            // Unsubscribe from FormClosing to allow the form to close properly during shutdown
+            if (_printStationForm != null)
+            {
+                _printStationForm.FormClosing -= PrintStationForm_FormClosing;
+            }
+            _appLifetime.StopApplication(); // Trigger graceful shutdown, which will call StopAsync
+                                            // StopAsync will then handle closing the form if it's still open.
         }
 
         private void OnStopping()
@@ -281,7 +383,23 @@ namespace SagraFacile.WindowsPrinterService
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
                 _notifyIcon = null;
-                _logger.LogInformation("Tray icon disposed.");
+                _logger.LogInformation("Tray icon disposed during OnStopping.");
+            }
+            // If PrintStationForm is still around, ensure it's closed.
+            // This might be redundant if StopAsync handles it, but good for safety.
+            if (_printStationForm != null && !_printStationForm.IsDisposed)
+            {
+                 // Ensure it's closed on the UI thread if possible, or just dispose
+                if (_uiContext != null && _printStationForm.InvokeRequired)
+                {
+                    _uiContext.Post(_ => {
+                        if (!_printStationForm.IsDisposed) _printStationForm.Close();
+                    }, null);
+                }
+                else if (!_printStationForm.IsDisposed)
+                {
+                    _printStationForm.Close();
+                }
             }
         }
 
