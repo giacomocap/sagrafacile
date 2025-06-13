@@ -13,21 +13,39 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-13) - Post-Deployment Fixes: Caddy API Routing & Windows Printer Service URL
+**Context:** After successfully deploying the application on a home server using Docker Compose with Caddy and Let's Encrypt, two issues arose: API calls were resulting in 404 errors, and the Windows Printer Service was failing to connect to SignalR due to URL parsing.
+**Accomplishments:**
+*   **Caddyfile API Routing Fix:**
+    *   **Issue:** API calls (e.g., to `/api/accounts/login`) were returning 404. This was because Caddy's `handle_path /api/*` directive was stripping the `/api/` prefix before proxying the request to the backend, while the .NET API routes expect the full `/api/...` path.
+    *   **Solution:** Modified the `Caddyfile` to use `reverse_proxy /api/* api:8080` directly. This configuration correctly matches requests starting with `/api/` and proxies them to the `api` service (listening on port 8080) *without* stripping the `/api/` prefix. This resolved the 404 errors.
+*   **Windows Printer Service URL Normalization:**
+    *   **Issue:** The `SagraFacile.WindowsPrinterService` was logging an error "URL Base Hub 'app.sagrafacile.it/api' non valido" and failing to connect. The service's logic for constructing the full SignalR hub URL (`https://[base_url]/api/orderhub`) was not correctly handling cases where the base URL provided in settings might already contain a path (like `/api`) or lack a scheme.
+    *   **Solution:** Updated `SagraFacile.NET/SagraFacile.WindowsPrinterService/Services/SignalRService.cs`. The `StartAsync` method now includes logic to normalize the `_hubHostAndPort` value read from settings. This normalization ensures:
+        1.  A scheme (`https://` by default, or `http://` if the host is `localhost` or `127.0.0.1`) is present.
+        2.  Any existing path components are removed from the stored base URL.
+        For example, an input like `app.sagrafacile.it/api` or `app.sagrafacile.it` would be normalized to `https://app.sagrafacile.it`. The service then correctly appends `/api/orderhub` or `/api/printers/config/{guid}` to this clean base URL.
+**Key Decisions:**
+*   For Caddy, switched from `handle_path` to a direct `reverse_proxy` with path matching for API routes to ensure the backend receives the expected path.
+*   Implemented robust URL normalization in the Windows Printer Service to make it more resilient to variations in how the server's base address is entered in its settings.
+**Next Steps:**
+*   User to test the Windows Printer Service with the updated URL normalization logic to confirm it connects successfully to the SignalR hub.
+
 ## (2025-06-13) - Architectural Shift to Let's Encrypt with DNS-01 for HTTPS
 **Context:** Transitioned the project's deployment architecture from using Caddy with self-signed local certificates to a more robust solution using Let's Encrypt with the DNS-01 challenge, facilitated by Cloudflare for DNS management. This provides publicly trusted SSL certificates for the application, even when primarily accessed on a local network.
 **Accomplishments (Overall Project):**
 *   **`docker-compose.yml` Updated:**
-    *   The `caddy` service image changed to `caddy:2-builder` to include DNS plugins.
-    *   Caddy service now takes `CLOUDFLARE_API_TOKEN` and `MY_DOMAIN` environment variables.
+    *   The `caddy` service image changed to `ghcr.io/slothcroissant/caddy-cloudflaredns:latest` (a pre-built image with the Cloudflare DNS plugin). The previous `caddy:2-builder` was an alternative if building the plugin manually.
+    *   Caddy service now takes `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_EMAIL`, and `MY_DOMAIN` environment variables. `ACME_AGREE=true` was also added.
     *   The `backend` service was renamed to `api`.
     *   Container names updated for consistency: `sagrafacile-caddy`, `sagrafacile-api`, `sagrafacile-frontend`, `sagrafacile-db`.
     *   Ports for `api` and `frontend` services are no longer directly exposed to the host; Caddy handles all external traffic.
     *   Database port is no longer exposed to the host by default.
 *   **New `Caddyfile` Created:**
     *   Configured to use `tls { dns cloudflare {$CLOUDFLARE_API_TOKEN} }` for certificate acquisition.
-    *   Routes `/api/*` to `api:8080` and other requests to `frontend:3000`.
+    *   Routes `/api/*` to `api:8080` and other requests to `frontend:3000`. (Note: This routing was later adjusted, see session above).
 *   **`.env.example` Updated:**
-    *   Added `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN` variables.
+    *   Added `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_EMAIL`.
     *   Removed old Caddy local certificate variables.
 *   **Documentation Updated:**
     *   `DEPLOYMENT_ARCHITECTURE.md`: Rewritten to detail the new Let's Encrypt/Cloudflare/DNS-01 approach, including prerequisites (domain, Cloudflare account, API token), updated Caddy configuration, and revised user setup workflow (Cloudflare setup, local DNS router configuration). Container names were also updated.
