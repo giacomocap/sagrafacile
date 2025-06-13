@@ -47,7 +47,6 @@ static class Program
                 // Remove the default Form1 registration if it's no longer needed
                 // services.AddTransient<Form1>();
                 services.AddTransient<SettingsForm>(); // Register SettingsForm
-                services.AddTransient<PrintStationForm>(); // Register PrintStationForm
 
                 // Register the main application lifetime manager as a Hosted Service
                 services.AddHostedService<ApplicationLifetimeService>();

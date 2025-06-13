@@ -39,23 +39,10 @@
 *   User to apply the `AddPrintModeToPrinter` database migration when the database is available.
 *   **Frontend:** Update Admin UI to allow selection of `PrintMode` when creating/editing printers.
 *   **Windows Companion App:**
-    *   **Implemented On-Demand Printing Queue:**
-        *   `SignalRService.cs`:
-            *   Fetches `PrintMode` and `WindowsPrinterName` from the backend endpoint `/api/printers/config/{instanceGuid}` upon successful registration.
-            *   Implements an in-memory `ConcurrentQueue<PrintJobItem>` for `OnDemandWindows` mode.
-            *   Handles incoming print jobs: queues them if `PrintMode` is `OnDemandWindows` and raises an `OnDemandQueueCountChanged` event; otherwise, prints immediately.
-            *   Exposes methods (`DequeueNextPrintJob`, `GetOnDemandQueueCount`, `GetConfiguredWindowsPrinterName`) for UI interaction.
-        *   `PrintStationForm.cs` & `PrintStationForm.Designer.cs`:
-            *   Created a new form for managing and printing on-demand comandas.
-            *   UI includes a queue count display, a button to print the next comanda, and an activity log.
-            *   Logic subscribes to queue count changes, dequeues jobs, and uses `IRawPrinter` for printing.
-        *   `ApplicationLifetimeService.cs`:
-            *   Added a "Stazione Stampa Comande..." menu item to the tray icon.
-            *   Manages the lifecycle and display of the `PrintStationForm`.
-        *   `Program.cs`: Registered `PrintStationForm` for dependency injection.
-        *   Added `Models/PrintMode.cs`, `Models/PrintJobItem.cs`, `DTOs/PrinterConfigDto.cs`.
-    *   User to apply the `AddPrintModeToPrinter` database migration for the backend when available.
-    *   Next steps for Companion App: User to perform `.csproj` updates if needed, build, and test the on-demand printing functionality.
+    *   Implement logic to call `GET /api/printers/config/{instanceGuid}` on startup.
+    *   If `PrintMode` is `OnDemandWindows`, implement an in-memory queue for print jobs.
+    *   Create the `PrintStationForm.cs` UI for staff to view and print queued comandas.
+    *   Update `ApplicationLifetimeService.cs` to manage and display the `PrintStationForm`.
 
 ## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
 **Context:** Addressed issues with printing special characters (e.g., Euro symbol, accented characters appearing as '?') and QR codes being too small. This was suspected to be due to encoding problems in the custom `EscPosDocumentBuilder` and limitations in its QR code generation.
