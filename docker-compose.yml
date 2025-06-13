@@ -37,6 +37,8 @@ services:
       # Add other backend-specific environment variables from .env if any were missed
       # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
+    volumes:
+      - sagrafacile_media_data:/app/wwwroot/media # Persist uploaded media
     depends_on:
       db:
         condition: service_healthy
@@ -73,4 +75,5 @@ services:
 volumes:
   sagrafacile_db_data: # Preserving existing volume name
   sagrafacile_caddy_data: # Preserving existing volume name
+  sagrafacile_media_data: {} # Volume for API media uploads
   # sagrafacile_caddy_config: is removed as it's not in the new Caddy setup
