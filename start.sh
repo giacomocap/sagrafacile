@@ -16,17 +16,23 @@ fi
 docker compose up -d
 echo
 echo "SagraFacile services are starting up."
+echo "Caddy will attempt to obtain a Let's Encrypt SSL certificate for your domain."
+echo "This may take a few moments, especially on the first run."
 echo
-echo "Once all services are running (this may take a moment on first start):"
-echo "- Access the application at: https://localhost"
-echo "- If you are accessing from another device on your network, use: https://[SERVER-IP-ADDRESS]"
-echo "  (Replace [SERVER-IP-ADDRESS] with the actual IP address of this computer)"
+echo "Once all services are running:"
+echo "- You should be able to access the application at: https://\${MY_DOMAIN}"
+echo "  (Ensure MY_DOMAIN is correctly set in your .env file, e.g., pos.my-restaurant-pos.com)"
 echo
-echo "IMPORTANT: If this is your first time running, or if you see certificate errors,"
-echo "please ensure you have installed the Caddy root CA certificate on this machine"
-echo "and on any client devices. Instructions are in the README.md file."
+echo "IMPORTANT FOR LOCAL NETWORK ACCESS:"
+echo "To access SagraFacile from other devices on your local network using https://\${MY_DOMAIN},"
+echo "you MUST configure your router's Local DNS settings to point \${MY_DOMAIN}"
+echo "to the local IP address of this server (e.g., 192.168.1.50)."
+echo "Detailed instructions are in the README.md file."
 echo
-echo "To view logs, run: docker compose logs -f"
+echo "If Caddy fails to obtain a certificate, check its logs: docker compose logs -f caddy"
+echo "Ensure your domain is correctly pointing to your public IP and Cloudflare API token is valid."
+echo
+echo "To view all logs, run: docker compose logs -f"
 echo "To stop services, run: ./stop.sh"
 echo
 echo "Press Enter to exit this script (services will continue running in the background)."

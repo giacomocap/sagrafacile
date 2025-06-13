@@ -1,62 +1,70 @@
 services:
-  db:
-    image: postgres:15
-    container_name: sagrafacile_db
-    restart: unless-stopped
-    volumes:
-      - sagrafacile_db_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      POSTGRES_DB: ${POSTGRES_DB:-sagrafacile}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432" # Expose DB port for direct access if needed during setup/debug
-
-  backend:
-    image: ghcr.io/giacomocap/sagrafacile-api:main
-    container_name: sagrafacile_backend
-    restart: unless-stopped
-    depends_on:
-      - db
-    environment:
-      ASPNETCORE_ENVIRONMENT: Production # Ensure this is set for production behavior
-      # Connection string will be read from this env var by appsettings.json
-      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-sagrafacile};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-changeme};"
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: ${JWT_ISSUER:-SagraFacile}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:-SagraFacileApp}
-      ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true} # Default to true if not set
-      # Add other backend-specific environment variables from .env
-      # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
-      # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
-    # No ports exposed directly to host; Caddy will proxy
-
-  frontend:
-    image: ghcr.io/giacomocap/sagrafacile-frontend:main
-    container_name: sagrafacile_frontend
-    restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: /api # Caddy will route /api to backend
-      NODE_ENV: production
-    # No ports exposed directly to host; Caddy will proxy
-
+  # Caddy is the new public-facing entry point and reverse proxy
   caddy:
-    image: caddy:2-alpine # Using alpine for smaller size
-    container_name: sagrafacile_caddy
+    image: caddy:2-builder
+    container_name: sagrafacile-caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp" # For HTTP/3
+      - "80:80"   # For HTTP traffic (Let's Encrypt HTTP-01 or redirect)
+      - "443:443" # For HTTPS traffic
+      - "443:443/udp" # For HTTP/3 (optional, kept from existing)
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile # Mount local Caddyfile
-      - sagrafacile_caddy_data:/data   # Persist Caddy's data (certs, etc.)
-      - sagrafacile_caddy_config:/config # Persist Caddy's config
+      - ./Caddyfile:/etc/caddy/Caddyfile # Mount the Caddy configuration file
+      - sagrafacile_caddy_data:/data # Persists certificates and other Caddy data (using existing volume name)
+    environment:
+      # Pass your Cloudflare API token to the Caddy container
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      # The domain you are using
+      - MY_DOMAIN=${MY_DOMAIN}
     depends_on:
-      - backend
+      - api
       - frontend
 
+  # The C# API (NO LONGER EXPOSES PORTS TO HOST)
+  api: # Renamed from 'backend'
+    image: ghcr.io/giacomocap/sagrafacile-api:main # Using existing image
+    container_name: sagrafacile-api # New container name
+    restart: unless-stopped
+    # No 'ports' section here! Caddy will talk to it internally.
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production # Preserved from existing
+      # Connection string will be read from this env var by appsettings.json
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-sagrafacile};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-changeme};" # Preserved from existing
+      JWT_SECRET: ${JWT_SECRET} # Preserved from existing
+      JWT_ISSUER: ${JWT_ISSUER:-SagraFacile} # Preserved from existing
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-SagraFacileApp} # Preserved from existing
+      ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true} # Preserved from existing
+      # Add other backend-specific environment variables from .env if any were missed
+      # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
+      # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
+    depends_on:
+      - db
+
+  # The Next.js Frontend (NO LONGER EXPOSES PORTS TO HOST)
+  frontend:
+    image: ghcr.io/giacomocap/sagrafacile-frontend:main # Using existing image
+    container_name: sagrafacile-frontend # New container name
+    restart: unless-stopped
+    # No 'ports' section here!
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: /api # Preserved from existing
+      NODE_ENV: production # Preserved from existing
+    depends_on:
+      - api
+
+  # The PostgreSQL Database (no direct port exposure to host)
+  db:
+    image: postgres:15
+    container_name: sagrafacile-db # New container name
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sagrafacile} # Preserved from existing (with fallback)
+      POSTGRES_USER: ${POSTGRES_USER:-postgres} # Preserved from existing (with fallback)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme} # Preserved from existing (with fallback)
+    volumes:
+      - sagrafacile_db_data:/var/lib/postgresql/data # Using existing volume name
+
 volumes:
-  sagrafacile_db_data:
-  sagrafacile_caddy_data:
-  sagrafacile_caddy_config:
+  sagrafacile_db_data: # Preserving existing volume name
+  sagrafacile_caddy_data: # Preserving existing volume name
+  # sagrafacile_caddy_config: is removed as it's not in the new Caddy setup

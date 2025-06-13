@@ -370,6 +370,11 @@ export enum PrinterType {
   WindowsUsb = 1
 }
 
+export enum PrintMode {
+  Immediate = 0,
+  OnDemandWindows = 1,
+}
+
 export enum ReprintType {
   ReceiptOnly = 0,
   ReceiptAndComandas = 1
@@ -383,6 +388,7 @@ export interface PrinterDto {
   connectionString: string; // IP:Port for Network, GUID for WindowsUsb
   windowsPrinterName?: string | null; // Required for WindowsUsb
   isEnabled: boolean;
+  printMode: PrintMode; // Added for On-Demand Printing
 }
 
 export interface PrinterUpsertDto {
@@ -392,6 +398,7 @@ export interface PrinterUpsertDto {
   windowsPrinterName?: string | null;
   isEnabled: boolean;
   organizationId: number;
+  printMode: PrintMode; // Added for On-Demand Printing
 }
 
 export interface PrinterCategoryAssignmentDto {

@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PrinterDto, PrinterUpsertDto, PrinterType } from '@/types';
+import { PrinterDto, PrinterUpsertDto, PrinterType, PrintMode } from '@/types'; // Added PrintMode
 import printerService from '@/services/printerService';
 import { v4 as uuidv4, validate } from 'uuid';
 import { toast } from 'sonner';
@@ -38,6 +38,7 @@ const formSchema = z.object({
   connectionString: z.string().min(1, { message: "La stringa di connessione o il GUID sono obbligatori." }),
   windowsPrinterName: z.string().optional(),
   isEnabled: z.boolean(),
+  printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }), // Added printMode
 }).refine(data => {
   if (data.type === PrinterType.WindowsUsb) {
     return data.windowsPrinterName && data.windowsPrinterName.trim().length > 0;
@@ -88,6 +89,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       connectionString: '',
       windowsPrinterName: '',
       isEnabled: true,
+      printMode: PrintMode.Immediate, // Default to Immediate
     },
   });
 
@@ -104,6 +106,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           connectionString: printerToEdit.connectionString,
           windowsPrinterName: printerToEdit.windowsPrinterName || '',
           isEnabled: printerToEdit.isEnabled,
+          printMode: printerToEdit.printMode, // Set printMode in edit mode
         });
       } else {
         form.reset({
@@ -112,6 +115,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           connectionString: '', // Mantiene vuoto inizialmente per l'aggiunta
           windowsPrinterName: '',
           isEnabled: true,
+          printMode: PrintMode.Immediate, // Default for new printers
         });
       }
     } else {
@@ -121,17 +125,26 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
   }, [isOpen, printerToEdit, isEditMode, form]);
 
   // Effetto per generare un GUID quando il tipo è WindowsUsb e si è in modalità aggiunta
+  // e per impostare la modalità di stampa per stampanti di rete
   useEffect(() => {
-    if (isOpen && !isEditMode && printerType === PrinterType.WindowsUsb) {
-        // Imposta solo se la stringa di connessione è attualmente vuota
-        if (!form.getValues('connectionString')) {
+    if (isOpen) {
+      if (!isEditMode) { // Solo in modalità aggiunta o quando il tipo cambia
+        if (printerType === PrinterType.WindowsUsb) {
+          if (!form.getValues('connectionString')) {
             form.setValue('connectionString', uuidv4());
-        }
-    } else if (isOpen && !isEditMode && printerType === PrinterType.Network) {
-        // Pulisce il GUID se si torna a Rete in modalità aggiunta
-        if (form.getValues('connectionString') && form.getValues('connectionString').length === 36) { // Controllo base sulla lunghezza dell'UUID
+          }
+          // Non resettare printMode qui, lascia che l'utente scelga o mantenga il default
+        } else if (printerType === PrinterType.Network) {
+          if (form.getValues('connectionString') && validate(form.getValues('connectionString'))) { // Pulisce se era un GUID
             form.setValue('connectionString', '');
+          }
+          form.setValue('printMode', PrintMode.Immediate); // For Network printers, mode is always Immediate
         }
+      } else { // In modalità modifica, se il tipo cambia a Network, imposta printMode
+        if (printerType === PrinterType.Network) {
+          form.setValue('printMode', PrintMode.Immediate);
+        }
+      }
     }
   }, [isOpen, isEditMode, printerType, form]);
 
@@ -147,6 +160,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       windowsPrinterName: values.type === PrinterType.WindowsUsb ? values.windowsPrinterName : null,
       isEnabled: values.isEnabled,
       organizationId: orgId,
+      printMode: values.printMode, // Added printMode to dataToSend
     };
 
     try {
@@ -245,24 +259,84 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
               )}
             />
 
-            {/* Render condizionale per Nome Stampante Windows */}
+            {/* Render condizionale per Nome Stampante Windows e Modalità di Stampa */}
             {printerType === PrinterType.WindowsUsb && (
-              <FormField
-                control={form.control}
-                name="windowsPrinterName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Stampante Windows*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="es. ZDesigner ZD420-203dpi ZPL" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormDescription>
-                      Il nome esatto della stampante come appare nel Pannello di Controllo di Windows.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="windowsPrinterName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome Stampante Windows*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="es. ZDesigner ZD420-203dpi ZPL" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormDescription>
+                        Il nome esatto della stampante come appare nel Pannello di Controllo di Windows.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="printMode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Modalità di Stampa*</FormLabel>
+                      <Select
+                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                        value={field.value !== undefined ? String(field.value) : undefined}
+                        defaultValue={field.value !== undefined ? String(field.value) : undefined}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleziona modalità di stampa" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
+                          <SelectItem value={String(PrintMode.OnDemandWindows)}>Su Richiesta (in coda sull'app Windows)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Seleziona "Su Richiesta" solo per stampanti collegate a un PC con l'app SagraFacile Windows Printer Service.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {/* Se la stampante è di tipo Network, mostriamo comunque il campo PrintMode ma disabilitato e impostato su Immediata */}
+            {printerType === PrinterType.Network && (
+                 <FormField
+                 control={form.control}
+                 name="printMode"
+                 render={() => (
+                   <FormItem>
+                     <FormLabel>Modalità di Stampa*</FormLabel>
+                     <Select
+                       value={String(PrintMode.Immediate)} // Sempre Immediata per Network
+                       disabled={true} // Disabilitato
+                     >
+                       <FormControl>
+                         <SelectTrigger>
+                           <SelectValue />
+                         </SelectTrigger>
+                       </FormControl>
+                       <SelectContent>
+                         <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
+                       </SelectContent>
+                     </Select>
+                     <FormDescription>
+                       Per le stampanti di rete, la modalità è sempre "Immediata".
+                     </FormDescription>
+                     <FormMessage />
+                   </FormItem>
+                 )}
+               />
             )}
 
             <FormField

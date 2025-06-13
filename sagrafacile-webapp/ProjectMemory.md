@@ -12,6 +12,31 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-12) - Implemented Frontend for On-Demand Printer Configuration
+**Context:** Continued implementation of the "On-Demand Printing for Windows Companion App" feature, focusing on the frontend Admin UI changes. This follows the backend changes made in `SagraFacile.NET` project memory from 2025-06-12.
+**Accomplishments:**
+*   **`sagrafacile-webapp/src/types/index.ts` Updated:**
+    *   Added `PrintMode` enum (`Immediate`, `OnDemandWindows`).
+    *   Added `printMode: PrintMode` property to `PrinterDto` and `PrinterUpsertDto` interfaces.
+*   **`sagrafacile-webapp/src/components/admin/PrinterFormDialog.tsx` Updated:**
+    *   Imported `PrintMode` enum.
+    *   Added `printMode` to the Zod validation schema and to the `useForm` default values (defaulting to `PrintMode.Immediate`).
+    *   Updated the `useEffect` hook that resets the form to correctly handle `printMode` for both new and existing printers.
+    *   Updated the `useEffect` hook that watches `printerType`:
+        *   If `printerType` is `Network`, `printMode` is automatically set to `PrintMode.Immediate`.
+        *   This logic applies in both add and edit modes.
+    *   The `onSubmit` function now includes `printMode` in the `dataToSend` payload.
+    *   Conditionally rendered the `PrintMode` `FormField` (Select component):
+        *   It is displayed and editable if `printerType` is `PrinterType.WindowsUsb`.
+        *   It is displayed but *disabled* and set to `PrintMode.Immediate` if `printerType` is `PrinterType.Network`.
+    *   Added Italian labels for `PrintMode` options: "Immediata (stampa subito)" and "Su Richiesta (in coda sull'app Windows)".
+**Key Decisions:**
+*   The `PrintMode` selection is only enabled for `WindowsUsb` printers, as `Network` printers always print immediately.
+*   The UI clearly communicates this distinction through conditional rendering/disabling and descriptive text.
+**Next Steps:**
+*   User to test the updated `PrinterFormDialog` to ensure `PrintMode` is correctly handled for both Network and WindowsUsb printers during creation and editing.
+*   Proceed with Windows Companion App changes for on-demand printing as outlined in the main `Roadmap.md` and backend `ProjectMemory.md`.
+
 ## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
 **Context:** Aligned with the overall project shift, the frontend deployment will now rely on pre-built Docker images distributed via a container registry. This simplifies user setup by removing local build requirements.
 **Accomplishments (Overall Project & Frontend Impact):**

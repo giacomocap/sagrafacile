@@ -1,5 +1,6 @@
 using SagraFacile.NET.API.Models.Enums;
 using System.ComponentModel.DataAnnotations;
+// using SagraFacile.NET.API.Models.Enums; // Duplicate removed
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SagraFacile.NET.API.Models
@@ -30,10 +31,13 @@ namespace SagraFacile.NET.API.Models
 
         public bool IsEnabled { get; set; } = true;
 
+        // New property for On-Demand Printing
+        public PrintMode PrintMode { get; set; } = PrintMode.Immediate; // Default to immediate printing
+
         // Navigation property for assignments
         public virtual ICollection<PrinterCategoryAssignment> CategoryAssignments { get; set; } = new List<PrinterCategoryAssignment>();
 
         // Potential navigation property if Area stores ReceiptPrinterId
         // public virtual ICollection<Area> AreasUsingAsReceiptPrinter { get; set; } = new List<Area>();
     }
-} 
+}

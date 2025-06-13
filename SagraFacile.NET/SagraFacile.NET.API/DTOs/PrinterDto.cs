@@ -11,6 +11,6 @@ namespace SagraFacile.NET.API.DTOs
         public required string ConnectionString { get; set; }
         public string? WindowsPrinterName { get; set; }
         public bool IsEnabled { get; set; }
-        // Maybe add OrganizationName if needed?
+        public PrintMode PrintMode { get; set; } // Added PrintMode
     }
-} 
+}

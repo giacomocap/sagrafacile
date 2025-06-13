@@ -236,6 +236,27 @@ This document outlines the planned development phases for the SagraFacile system
                 *   Category-based comanda printing.
             *   `[x]` Test reprint functionality from Cashier (Receipt Only, Receipt+Comandas) and verify target printer/comanda consolidation.
             *   `[ ]` Test reprint functionality from Admin Orders page (including printer selection) and verify target printer/comanda consolidation.
+    *   `[x]` **Implement On-Demand Printing for Windows Companion App (See `docs/PrinterArchitecture.md#6-on-demand-printing-for-windows-companion-app`)**
+        *   `[x]` **Backend - API Changes:**
+            *   `[x]` Add `PrintMode` enum (`Immediate`, `OnDemandWindows`) and property to `Printer` entity.
+            *   `[~]` Create/apply migration. (Migration created, application deferred by user)
+            *   `[x]` Update `PrinterDto`, `PrinterUpsertDto`, `PrinterService` to handle `PrintMode`.
+            *   `[x]` Create `GET /api/printers/config/{instanceGuid}` endpoint to return `PrintMode` and `WindowsPrinterName`.
+        *   `[x]` **Frontend - Admin UI:**
+            *   `[x]` Add `PrintMode` selection to printer configuration form (`sagrafacile-webapp/src/components/admin/PrinterFormDialog.tsx`).
+        *   `[x]` **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
+            *   `[x]` **`SignalRService.cs`:**
+                *   `[x]` Fetch `PrintMode` from backend on registration.
+                *   `[x]` Implement in-memory `ConcurrentQueue<PrintJobItem>`.
+                *   `[x]` Handle incoming jobs: queue if `OnDemandWindows`, print if `Immediate`.
+                *   `[x]` Expose methods to dequeue jobs and get queue count. Raise `OnDemandQueueCountChanged` event.
+            *   `[x]` **`PrintStationForm.cs` (New Form):**
+                *   `[x]` UI: Pending count label, "Print Next" button, activity log, connection status. Anchored for responsiveness.
+                *   `[x]` Logic: Get initial count, subscribe to queue changes, dequeue/print job via `SignalRService` and `IRawPrinter`.
+            *   `[x]` **`ApplicationLifetimeService.cs`:**
+                *   `[x]` Launch `PrintStationForm` as main window.
+                *   `[x]` Manage `PrintStationForm` instance (including minimize-to-tray and show/hide from tray).
+            *   `[ ]` **(Optional Later) `SettingsForm.cs`:** Add setting for "Number of comandas to print per click".
 
 ### Phase 5: Customer Queue System (See `docs/CustomerQueueArchitecture.md`)
 

@@ -13,6 +13,131 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-13) - Architectural Shift to Let's Encrypt with DNS-01 for HTTPS
+**Context:** Transitioned the project's deployment architecture from using Caddy with self-signed local certificates to a more robust solution using Let's Encrypt with the DNS-01 challenge, facilitated by Cloudflare for DNS management. This provides publicly trusted SSL certificates for the application, even when primarily accessed on a local network.
+**Accomplishments (Overall Project):**
+*   **`docker-compose.yml` Updated:**
+    *   The `caddy` service image changed to `caddy:2-builder` to include DNS plugins.
+    *   Caddy service now takes `CLOUDFLARE_API_TOKEN` and `MY_DOMAIN` environment variables.
+    *   The `backend` service was renamed to `api`.
+    *   Container names updated for consistency: `sagrafacile-caddy`, `sagrafacile-api`, `sagrafacile-frontend`, `sagrafacile-db`.
+    *   Ports for `api` and `frontend` services are no longer directly exposed to the host; Caddy handles all external traffic.
+    *   Database port is no longer exposed to the host by default.
+*   **New `Caddyfile` Created:**
+    *   Configured to use `tls { dns cloudflare {$CLOUDFLARE_API_TOKEN} }` for certificate acquisition.
+    *   Routes `/api/*` to `api:8080` and other requests to `frontend:3000`.
+*   **`.env.example` Updated:**
+    *   Added `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN` variables.
+    *   Removed old Caddy local certificate variables.
+*   **Documentation Updated:**
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Rewritten to detail the new Let's Encrypt/Cloudflare/DNS-01 approach, including prerequisites (domain, Cloudflare account, API token), updated Caddy configuration, and revised user setup workflow (Cloudflare setup, local DNS router configuration). Container names were also updated.
+    *   `README.md`: The "Docker Deployment & Installation Guide" section was significantly updated to reflect the new requirements and steps: Cloudflare setup, API token, `MY_DOMAIN` configuration, and mandatory local DNS resolution on the user's router. The section on trusting self-signed certificates was removed. Service descriptions updated.
+**Key Decisions:**
+*   Adopted Let's Encrypt via DNS-01 challenge with Cloudflare for robust, publicly trusted SSL certificates.
+*   This simplifies client setup as no custom CA certificate installation is needed on devices accessing the application.
+*   Requires users to own a domain name and manage it via Cloudflare.
+*   Local network access relies on the user configuring their router to resolve `MY_DOMAIN` to the server's local IP address.
+**Next Steps:**
+*   User to test the new deployment by:
+    *   Purchasing a domain name and configuring it with Cloudflare.
+    *   Obtaining a Cloudflare API token.
+    *   Setting up the `.env` file with `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN`.
+    *   Running `docker-compose up -d`.
+    *   Configuring their local router's DNS to point `MY_DOMAIN` to the server's local IP.
+    *   Accessing the application via `https://{MY_DOMAIN}` from various devices on the local network.
+
+## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
+**Context:** Completed the implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the Windows Printer Service (`SagraFacile.WindowsPrinterService`) changes, including making it a full-window application that can minimize to tray.
+**Accomplishments:**
+*   **Models Created (Windows Service):**
+    *   `SagraFacile.WindowsPrinterService/Models/PrintMode.cs`: Enum for `Immediate` and `OnDemandWindows`.
+    *   `SagraFacile.WindowsPrinterService/Models/PrinterConfigDto.cs`: DTO to receive printer configuration from the backend.
+    *   `SagraFacile.WindowsPrinterService/Models/PrintJobItem.cs`: Class to represent a queued print job.
+*   **`SignalRService.cs` Updated:**
+    *   Fetches printer configuration (including `PrintMode` and `WindowsPrinterName`) from the backend API (`GET /api/printers/config/{instanceGuid}`) on startup.
+    *   If `PrintMode` is `OnDemandWindows`, incoming print jobs (received via SignalR `PrintJob` message) are enqueued into an internal `ConcurrentQueue<PrintJobItem>`.
+    *   If `PrintMode` is `Immediate`, jobs are printed directly.
+    *   Exposes methods to dequeue print jobs (`DequeuePrintJob`), get queue count (`GetOnDemandQueueCount`), and print a specific queued job (`PrintQueuedJobAsync`).
+    *   Raises an `OnDemandQueueCountChanged` event when the queue size changes.
+    *   Fixed an SSL validation issue for the `HttpClient` fetching the printer configuration by configuring a development-mode bypass in a static constructor. This addressed an `HttpRequestException` caused by `RemoteCertificateNameMismatch` or `RemoteCertificateChainErrors` with self-signed certificates.
+*   **`PrintStationForm.cs` & `PrintStationForm.Designer.cs` Created & Configured:**
+    *   A new Windows Form to manage the on-demand print queue.
+    *   Displays "Comande in Attesa: [X]" (pending count), connection status, and an activity log.
+    *   Features a "STAMPA PROSSIMA COMANDA" button.
+    *   Subscribes to `SignalRService` events to update queue count and connection status.
+    *   On button click, dequeues and requests `SignalRService` to print the next job.
+    *   UI elements (button, log, status label) are anchored for better responsiveness on resize/fullscreen.
+*   **`ApplicationLifetimeService.cs` Refactored:**
+    *   Modified to launch `PrintStationForm` as the main application window on startup.
+    *   Handles `PrintStationForm.FormClosing` event to minimize the form to the system tray instead of exiting when the user clicks the 'X' button.
+    *   Tray icon context menu updated with "Show/Hide Print Station", "Settings...", and "Exit".
+    *   Manages the lifecycle of `PrintStationForm`.
+    *   Fixed an `ObjectDisposedException` related to `PrintStationForm` by ensuring correct DI scope for form resolution (resolving directly from `IServiceProvider` instead of a short-lived scope).
+*   **`Program.cs` Updated (Windows Service):**
+    *   Registered `PrintStationForm` with the dependency injection container as a transient service.
+**Key Decisions:**
+*   The Windows Printer Service now operates as a full-window application by default, providing a direct UI for on-demand print management, per user request.
+*   SSL certificate validation for the configuration-fetching `HttpClient` is bypassed in development to match SignalR client behavior, addressing `HttpRequestException`.
+*   `PrintStationForm`'s lifecycle and visibility are managed by `ApplicationLifetimeService`, including minimize-to-tray functionality.
+**Next Steps:**
+*   User to thoroughly test the `SagraFacile.WindowsPrinterService`:
+    *   Verify it starts as a full window with `PrintStationForm`.
+    *   Test fetching printer configuration (especially with `PrintMode.OnDemandWindows`).
+    *   Test queuing of print jobs when in on-demand mode.
+    *   Test printing jobs from the `PrintStationForm`.
+    *   Verify UI responsiveness and tray icon functionality (show/hide, settings, exit, minimize to tray).
+*   (Optional Later) Implement "Number of comandas to print per click" setting in `SettingsForm.cs`.
+
+## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
+**Context:** Started implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the backend changes required to support this.
+**Accomplishments:**
+*   **Models Updated:**
+    *   Created `SagraFacile.NET/SagraFacile.NET.API/Models/Enums/PrintMode.cs` with `Immediate` and `OnDemandWindows` values.
+    *   Added a `PrintMode` property (defaulting to `PrintMode.Immediate`) to the `SagraFacile.NET/SagraFacile.NET.API/Models/Printer.cs` entity.
+*   **Database Migration:**
+    *   Generated the `AddPrintModeToPrinter` EF Core migration to apply schema changes. (User deferred applying the migration as the database was offline).
+*   **DTOs Updated:**
+    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterDto.cs`.
+    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterUpsertDto.cs`.
+*   **Services Updated:**
+    *   `SagraFacile.NET/SagraFacile.NET.API/Services/Interfaces/IPrinterService.cs`: Added `Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid);` method.
+    *   `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs`:
+        *   Updated `MapPrinterToDto` to include `PrintMode`.
+        *   Updated `CreatePrinterAsync` and `UpdatePrinterAsync` to set/update `PrintMode`.
+        *   Implemented `GetPrinterConfigAsync(string instanceGuid)` to allow the Windows Companion App to fetch its `PrintMode` and `WindowsPrinterName` using its `ConnectionString` (GUID).
+*   **Controller Updated:**
+    *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/PrintersController.cs`: Added a new public (AllowAnonymous) endpoint `GET /api/printers/config/{instanceGuid}` that calls the new service method to return printer configuration.
+**Key Decisions:**
+*   The `PrintMode` defaults to `Immediate` to maintain existing behavior for printers not explicitly configured for on-demand.
+*   The new `/api/printers/config/{instanceGuid}` endpoint is made public to allow the companion app to fetch its configuration easily upon startup.
+**Next Steps:**
+*   User to apply the `AddPrintModeToPrinter` database migration when the database is available.
+*   **Frontend:** Update Admin UI to allow selection of `PrintMode` when creating/editing printers.
+*   **Windows Companion App:**
+    *   Implement logic to call `GET /api/printers/config/{instanceGuid}` on startup.
+    *   If `PrintMode` is `OnDemandWindows`, implement an in-memory queue for print jobs.
+    *   Create the `PrintStationForm.cs` UI for staff to view and print queued comandas.
+    *   Update `ApplicationLifetimeService.cs` to manage and display the `PrintStationForm`.
+
+## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
+**Context:** Addressed issues with printing special characters (e.g., Euro symbol, accented characters appearing as '?') and QR codes being too small. This was suspected to be due to encoding problems in the custom `EscPosDocumentBuilder` and limitations in its QR code generation.
+**Accomplishments:**
+*   **Added `ESCPOS_NET` NuGet Package:** The `ESCPOS_NET` library (version 3.0.0) was added to the `SagraFacile.NET.API.csproj`.
+*   **Refactored `SagraFacile.NET/SagraFacile.NET.API/Utils/EscPosDocumentBuilder.cs`:**
+    *   The class was rewritten to utilize the `ESCPOS_NET` library.
+    *   It now uses `ESCPOS_NET.Emitters.EPSON` for generating printer commands.
+    *   The default printer code page is set to `CodePage.PC858_EURO` in the constructor to ensure correct rendering of European special characters.
+    *   The `PrintQRCode` method was updated to use `_emitter.PrintQRCode()`, mapping the previous `moduleSizeMapping` parameter to `ESCPOS_NET.Size2DCode` (e.g., `Size2DCode.EXTRA` or `Size2DCode.LARGE`) to address the small QR code issue. The error correction level is set to `CorrectionLevel2DCode.PERCENT_15`.
+    *   Font size adjustments now use `_emitter.SetStyles()` with `PrintStyle.DoubleWidth` and `PrintStyle.DoubleHeight`.
+    *   The `SetDoubleStrike` method was found to not have a direct equivalent in the `PrintStyle` enum or easily accessible via the `EPSON` emitter's style methods; it currently logs a warning and is non-functional to prevent compilation errors.
+**Key Decisions:**
+*   Adopted `ESCPOS_NET` as the standard library for ESC/POS command generation to improve reliability and cross-platform compatibility.
+*   Prioritized fixing character encoding and QR code size.
+**Next Steps:**
+*   Thoroughly test printing functionality, especially receipts with Euro symbols, accented characters, and QR codes, to ensure the issues are resolved.
+*   Review `PrinterService.cs` to ensure it aligns with any subtle changes in `EscPosDocumentBuilder` usage, particularly around QR code sizing parameters if the default mapping isn't optimal.
+*   If `SetDoubleStrike` is a critical feature, further investigation into `ESCPOS_NET` capabilities or printer-specific raw commands will be needed.
+
 ## (2025-06-12) - Configurable PreOrder Polling Service
 **Context:** Added the ability to enable or disable the `PreOrderPollingBackgroundService` (which polls SagraPèreOrdini) via an environment variable.
 **Accomplishments:**

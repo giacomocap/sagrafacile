@@ -11,6 +11,9 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 
+// Ensure extended encodings are available
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Define CORS policy name
@@ -78,7 +81,7 @@ builder.Services.AddScoped<IAdMediaItemService, AdMediaItemService>();
 builder.Services.AddScoped<IAdAreaAssignmentService, AdAreaAssignmentService>();
 
 // Register the Background Service conditionally
-var enablePollingService = builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
+var enablePollingService = false; //builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
 
 // Explicitly check for null to distinguish from a "false" value.
 // If the variable is not present at all, we default to true (as per docker-compose).
@@ -130,9 +133,9 @@ builder.Services.AddCors(options =>
                                     "https://localhost:3000",   // Allow local dev server (HTTPS)
                                     "http://192.168.1.219:3000", // Allow frontend from local network IP (HTTP)
                                     "https://192.168.1.219:3000", // Allow frontend from local network IP (HTTPS)
-                                    "https://169.254.83.107:3000",
                                     "https://192.168.1.38:3000",
-                                    "https://192.168.1.237:3000"
+                                    "https://192.168.1.237:3000",
+                                    "https://192.168.1.24:3000"
                                 )
                                 .AllowAnyHeader()
                                 .AllowAnyMethod()
