@@ -205,7 +205,8 @@ namespace SagraFacile.WindowsPrinterService.Services
                 OnConnectionStatusChanged("Disconnesso");
             };
 
-            _hubConnection.On<string, string, byte[]>("PrintJob", HandlePrintJobAsync);
+            // Backend no longer sends windowsPrinterName
+            _hubConnection.On<string, byte[]>("PrintJob", HandlePrintJobAsync);
 
             await ConnectWithRetriesAsync();
         }
@@ -258,19 +259,21 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             try
             {
-                PrinterConfigDto? printerConfig = await _httpClient.GetFromJsonAsync<PrinterConfigDto>(configUrl, _jsonSerializerOptions, cancellationToken);
+                // The DTO from backend now only contains PrintMode
+                var backendConfig = await _httpClient.GetFromJsonAsync<PrinterConfigDto>(configUrl, _jsonSerializerOptions, cancellationToken);
 
-                if (printerConfig != null)
+                if (backendConfig != null)
                 {
-                    _currentPrintMode = printerConfig.PrintMode;
-                    _configuredWindowsPrinterName = printerConfig.WindowsPrinterName;
-                    _logger.LogInformation($"Configurazione stampante recuperata per profilo '{_activeProfileSettings?.ProfileName}': PrintMode={_currentPrintMode}, WindowsPrinterName='{_configuredWindowsPrinterName}'");
+                    _currentPrintMode = backendConfig.PrintMode;
+                    // WindowsPrinterName is now sourced from the local profile
+                    _configuredWindowsPrinterName = _activeProfileSettings?.SelectedPrinter; 
+                    _logger.LogInformation($"Configurazione stampante recuperata per profilo '{_activeProfileSettings?.ProfileName}': PrintMode={_currentPrintMode}. WindowsPrinterName (da profilo)='{_configuredWindowsPrinterName}'");
                 }
                 else
                 {
-                    _logger.LogWarning($"Configurazione stampante non trovata o vuota dal backend per profilo '{_activeProfileSettings?.ProfileName}'. Utilizzo PrintMode.Immediate.");
+                    _logger.LogWarning($"Configurazione PrintMode non trovata o vuota dal backend per profilo '{_activeProfileSettings?.ProfileName}'. Utilizzo PrintMode.Immediate. PrinterName da profilo.");
                     _currentPrintMode = PrintMode.Immediate;
-                    _configuredWindowsPrinterName = null;
+                    _configuredWindowsPrinterName = _activeProfileSettings?.SelectedPrinter;
                 }
             }
             catch (HttpRequestException ex)
@@ -335,9 +338,13 @@ namespace SagraFacile.WindowsPrinterService.Services
             }
         }
 
-        private async void HandlePrintJobAsync(string jobId, string windowsPrinterName, byte[] rawData)
+        // windowsPrinterName argument removed as it's no longer sent by the backend
+        private async void HandlePrintJobAsync(string jobId, byte[] rawData)
         {
-            _logger.LogInformation($"Print job received for profile '{_activeProfileSettings?.ProfileName}'. JobID: {jobId}, Printer: {windowsPrinterName}, Data Length: {rawData?.Length ?? 0}, Mode: {_currentPrintMode}");
+            // Use _configuredWindowsPrinterName which should be set from the profile
+            string? printerToUse = _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter;
+
+            _logger.LogInformation($"Print job received for profile '{_activeProfileSettings?.ProfileName}'. JobID: {jobId}, Target Printer (from profile): '{printerToUse}', Data Length: {rawData?.Length ?? 0}, Mode: {_currentPrintMode}");
 
             if (rawData != null)
             {
@@ -345,41 +352,42 @@ namespace SagraFacile.WindowsPrinterService.Services
                 // _logger.LogDebug("Received Print Job Data (HEX) for JobID {JobId}: {HexString}", jobId, hexString);
             }
 
-            if (string.IsNullOrWhiteSpace(windowsPrinterName))
+            if (string.IsNullOrWhiteSpace(printerToUse))
             {
-                _logger.LogWarning($"Print job received with no target printer name specified. JobID: {jobId} (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogWarning($"Print job received (JobID: {jobId}) but no target printer name configured in profile '{_activeProfileSettings?.ProfileName}'. Cannot print.");
                 return;
             }
             if (rawData == null || rawData.Length == 0)
             {
-                _logger.LogWarning($"Print job received with empty ESC/POS data. JobID: {jobId}, Printer: {windowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogWarning($"Print job received with empty ESC/POS data. JobID: {jobId}, Target Printer: {printerToUse} (Profilo: {_activeProfileSettings?.ProfileName})");
                 return;
             }
 
             if (_currentPrintMode == PrintMode.OnDemandWindows)
             {
-                var printJobItem = new PrintJobItem(jobId, windowsPrinterName, rawData);
+                // PrintJobItem no longer needs targetWindowsPrinterName as it's implicit to the profile
+                var printJobItem = new PrintJobItem(jobId, rawData); 
                 _onDemandPrintQueue.Enqueue(printJobItem);
-                _logger.LogInformation($"Job {jobId} accodato per la stampante {windowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName}). Comande in coda: {_onDemandPrintQueue.Count}");
+                _logger.LogInformation($"Job {jobId} accodato (Profilo: {_activeProfileSettings?.ProfileName}, Printer: {printerToUse}). Comande in coda: {_onDemandPrintQueue.Count}");
                 OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
             }
             else 
             {
                 try
                 {
-                    bool success = await _rawPrinter.PrintRawAsync(windowsPrinterName, rawData);
+                    bool success = await _rawPrinter.PrintRawAsync(printerToUse, rawData);
                     if (success)
                     {
-                        _logger.LogInformation($"Print job {jobId} sent successfully to printer {windowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                        _logger.LogInformation($"Print job {jobId} sent successfully to printer {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
                     }
                     else
                     {
-                        _logger.LogError($"Failed to send print job {jobId} to printer {windowsPrinterName}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
+                        _logger.LogError($"Failed to send print job {jobId} to printer {printerToUse}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Exception while processing print job {jobId} for printer {windowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogError(ex, $"Exception while processing print job {jobId} for printer {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
                 }
             }
         }
@@ -520,16 +528,14 @@ namespace SagraFacile.WindowsPrinterService.Services
                 return false;
             }
 
-            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName} (Profilo: {_activeProfileSettings?.ProfileName})");
+            string? printerToUse = _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter;
+
+            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to profile printer '{printerToUse}' (Profilo: {_activeProfileSettings?.ProfileName})");
             try
             {
-                string printerToUse = !string.IsNullOrWhiteSpace(jobItem.TargetWindowsPrinterName) 
-                                      ? jobItem.TargetWindowsPrinterName 
-                                      : _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter ?? string.Empty; // Fallback to profile's selected printer
-
                 if (string.IsNullOrWhiteSpace(printerToUse))
                 {
-                    _logger.LogError($"Cannot print job {jobItem.JobId}: No target printer name specified. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogError($"Cannot print job {jobItem.JobId}: No target printer name configured in profile '{_activeProfileSettings?.ProfileName}'.");
                     return false;
                 }
 
@@ -546,7 +552,7 @@ namespace SagraFacile.WindowsPrinterService.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Exception while printing queued job {jobItem.JobId} to {jobItem.TargetWindowsPrinterName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogError(ex, $"Exception while printing queued job {jobItem.JobId} to profile printer '{printerToUse}'. (Profilo: {_activeProfileSettings?.ProfileName})");
                 return false;
             }
         }

@@ -24,6 +24,11 @@ const printerService = {
   deletePrinter: async (printerId: number): Promise<void> => {
     await apiClient.delete(`/Printers/${printerId}`);
   },
+
+  sendTestPrint: async (printerId: number): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/Printers/${printerId}/test-print`);
+    return response.data;
+  },
 };
 
-export default printerService; 
+export default printerService;

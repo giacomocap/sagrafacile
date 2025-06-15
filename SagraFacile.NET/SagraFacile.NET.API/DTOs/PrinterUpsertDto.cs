@@ -22,8 +22,8 @@ namespace SagraFacile.NET.API.DTOs
         [StringLength(255)]
         public required string ConnectionString { get; set; }
 
-        [StringLength(255)]
-        public string? WindowsPrinterName { get; set; }
+        // [StringLength(255)] // Removed
+        // public string? WindowsPrinterName { get; set; } // Removed
 
         [Required]
         public bool IsEnabled { get; set; } = true;
@@ -31,7 +31,7 @@ namespace SagraFacile.NET.API.DTOs
         [Required]
         public PrintMode PrintMode { get; set; } = PrintMode.Immediate; // Added PrintMode, defaults to Immediate
 
-        // Custom validation might be needed here, e.g., in the service/controller
-        // to ensure WindowsPrinterName is provided if Type is WindowsUsb.
+        // Custom validation might be needed here, e.g., in the service/controller.
+        // WindowsPrinterName is now managed by the client profile.
     }
 }

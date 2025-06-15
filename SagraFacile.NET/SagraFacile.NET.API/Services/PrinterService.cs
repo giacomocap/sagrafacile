@@ -106,7 +106,7 @@ namespace SagraFacile.NET.API.Services
                 Name = printerDto.Name,
                 Type = printerDto.Type,
                 ConnectionString = printerDto.ConnectionString,
-                WindowsPrinterName = printerDto.WindowsPrinterName,
+                // WindowsPrinterName = printerDto.WindowsPrinterName, // Removed
                 IsEnabled = printerDto.IsEnabled,
                 OrganizationId = printerDto.OrganizationId,
                 PrintMode = printerDto.PrintMode // Added PrintMode
@@ -161,7 +161,7 @@ namespace SagraFacile.NET.API.Services
             existingPrinter.Name = printerDto.Name;
             existingPrinter.Type = printerDto.Type;
             existingPrinter.ConnectionString = printerDto.ConnectionString;
-            existingPrinter.WindowsPrinterName = printerDto.WindowsPrinterName;
+            // existingPrinter.WindowsPrinterName = printerDto.WindowsPrinterName; // Removed
             existingPrinter.IsEnabled = printerDto.IsEnabled;
             existingPrinter.PrintMode = printerDto.PrintMode; // Added PrintMode
             // OrganizationId is updated above if applicable
@@ -244,7 +244,7 @@ namespace SagraFacile.NET.API.Services
                 Name = printer.Name,
                 Type = printer.Type,
                 ConnectionString = printer.ConnectionString,
-                WindowsPrinterName = printer.WindowsPrinterName,
+                // WindowsPrinterName = printer.WindowsPrinterName, // Removed
                 IsEnabled = printer.IsEnabled,
                 OrganizationId = printer.OrganizationId,
                 PrintMode = printer.PrintMode // Added PrintMode
@@ -313,23 +313,19 @@ namespace SagraFacile.NET.API.Services
                         _logger.LogError($"WindowsUSB printer {printer.Name} (ID: {printer.Id}) has no ConnectionString (GUID).");
                         return (false, "WindowsUSB printer ConnectionString (GUID) is missing.");
                     }
-                    if (string.IsNullOrWhiteSpace(printer.WindowsPrinterName))
-                    {
-                        _logger.LogError($"WindowsUSB printer {printer.Name} (ID: {printer.Id}) has no WindowsPrinterName configured.");
-                        return (false, "WindowsUSB printer WindowsPrinterName is missing.");
-                    }
+                    
 
                     var connectionId = OrderHub.GetConnectionIdForPrinter(printer.ConnectionString);
                     if (connectionId != null)
                     {
                         string jobId = Guid.NewGuid().ToString(); // Generate a unique Job ID
-                        _logger.LogInformation($"Dispatching print job (JobID: {jobId}) to WindowsUSB printer {printer.Name} (Windows Name: {printer.WindowsPrinterName}) via SignalR ConnectionId: {connectionId}");
+                        _logger.LogInformation($"Dispatching print job (JobID: {jobId}) to WindowsUSB printer {printer.Name} (GUID: {printer.ConnectionString}) via SignalR ConnectionId: {connectionId}");
                         //send directly byte[]
                         await _orderHubContext.Clients.Client(connectionId).SendAsync(
                             "PrintJob",                 // Method name
                             jobId,                      // First argument: Job ID
-                            printer.WindowsPrinterName, // Second argument: Windows Printer Name
-                            data);                // Third argument: byte[]
+                            // printer.WindowsPrinterName argument removed
+                            data);                      // Second argument: byte[]
                         return (true, null);
                     }
                     else
@@ -428,7 +424,7 @@ namespace SagraFacile.NET.API.Services
                         var docBuilder = new EscPosDocumentBuilder();
                         docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
                         // Explicitly re-select for absolute clarity in this service's logic.
-                        docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO); 
+                        docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
                         docBuilder.SetAlignment(EscPosAlignment.Center);
                         docBuilder.SetEmphasis(true);
                         docBuilder.AppendLine(order.Organization?.Name ?? "Sagrafacile");
@@ -633,73 +629,6 @@ namespace SagraFacile.NET.API.Services
                 {
                     _logger.LogWarning($"No comanda printers were identified or all were disabled for Order ID: {order.Id}, but order has items.");
                 }
-            }
-            else if (jobType == PrintJobType.TestPrint)
-            {
-                // This requires a specific printer to be identified, perhaps passed in or configured for testing.
-                // For now, let's assume a test print is requested for a known printer ID if we were to implement this fully.
-                // This example will not send a test print unless explicitly told which printer.
-                _logger.LogInformation($"TestPrint job type received for Order ID: {order.Id}. Logic to select a printer for test not implemented here.");
-                // Example: Find first available printer in the org.
-                var testPrinter = await _context.Printers
-                                    .Where(p => p.OrganizationId == order.OrganizationId && p.IsEnabled)
-                                    .FirstOrDefaultAsync();
-                if (testPrinter != null)
-                {
-            var docBuilder = new EscPosDocumentBuilder();
-            docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
-            // Explicitly re-select for absolute clarity in this service's logic.
-            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
-            docBuilder.SetAlignment(EscPosAlignment.Center);
-            docBuilder.SetEmphasis(true);
-                    docBuilder.SetFontSize(2, 1);
-                    docBuilder.AppendLine("--- TEST PRINT ---");
-                    docBuilder.ResetFontSize();
-                    docBuilder.SetEmphasis(false);
-                    docBuilder.SetAlignment(EscPosAlignment.Left);
-                    docBuilder.AppendLine($"Stampante: {testPrinter.Name} (ID: {testPrinter.Id})");
-                    docBuilder.AppendLine($"Tipo: {testPrinter.Type}");
-                    docBuilder.AppendLine($"Stringa Connessione: {testPrinter.ConnectionString}");
-                    if (testPrinter.Type == PrinterType.WindowsUsb)
-                    {
-                        docBuilder.AppendLine($"Nome Windows: {testPrinter.WindowsPrinterName ?? "N/A"}");
-                    }
-                    docBuilder.AppendLine($"Ora Test: {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss UTC}");
-                    docBuilder.NewLine();
-                    docBuilder.AppendLine("--------------------------------");
-                    docBuilder.AppendLine("Test caratteri standard.");
-                    docBuilder.SetEmphasis(true);
-                    docBuilder.AppendLine("Test caratteri grassetto.");
-                    docBuilder.SetEmphasis(false);
-                    docBuilder.SetFontSize(2, 1);
-                    docBuilder.AppendLine("Test Larga x1 Alt x1");
-                    docBuilder.SetFontSize(1, 2);
-                    docBuilder.AppendLine("Test Larga x1 Alt x2");
-                    docBuilder.SetFontSize(2, 2);
-                    docBuilder.AppendLine("Test Larga x2 Alt x2");
-                    docBuilder.ResetFontSize();
-                    docBuilder.NewLine();
-                    try
-                    {
-                        docBuilder.PrintQRCode($"TestQR_{testPrinter.Id}_{DateTime.UtcNow.Ticks}");
-                        docBuilder.AppendLine("QR Code Test OK (sopra)");
-                    }
-                    catch (Exception qrEx)
-                    {
-                        _logger.LogError(qrEx, $"Failed to generate QR code for Test Print on printer ID: {testPrinter.Id}.");
-                        docBuilder.AppendLine("QR Code Test Fallito.");
-                    }
-                    docBuilder.NewLine(3);
-                    docBuilder.CutPaper();
-
-                    printTasks.Add(SendToPrinterAsync(testPrinter, docBuilder.Build(), PrintJobType.TestPrint));
-                    _logger.LogInformation($"Sending Test Print to printer '{testPrinter.Name}'.");
-                }
-                else
-                {
-                    _logger.LogWarning($"No enabled printer found in organization {order.OrganizationId} to send a Test Print to.");
-                }
-
             }
 
             if (!printTasks.Any())
@@ -1075,7 +1004,8 @@ namespace SagraFacile.NET.API.Services
         }
 
         // New method for Windows Companion App to get its configuration
-        public async Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid)
+        // WindowsPrinterName is no longer returned as it's managed by the client profile.
+        public async Task<PrintMode?> GetPrinterConfigAsync(string instanceGuid)
         {
             if (string.IsNullOrWhiteSpace(instanceGuid))
             {
@@ -1100,8 +1030,92 @@ namespace SagraFacile.NET.API.Services
                 return null; // Or perhaps return config but indicate disabled status if frontend can handle
             }
 
-            _logger.LogInformation($"Returning configuration for printer {printer.Name} (GUID: {instanceGuid}): PrintMode={printer.PrintMode}, WindowsPrinterName={printer.WindowsPrinterName}");
-            return (printer.PrintMode, printer.WindowsPrinterName);
+            _logger.LogInformation($"Returning configuration for printer {printer.Name} (GUID: {instanceGuid}): PrintMode={printer.PrintMode}");
+            return printer.PrintMode;
+        }
+
+        public async Task<(bool Success, string? Error)> SendTestPrintAsync(int printerId)
+        {
+            var (userOrgId, isSuperAdmin) = GetUserContext();
+            _logger.LogInformation($"Attempting to send test print for printer ID: {printerId} by user with OrgId: {userOrgId?.ToString() ?? "N/A"}, IsSuperAdmin: {isSuperAdmin}");
+
+            var printer = await _context.Printers.FindAsync(printerId);
+
+            if (printer == null)
+            {
+                _logger.LogWarning($"Test print failed: Printer with ID {printerId} not found.");
+                return (false, "Printer not found.");
+            }
+
+            // Authorization check
+            if (!isSuperAdmin && printer.OrganizationId != userOrgId)
+            {
+                _logger.LogWarning($"Test print failed: User (OrgId: {userOrgId}) not authorized for printer ID {printerId} (OrgId: {printer.OrganizationId}).");
+                return (false, "User not authorized for this printer.");
+            }
+
+            if (!printer.IsEnabled)
+            {
+                _logger.LogWarning($"Test print failed: Printer '{printer.Name}' (ID: {printerId}) is disabled.");
+                return (false, "Printer is disabled.");
+            }
+
+            _logger.LogInformation($"Generating test print document for printer '{printer.Name}' (ID: {printerId}).");
+            var docBuilder = new EscPosDocumentBuilder();
+            docBuilder.InitializePrinter();
+            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
+            docBuilder.SetAlignment(EscPosAlignment.Center);
+            docBuilder.SetEmphasis(true);
+            docBuilder.SetFontSize(2, 1);
+            docBuilder.AppendLine("--- TEST PRINT ---");
+            docBuilder.ResetFontSize();
+            docBuilder.SetEmphasis(false);
+            docBuilder.SetAlignment(EscPosAlignment.Left);
+            docBuilder.AppendLine($"Stampante: {printer.Name} (ID: {printer.Id})");
+            docBuilder.AppendLine($"Tipo: {printer.Type}");
+            docBuilder.AppendLine($"Stringa Connessione: {printer.ConnectionString}");
+            // WindowsPrinterName is no longer stored in the backend for WindowsUsb type.
+            // if (printer.Type == PrinterType.WindowsUsb)
+            // {
+            //     docBuilder.AppendLine($"Nome Windows: {printer.WindowsPrinterName ?? "N/A"}");
+            // }
+            docBuilder.AppendLine($"Ora Test: {DateTime.UtcNow:dd/MM/yyyy HH:mm:ss UTC}");
+            docBuilder.NewLine();
+            docBuilder.AppendLine("--------------------------------");
+            docBuilder.AppendLine("Test caratteri speciali:");
+            docBuilder.AppendLine("Euro: €");
+            docBuilder.AppendLine("Accenti minuscoli: à è ì ò ù");
+            docBuilder.AppendLine("Accenti MAIUSCOLI: À È Ì Ò Ù");
+            docBuilder.AppendLine("Altri comuni: ç ñ ¿ ¡ ß");
+            docBuilder.AppendLine("--------------------------------");
+            docBuilder.AppendLine("Test caratteri standard.");
+            docBuilder.SetEmphasis(true);
+            docBuilder.AppendLine("Test caratteri grassetto.");
+            docBuilder.SetEmphasis(false);
+            docBuilder.SetFontSize(2, 1);
+            docBuilder.AppendLine("Test Larga x1 Alt x1");
+            docBuilder.SetFontSize(1, 2);
+            docBuilder.AppendLine("Test Larga x1 Alt x2");
+            docBuilder.SetFontSize(2, 2);
+            docBuilder.AppendLine("Test Larga x2 Alt x2");
+            docBuilder.ResetFontSize();
+            docBuilder.NewLine();
+            try
+            {
+                docBuilder.PrintQRCode($"TestQR_{printer.Id}_{DateTime.UtcNow.Ticks}");
+                docBuilder.AppendLine("QR Code Test OK (sopra)");
+            }
+            catch (Exception qrEx)
+            {
+                _logger.LogError(qrEx, $"Failed to generate QR code for Test Print on printer ID: {printer.Id}.");
+                docBuilder.AppendLine("QR Code Test Fallito.");
+            }
+            docBuilder.NewLine(3);
+            docBuilder.CutPaper();
+
+            byte[] testData = docBuilder.Build();
+            _logger.LogInformation($"Sending test print data (length: {testData.Length} bytes) to printer '{printer.Name}'.");
+            return await SendToPrinterAsync(printer, testData, PrintJobType.TestPrint);
         }
     }
 }

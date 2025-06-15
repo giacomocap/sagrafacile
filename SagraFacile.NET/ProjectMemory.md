@@ -13,6 +13,36 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-15) - Refactored Windows Printer Name Handling
+**Context:** The `WindowsPrinterName` for `WindowsUsb` type printers was previously managed and stored in the backend database and sent to the Windows Printer Service companion app. This created redundancy as the companion app already manages the specific Windows printer to use via its local profiles (`SelectedPrinter` in `ProfileSettings`).
+**Accomplishments:**
+*   **Backend (`SagraFacile.NET.API`):**
+    *   Removed `WindowsPrinterName` from the `Printer` entity/model (implicitly, by no longer using it in services).
+    *   Removed `WindowsPrinterName` from `PrinterDto` and `PrinterUpsertDto`.
+    *   `PrinterService.cs`:
+        *   Modified `CreatePrinterAsync` and `UpdatePrinterAsync` to no longer handle `WindowsPrinterName`.
+        *   `MapPrinterToDto` no longer maps `WindowsPrinterName`.
+        *   `SendToPrinterAsync` for `WindowsUsb` printers no longer sends `WindowsPrinterName` as an argument in the SignalR `PrintJob` message to the companion app. The message now only contains `jobId` and `byte[] rawData`.
+        *   `GetPrinterConfigAsync` (called by companion app) now only returns `PrintMode`. The companion app is responsible for knowing its own target printer name from its profile.
+        *   `SendTestPrintAsync` no longer includes `WindowsPrinterName` in the generated test print slip.
+    *   `IPrinterService.cs`: Updated `GetPrinterConfigAsync` signature to return `Task<PrintMode?>`.
+    *   `PrintersController.cs`:
+        *   Adjusted `GetPrinterConfig` endpoint to reflect the new return type from the service and now returns only `PrintMode` to the companion app.
+        *   Adjusted `PostPrinter` to correctly map `PrintMode` to `PrinterDto` and no longer map `WindowsPrinterName`.
+*   **Windows Printer Service (`SagraFacile.WindowsPrinterService`):**
+    *   `SignalRService.cs`:
+        *   `FetchPrinterConfigurationAsync`: Now retrieves only `PrintMode` from the backend. `_configuredWindowsPrinterName` is now set using the `_activeProfileSettings.SelectedPrinter` (the printer name selected in the companion app's profile).
+        *   The SignalR `PrintJob` message handler registration (`_hubConnection.On`) was updated to expect only `jobId` and `rawData` from the backend.
+        *   `HandlePrintJobAsync` method signature updated accordingly. It now uses `_configuredWindowsPrinterName` (derived from the active profile) to determine the target printer for `_rawPrinter.PrintRawAsync`.
+        *   `PrintQueuedJobAsync` now uses `_configuredWindowsPrinterName` (or `_activeProfileSettings.SelectedPrinter`) instead of a printer name from the `PrintJobItem`.
+    *   `Models/PrinterConfigDto.cs`: Removed `WindowsPrinterName` property, as it's no longer sent by the backend.
+    *   `Models/PrintJobItem.cs`: Removed `TargetWindowsPrinterName` property and updated constructor. The printer to use is determined by the active profile in `SignalRService`.
+**Key Decisions:**
+*   Centralized the responsibility of knowing the specific Windows printer name to the Windows Printer Service companion app's profile system.
+*   Simplified the backend by removing `WindowsPrinterName` from its storage and DTOs for `WindowsUsb` printers.
+*   Reduced data transfer between backend and companion app.
+**Outcome:** The companion app now solely relies on its local profile settings (`SelectedPrinter`) to determine which Windows printer to use for print jobs received via SignalR. The backend no longer manages or dictates this specific Windows printer name.
+
 ## (2025-06-15) - Resolved Docker Permissions for API Media Uploads
 **Context:** The .NET API service, when running in Docker, encountered `System.UnauthorizedAccessException` when attempting to save uploaded ad media to `/app/wwwroot/media/promo`. This was due to the application user (`$APP_UID`) lacking write permissions to the target directory.
 **Accomplishments:**
@@ -103,367 +133,6 @@
     *   Test editing and deleting profiles.
     *   Confirm that UI elements (tray icon, PrintStationForm title) reflect the active profile.
 
-## (2025-06-13) - Architectural Shift to Let's Encrypt with DNS-01 for HTTPS
->>>>>>> REPLACE
-**Context:** Transitioned the project's deployment architecture from using Caddy with self-signed local certificates to a more robust solution using Let's Encrypt with the DNS-01 challenge, facilitated by Cloudflare for DNS management. This provides publicly trusted SSL certificates for the application, even when primarily accessed on a local network.
-**Accomplishments (Overall Project):**
-*   **`docker-compose.yml` Updated:**
-    *   The `caddy` service image changed to `ghcr.io/slothcroissant/caddy-cloudflaredns:latest` (a pre-built image with the Cloudflare DNS plugin). The previous `caddy:2-builder` was an alternative if building the plugin manually.
-    *   Caddy service now takes `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_EMAIL`, and `MY_DOMAIN` environment variables. `ACME_AGREE=true` was also added.
-    *   The `backend` service was renamed to `api`.
-    *   Container names updated for consistency: `sagrafacile-caddy`, `sagrafacile-api`, `sagrafacile-frontend`, `sagrafacile-db`.
-    *   Ports for `api` and `frontend` services are no longer directly exposed to the host; Caddy handles all external traffic.
-    *   Database port is no longer exposed to the host by default.
-*   **New `Caddyfile` Created:**
-    *   Configured to use `tls { dns cloudflare {$CLOUDFLARE_API_TOKEN} }` for certificate acquisition.
-    *   Routes `/api/*` to `api:8080` and other requests to `frontend:3000`. (Note: This routing was later adjusted, see session above).
-*   **`.env.example` Updated:**
-    *   Added `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_EMAIL`.
-    *   Removed old Caddy local certificate variables.
-*   **Documentation Updated:**
-    *   `DEPLOYMENT_ARCHITECTURE.md`: Rewritten to detail the new Let's Encrypt/Cloudflare/DNS-01 approach, including prerequisites (domain, Cloudflare account, API token), updated Caddy configuration, and revised user setup workflow (Cloudflare setup, local DNS router configuration). Container names were also updated.
-    *   `README.md`: The "Docker Deployment & Installation Guide" section was significantly updated to reflect the new requirements and steps: Cloudflare setup, API token, `MY_DOMAIN` configuration, and mandatory local DNS resolution on the user's router. The section on trusting self-signed certificates was removed. Service descriptions updated.
-**Key Decisions:**
-*   Adopted Let's Encrypt via DNS-01 challenge with Cloudflare for robust, publicly trusted SSL certificates.
-*   This simplifies client setup as no custom CA certificate installation is needed on devices accessing the application.
-*   Requires users to own a domain name and manage it via Cloudflare.
-*   Local network access relies on the user configuring their router to resolve `MY_DOMAIN` to the server's local IP address.
-**Next Steps:**
-*   User to test the new deployment by:
-    *   Purchasing a domain name and configuring it with Cloudflare.
-    *   Obtaining a Cloudflare API token.
-    *   Setting up the `.env` file with `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN`.
-    *   Running `docker-compose up -d`.
-    *   Configuring their local router's DNS to point `MY_DOMAIN` to the server's local IP.
-    *   Accessing the application via `https://{MY_DOMAIN}` from various devices on the local network.
-
-## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
-**Context:** Completed the implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the Windows Printer Service (`SagraFacile.WindowsPrinterService`) changes, including making it a full-window application that can minimize to tray.
-**Accomplishments:**
-*   **Models Created (Windows Service):**
-    *   `SagraFacile.WindowsPrinterService/Models/PrintMode.cs`: Enum for `Immediate` and `OnDemandWindows`.
-    *   `SagraFacile.WindowsPrinterService/Models/PrinterConfigDto.cs`: DTO to receive printer configuration from the backend.
-    *   `SagraFacile.WindowsPrinterService/Models/PrintJobItem.cs`: Class to represent a queued print job.
-*   **`SignalRService.cs` Updated:**
-    *   Fetches printer configuration (including `PrintMode` and `WindowsPrinterName`) from the backend API (`GET /api/printers/config/{instanceGuid}`) on startup.
-    *   If `PrintMode` is `OnDemandWindows`, incoming print jobs (received via SignalR `PrintJob` message) are enqueued into an internal `ConcurrentQueue<PrintJobItem>`.
-    *   If `PrintMode` is `Immediate`, jobs are printed directly.
-    *   Exposes methods to dequeue print jobs (`DequeuePrintJob`), get queue count (`GetOnDemandQueueCount`), and print a specific queued job (`PrintQueuedJobAsync`).
-    *   Raises an `OnDemandQueueCountChanged` event when the queue size changes.
-    *   Fixed an SSL validation issue for the `HttpClient` fetching the printer configuration by configuring a development-mode bypass in a static constructor. This addressed an `HttpRequestException` caused by `RemoteCertificateNameMismatch` or `RemoteCertificateChainErrors` with self-signed certificates.
-*   **`PrintStationForm.cs` & `PrintStationForm.Designer.cs` Created & Configured:**
-    *   A new Windows Form to manage the on-demand print queue.
-    *   Displays "Comande in Attesa: [X]" (pending count), connection status, and an activity log.
-    *   Features a "STAMPA PROSSIMA COMANDA" button.
-    *   Subscribes to `SignalRService` events to update queue count and connection status.
-    *   On button click, dequeues and requests `SignalRService` to print the next job.
-    *   UI elements (button, log, status label) are anchored for better responsiveness on resize/fullscreen.
-*   **`ApplicationLifetimeService.cs` Refactored:**
-    *   Modified to launch `PrintStationForm` as the main application window on startup.
-    *   Handles `PrintStationForm.FormClosing` event to minimize the form to the system tray instead of exiting when the user clicks the 'X' button.
-    *   Tray icon context menu updated with "Show/Hide Print Station", "Settings...", and "Exit".
-    *   Manages the lifecycle of `PrintStationForm`.
-    *   Fixed an `ObjectDisposedException` related to `PrintStationForm` by ensuring correct DI scope for form resolution (resolving directly from `IServiceProvider` instead of a short-lived scope).
-*   **`Program.cs` Updated (Windows Service):**
-    *   Registered `PrintStationForm` with the dependency injection container as a transient service.
-**Key Decisions:**
-*   The Windows Printer Service now operates as a full-window application by default, providing a direct UI for on-demand print management, per user request.
-*   SSL certificate validation for the configuration-fetching `HttpClient` is bypassed in development to match SignalR client behavior, addressing `HttpRequestException`.
-*   `PrintStationForm`'s lifecycle and visibility are managed by `ApplicationLifetimeService`, including minimize-to-tray functionality.
-**Next Steps:**
-*   User to thoroughly test the `SagraFacile.WindowsPrinterService`:
-    *   Verify it starts as a full window with `PrintStationForm`.
-    *   Test fetching printer configuration (especially with `PrintMode.OnDemandWindows`).
-    *   Test queuing of print jobs when in on-demand mode.
-    *   Test printing jobs from the `PrintStationForm`.
-    *   Verify UI responsiveness and tray icon functionality (show/hide, settings, exit, minimize to tray).
-*   (Optional Later) Implement "Number of comandas to print per click" setting in `SettingsForm.cs`.
-
-## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
-**Context:** Started implementation of the "On-Demand Printing for Windows Companion App" feature as outlined in `docs/PrinterArchitecture.md` and `Roadmap.md`. This session focused on the backend changes required to support this.
-**Accomplishments:**
-*   **Models Updated:**
-    *   Created `SagraFacile.NET/SagraFacile.NET.API/Models/Enums/PrintMode.cs` with `Immediate` and `OnDemandWindows` values.
-    *   Added a `PrintMode` property (defaulting to `PrintMode.Immediate`) to the `SagraFacile.NET/SagraFacile.NET.API/Models/Printer.cs` entity.
-*   **Database Migration:**
-    *   Generated the `AddPrintModeToPrinter` EF Core migration to apply schema changes. (User deferred applying the migration as the database was offline).
-*   **DTOs Updated:**
-    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterDto.cs`.
-    *   Added `PrintMode` property to `SagraFacile.NET/SagraFacile.NET.API/DTOs/PrinterUpsertDto.cs`.
-*   **Services Updated:**
-    *   `SagraFacile.NET/SagraFacile.NET.API/Services/Interfaces/IPrinterService.cs`: Added `Task<(PrintMode PrintMode, string? WindowsPrinterName)?> GetPrinterConfigAsync(string instanceGuid);` method.
-    *   `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs`:
-        *   Updated `MapPrinterToDto` to include `PrintMode`.
-        *   Updated `CreatePrinterAsync` and `UpdatePrinterAsync` to set/update `PrintMode`.
-        *   Implemented `GetPrinterConfigAsync(string instanceGuid)` to allow the Windows Companion App to fetch its `PrintMode` and `WindowsPrinterName` using its `ConnectionString` (GUID).
-*   **Controller Updated:**
-    *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/PrintersController.cs`: Added a new public (AllowAnonymous) endpoint `GET /api/printers/config/{instanceGuid}` that calls the new service method to return printer configuration.
-**Key Decisions:**
-*   The `PrintMode` defaults to `Immediate` to maintain existing behavior for printers not explicitly configured for on-demand.
-*   The new `/api/printers/config/{instanceGuid}` endpoint is made public to allow the companion app to fetch its configuration easily upon startup.
-**Next Steps:**
-*   User to apply the `AddPrintModeToPrinter` database migration when the database is available.
-*   **Frontend:** Update Admin UI to allow selection of `PrintMode` when creating/editing printers.
-*   **Windows Companion App:**
-    *   Implement logic to call `GET /api/printers/config/{instanceGuid}` on startup.
-    *   If `PrintMode` is `OnDemandWindows`, implement an in-memory queue for print jobs.
-    *   Create the `PrintStationForm.cs` UI for staff to view and print queued comandas.
-    *   Update `ApplicationLifetimeService.cs` to manage and display the `PrintStationForm`.
-
-## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
-**Context:** Addressed issues with printing special characters (e.g., Euro symbol, accented characters appearing as '?') and QR codes being too small. This was suspected to be due to encoding problems in the custom `EscPosDocumentBuilder` and limitations in its QR code generation.
-**Accomplishments:**
-*   **Added `ESCPOS_NET` NuGet Package:** The `ESCPOS_NET` library (version 3.0.0) was added to the `SagraFacile.NET.API.csproj`.
-*   **Refactored `SagraFacile.NET/SagraFacile.NET.API/Utils/EscPosDocumentBuilder.cs`:**
-    *   The class was rewritten to utilize the `ESCPOS_NET` library.
-    *   It now uses `ESCPOS_NET.Emitters.EPSON` for generating printer commands.
-    *   The default printer code page is set to `CodePage.PC858_EURO` in the constructor to ensure correct rendering of European special characters.
-    *   The `PrintQRCode` method was updated to use `_emitter.PrintQRCode()`, mapping the previous `moduleSizeMapping` parameter to `ESCPOS_NET.Size2DCode` (e.g., `Size2DCode.EXTRA` or `Size2DCode.LARGE`) to address the small QR code issue. The error correction level is set to `CorrectionLevel2DCode.PERCENT_15`.
-    *   Font size adjustments now use `_emitter.SetStyles()` with `PrintStyle.DoubleWidth` and `PrintStyle.DoubleHeight`.
-    *   The `SetDoubleStrike` method was found to not have a direct equivalent in the `PrintStyle` enum or easily accessible via the `EPSON` emitter's style methods; it currently logs a warning and is non-functional to prevent compilation errors.
-**Key Decisions:**
-*   Adopted `ESCPOS_NET` as the standard library for ESC/POS command generation to improve reliability and cross-platform compatibility.
-*   Prioritized fixing character encoding and QR code size.
-**Next Steps:**
-*   Thoroughly test printing functionality, especially receipts with Euro symbols, accented characters, and QR codes, to ensure the issues are resolved.
-*   Review `PrinterService.cs` to ensure it aligns with any subtle changes in `EscPosDocumentBuilder` usage, particularly around QR code sizing parameters if the default mapping isn't optimal.
-*   If `SetDoubleStrike` is a critical feature, further investigation into `ESCPOS_NET` capabilities or printer-specific raw commands will be needed.
-
-## (2025-06-12) - Configurable PreOrder Polling Service
-**Context:** Added the ability to enable or disable the `PreOrderPollingBackgroundService` (which polls SagraPèreOrdini) via an environment variable.
-**Accomplishments:**
-*   **`.env.example` Updated:** Added `ENABLE_PREORDER_POLLING_SERVICE` variable with a default of `true` and descriptive comments.
-*   **`docker-compose.yml` Updated:** The `backend` service now includes `ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true}` in its environment configuration, ensuring the variable is passed to the .NET application and defaults to `true` if not explicitly set in the `.env` file.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Program.cs` Modified:**
-    *   The `PreOrderPollingBackgroundService` is now conditionally registered.
-    *   The application reads the `ENABLE_PREORDER_POLLING_SERVICE` configuration value.
-    *   If the value is `true` or not present (defaulting to `true` due to docker-compose), the service is registered.
-    *   If the value is explicitly `false`, the service is not registered.
-    *   Added `Console.WriteLine` statements to log whether the service is enabled or disabled at startup for clarity.
-**Key Decisions:**
-*   The polling service is enabled by default to maintain existing behavior unless explicitly disabled.
-*   Clear logging at application startup indicates the status of the polling service.
-
-## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
-**Context:** Based on user reflection and agreement, the project's deployment strategy has been fundamentally changed from building Docker images on the user's machine to distributing pre-built Docker images via a container registry. This aims to simplify user setup, improve reliability, and speed up deployment.
-**Accomplishments (Overall Project):**
-*   **`docker-compose.yml` Updated:** Modified the main `docker-compose.yml` to use `image:` directives (with placeholders for actual image names like `yourdockerhub_username/sagrafacile-api:latest`) for the `backend` and `frontend` services, instead of `build:` directives.
-*   **New Helper Scripts Created:**
-    *   `start.bat` & `start.sh`: For starting SagraFacile services. They now run `docker-compose up -d` which will pull images.
-    *   `update.bat` & `update.sh`: For updating SagraFacile. They run `docker-compose pull` and then `docker-compose up -d`.
-    *   `stop.bat` & `stop.sh`: For stopping SagraFacile services using `docker-compose down`.
-*   **Documentation Updated:**
-    *   `README.md`: The "Docker Deployment & Installation Guide" section was significantly rewritten to reflect the new, simpler process: download ZIP, configure `.env`, run `start` script.
-    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to describe the pre-built image strategy, the new role of Dockerfiles (developer/CI artifact), changes to the deployment package contents, and the updated user setup workflow.
-**Key Decisions:**
-*   The SagraFacile backend and frontend applications will be distributed as pre-built Docker images hosted on a container registry (e.g., Docker Hub, GitHub Container Registry).
-*   End-users will download a small package containing `docker-compose.yml`, `Caddyfile`, `.env.example`, and helper scripts.
-*   This change significantly simplifies the end-user experience, removing the need for local source code or build environments.
-**Next Steps (Developer):**
-*   Set up a container registry (e.g., Docker Hub or GitHub Container Registry).
-*   Implement a CI/CD pipeline (e.g., GitHub Actions) to automatically build and push tagged Docker images for the backend (`SagraFacile.NET.API`) and frontend (`sagrafacile-webapp`) to the chosen registry upon code changes.
-*   Replace placeholder image names in `docker-compose.yml` with actual image paths from the registry.
-*   Update the `README.md` and `DEPLOYMENT_ARCHITECTURE.md` with the actual GitHub Releases page URL and container registry image names once available.
-*   Finalize the distributable ZIP package contents as per `DEPLOYMENT_ARCHITECTURE.md`.
-
-## (2025-06-11) - Initiated Docker-Based Deployment Setup (Backend Aspects)
-**Context:** Began implementing a comprehensive Docker-based deployment strategy for SagraFacile, aiming for a guided manual setup for end-users.
-**Accomplishments:**
-*   **Deployment Architecture Documented:** Created `DEPLOYMENT_ARCHITECTURE.md` detailing the 5-phase plan, core technologies (Docker, Docker Compose, Caddy), and setup workflows for Windows, macOS, and Linux.
-*   **Backend Dockerfile (`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`):** Verified and confirmed corrections to project names (from `SagraPOS.NET.API` to `SagraFacile.NET.API`) and paths within the Dockerfile, ensuring it aligns with the current project structure. Confirmed it exposes port 8080 for HTTP.
-*   **Docker Compose (`docker-compose.yml`):** Created the main `docker-compose.yml` file defining services for `db` (PostgreSQL), `backend` (.NET API), `frontend` (Next.js), and `caddy`. Configured build contexts, environment variables (including direct construction of `ConnectionStrings__DefaultConnection`), volumes, and dependencies. Set `container_name` for all services.
-*   **Caddyfile:** Created the `Caddyfile` to manage HTTPS via `local_certs`, redirect HTTP to HTTPS, and reverse proxy requests to the `backend:8080` and `frontend:3000` services.
-*   **`.env.example`:** Created the example environment file (`.env.example`) with placeholders for database credentials, JWT secrets, and other necessary configurations.
-**Key Decisions:**
-*   The backend service within Docker will listen on port 8080 (HTTP), and Caddy will handle external HTTPS termination and proxying.
-*   A specific container name (`sagrafacile_caddy`) will be used for Caddy to simplify CA certificate extraction commands.
-*   The `docker-compose.yml` directly constructs the backend's connection string from environment variables.
-*   **Helper Scripts Created:** `setup.bat` and `setup.sh` were created in the repository root to guide users through the Docker Compose setup, including `.env` configuration and Caddy CA certificate installation.
-*   **Main README Updated:** The main `README.md` in the repository root was significantly updated with a comprehensive "Docker Deployment & Installation Guide," incorporating details from `DEPLOYMENT_ARCHITECTURE.md` and instructions for using the new setup scripts and trusting the Caddy CA.
-**Next Steps (Overall Deployment Plan):**
-*   Manually package all components (source code, Dockerfiles, `docker-compose.yml`, `Caddyfile`, `.env.example`, setup scripts, `README.md`) into a distributable `.zip` file (Task 4.3).
-*   Finalize the Windows Printer Service application:
-    *   Ensure it's configurable for the SagraFacile backend URL.
-    *   Ensure it trusts the custom root CA.
-*   Create a Windows Installer (e.g., Inno Setup) for the `SagraFacile.WindowsPrinterService` (Task 5.2).
-*   Update main documentation further if needed regarding the printer service installer (Task 5.3).
-
-## (2025-06-11) - Resolved Static Web Asset Conflict After Project Rename
-**Context:** A build error occurred in the `SagraFacile.NET.API` project: "Conflicting assets with the same target path ... from different projects." This happened after the project was renamed from `SagraPOS.NET.API` to `SagraFacile.NET.API`. The build system was still detecting assets related to the old project name (`_content/SagraPOS.NET.API`) alongside the new one (`_content/SagraFacile.NET.API`), specifically for a Bootstrap CSS file.
-**Accomplishments:**
-*   Investigated the `.csproj` file, which showed no direct references to the old project name.
-*   Attempted `dotnet clean` on the solution, which did not resolve the issue.
-*   **Resolved the conflict by manually deleting the `obj` and `bin` directories within the `SagraFacile.NET/SagraFacile.NET.API/` project folder and then rebuilding the project.** This forced a complete regeneration of build artifacts, eliminating the stale references to the old project name.
-**Key Decisions:**
-*   The standard `dotnet clean` was insufficient to clear all problematic intermediate build files after the project rename. A manual deletion of `obj` and `bin` was necessary.
-**Next Steps:**
-*   The project now builds successfully.
-
-## (2025-06-11) - Fixed VS Code Launch Configuration for .NET API
-**Context:** After renaming the .NET project from `SagraPOS.NET.API` to `SagraFacile.NET.API`, the VS Code launch configuration (F5) was broken, showing the error "Configuration 'C#: SagraPOS.NET.API [https]' is missing in 'launch.json'".
-**Accomplishments:**
-*   **`.vscode/launch.json` Updated (in the root of the SagraPOS repository):**
-    *   Added a new launch configuration specifically for the `SagraFacile.NET.API` project.
-    *   The new configuration is named `"C#: SagraFacile.NET.API [https]"`.
-    *   It uses `type: "coreclr"`, `request: "launch"`, and `preLaunchTask: "build"`.
-    *   The `cwd` is set to `"${workspaceFolder}/SagraFacile.NET/SagraFacile.NET.API"`.
-    *   It correctly references the `"https"` profile from the project's `Properties/launchSettings.json` file (`launchSettingsProfile: "https"` and `launchSettingsFilePath: "${workspaceFolder}/SagraFacile.NET/SagraFacile.NET.API/Properties/launchSettings.json"`).
-**Key Decisions:**
-*   The new launch configuration was tailored to use the existing "https" profile from the `SagraFacile.NET.API/Properties/launchSettings.json` to ensure consistency with how the project is intended to be run during development.
-*   The naming convention "C#: ProjectName [profileName]" was maintained for the new launch configuration.
-**Next Steps:**
-*   User to test launching the `SagraFacile.NET.API` project using F5 in VS Code with the new "C#: SagraFacile.NET.API [https]" configuration.
-
-
-## (2025-06-09) - Fixed Public Display Authentication Errors
-**Context:** The public-facing Queue Display and Order Pickup Display pages were failing due to authentication errors. The Queue Display was calling an authenticated-only endpoint, and the Pickup Display's endpoint was triggering an internal service that required user context.
-**Accomplishments:**
-*   **`SagraFacile.NET/SagraFacile.NET.API/Controllers/QueueController.cs` Modified:**
-    *   Removed the `GET /api/areas/{areaId}/queue/state` endpoint, as it was incorrectly placed behind an `[Authorize]` attribute.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Controllers/PublicController.cs` Modified:**
-    *   Added a new public endpoint `GET /api/public/areas/{areaId}/queue/state` to serve the queue status without authentication.
-    *   Updated the existing `GET /api/public/areas/{areaId}/orders/ready-for-pickup` endpoint to call a new, public-safe service method.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/Interfaces/IOrderService.cs` Updated:**
-    *   Added a new method signature `GetPublicOrdersByStatusAsync(int areaId, OrderStatus status)` for fetching orders without requiring an authenticated user context.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs` Updated:**
-    *   Implemented the new `GetPublicOrdersByStatusAsync` method, which calls a new public method in the `DayService` to get the current open day.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/Interfaces/IDayService.cs` Updated:**
-    *   Added a new method signature `GetPublicCurrentOpenDayAsync(int organizationId)`.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/DayService.cs` Updated:**
-    *   Implemented the new `GetPublicCurrentOpenDayAsync` method, which retrieves the current open day for an organization without performing user authorization checks.
-**Key Decisions:**
-*   Moved the queue state endpoint to the `PublicController` to correctly align its accessibility with its purpose.
-*   Created new, parallel service methods (`GetPublic...`) to handle data retrieval for public endpoints, avoiding modifications to existing internal methods that correctly require user context. This prevents regressions in authenticated parts of the application.
-
-## (2025-06-09) - Finalized and Debugged Dynamic Ad Carousel
-**Context:** Completed the full implementation of the dynamic advertising carousel, including debugging several issues related to media serving and display.
-**Accomplishments:**
-*   **Enabled Static File Serving:** Added `app.UseStaticFiles()` to `Program.cs` to allow the backend to serve media files directly from the `wwwroot` directory.
-*   **Avoided Ad Blockers:** Changed the file storage path from `/media/ads` to `/media/promo` in `AdMediaItemService.cs` to prevent client-side ad blockers from interfering with image loading.
-*   **Created Public API Endpoint:** Added a new public endpoint `GET /api/public/areas/{areaId}/ads` to `PublicController.cs` to serve active promotional media to the public-facing display. This involved injecting the `IAdMediaItemService`.
-
-## (2025-06-08) - Implemented Guest and Takeaway Charges
-**Context:** The user wanted to add the ability to configure a per-guest "coperto" (cover charge) and a per-order "asporto" (takeaway) fee.
-**Accomplishments:**
-*   **`SagraFacile.NET/SagraFacile.NET.API/Models/Area.cs` Updated:**
-    *   Added `GuestCharge` and `TakeawayCharge` decimal properties to the `Area` entity.
-    *   Created and applied the `AddGuestAndTakeawayChargesToArea` EF Core migration.
-*   **DTOs Updated:**
-    *   Added `guestCharge` and `takeawayCharge` to `AreaDto.cs` and `AreaUpsertDto.cs`.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/AreaService.cs` Updated:**
-    *   Updated the mapping logic in `GetAllAreasAsync`, `GetAreaByIdAsync`, `GetAreaBySlugsAsync`, and `UpdateAreaAsync` to include the new charge properties.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs` Updated:**
-    *   Modified `CreateOrderAsync` and `ConfirmPreOrderPaymentAsync` to add the `GuestCharge` (multiplied by `NumberOfGuests`) or the `TakeawayCharge` to the order's `TotalAmount` based on the `IsTakeaway` flag.
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs` Updated:**
-    *   Modified `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync` to display the new charges as separate line items on the printed receipt for clarity.
-**Key Decisions:**
-*   The charges are configured at the `Area` level, providing flexibility for different operational zones.
-*   The logic correctly distinguishes between applying the guest charge for dine-in orders and the takeaway charge for takeaway orders.
-
-## (2025-06-08) - Increased QR Code Size on Receipts
-**Context:** The QR codes printed on receipts were too small, causing difficulty for cameras to scan them reliably.
-**Accomplishments:**
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs` Modified:**
-    *   Investigated the `EscPosDocumentBuilder` utility and identified that the `PrintQRCode` method accepts a `moduleSize` parameter to control the QR code's dot size.
-    *   Updated the calls to `docBuilder.PrintQRCode(...)` in both the `PrintOrderDocumentsAsync` (for initial receipts) and `ReprintOrderDocumentsAsync` (for reprints) methods.
-    *   The `moduleSize` argument was explicitly set to `6`, effectively doubling it from the default value of `3`.
-**Key Decisions:**
-*   Increased the QR code size directly via the existing `moduleSize` parameter in the `EscPosDocumentBuilder` to ensure a simple and reliable change. This should improve scannability without altering the QR code's content.
-changed from string to byte[] the prinitng. euro symbol still not prinitng correctly. qr code still to small!!!
-
-## (2025-06-07) - Refactored Comanda Printing for Mobile & Waiter-Confirmed Orders
-**Context:** Completed the backend implementation for the mobile table ordering feature by ensuring comanda printing logic is consistent between implicitly confirmed mobile orders and explicitly confirmed waiter orders.
-**Accomplishments:**
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs` Refactored:**
-    *   **Extracted Printing Logic:** Created a new private helper method, `TriggerDeferredComandaPrintingAsync(Order order)`, which encapsulates the logic for printing comandas to category-specific printers. This method correctly checks if a comanda was already printed at a cashier station before proceeding, preventing duplicates.
-    *   **Refactored `ConfirmOrderPreparationAsync`:** The existing comanda printing block was replaced with a single call to the new `TriggerDeferredComandaPrintingAsync` helper method.
-    *   **Updated `CreateOrderAsync`:** Added a call to `TriggerDeferredComandaPrintingAsync` within the logic that handles mobile table orders (i.e., when an order is created with a `TableNumber` and `WaiterId` is set). This ensures that mobile orders that bypass the `Paid` status now trigger the same comanda printing logic as orders confirmed manually by a waiter.
-**Key Decisions:**
-*   Centralized the deferred comanda printing logic into a single, reusable method to eliminate code duplication and ensure workflow consistency.
-*   This change guarantees that whether an order's preparation is confirmed implicitly (via mobile table order) or explicitly (via waiter app), the comanda printing follows the identical, correct procedure.
-
-## (2025-06-07) - Implemented Mobile Table Order Backend Logic
-**Context:** Aligned the backend with the `MobileTableOrderingArchitecture.md` to support the new frontend table ordering interface.
-**Accomplishments:**
-*   **`SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs` Updated:**
-    *   Modified `CreateOrderAsync` to handle orders submitted with a `TableNumber`.
-    *   If an order includes a `TableNumber` and the corresponding `Area` has `EnableWaiterConfirmation` set to `true`, the system now bypasses the `OrderStatus.Paid` state.
-    *   The order status is advanced directly to `Preparing` (if KDS is enabled), `ReadyForPickup`, or `Completed`, effectively treating the submission as an implicit waiter confirmation.
-    *   The `WaiterId` on the `Order` is now set to the ID of the user creating the table order.
-*   **`SagraFacile.NET/SagraFacile.NET.API/DTOs/CreateOrderDto.cs` Updated:**
-    *   Added a nullable `string? TableNumber` property to the DTO to receive the table number from the client.
-    *   Added a nullable `int? CashierStationId` property to the DTO.
-**Key Decisions:**
-*   The backend now intelligently progresses the order status for table-side orders, streamlining the workflow as per the architectural design.
-*   The user creating the order from the mobile interface is considered both the cashier and the confirming waiter in this specific flow.
-
-## (2025-06-06) - Enhanced WindowsPrinterService UI/UX and Connection Logic
-**Context:** Improved the `SagraFacile.WindowsPrinterService` companion app for better usability, clearer status feedback, and more robust connection handling, in preparation for debugging USB thermal printer functionality.
-**Accomplishments:**
-*   **`SettingsForm.Designer.cs` (UI Layout & Controls):**
-    *   Localized all user-facing text (labels, buttons, group titles) to Italian.
-    *   Added `btnGenerateGuid` ("Genera GUID") button for easier Instance GUID creation.
-    *   Added `lblStatus` label within a group box to display real-time SignalR connection status (color-coded).
-    *   Added `btnTestPrinter` ("Test Stampante") button to allow direct printer testing from the settings form.
-    *   Updated placeholder text for "URL Base Server" (`txtHubUrl`) to expect a full base URL (e.g., `https://server:port`).
-    *   Adjusted control layout and sizes for clarity.
-*   **`SettingsForm.cs` (UI Logic):**
-    *   Implemented `UpdateConnectionStatus(string statusMessage, Color statusColor)` for thread-safe updates to `lblStatus`.
-    *   Added `SignalRServiceInstance` property (with `[Browsable(false)]` and `[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]`) to hold a reference to the `SignalRService`.
-    *   Modified `ButtonSave_Click` to be `async void` and to call `SignalRServiceInstance.RestartAsync()` after saving settings, to apply new connection parameters immediately. Validation messages and save confirmations are now in Italian.
-    *   Implemented `BtnTestPrinter_Click` event handler: retrieves selected printer, creates test data, and calls `SignalRServiceInstance.TestPrintAsync()`. Displays results in Italian.
-    *   Ensured event handlers for new buttons are wired up.
-    *   Added necessary `using` directives (`SagraFacile.WindowsPrinterService.Services`, `System.ComponentModel`, `System.Threading`).
-*   **`Services/SignalRService.cs` (Connection & Core Logic):**
-    *   **URL Parsing:** `StartAsync` now correctly interprets the Hub URL setting as a full base URL and appends `/api/orderhub`. Includes improved validation.
-    *   **Certificate Handling (Dev):** Enabled `ServerCertificateCustomValidationCallback` to bypass SSL certificate validation for development/testing, with a prominent warning log.
-    *   **Status Reporting:**
-        *   `SetSettingsForm()` method allows `ApplicationLifetimeService` to link the `SettingsForm` instance.
-        *   `OnConnectionStatusChanged()` now updates the linked `SettingsForm`'s status label with Italian messages and appropriate colors (via `DetermineColorForStatus`).
-    *   **Restart Capability:** Added `public async Task RestartAsync(CancellationToken cancellationToken)` to stop and then restart the SignalR connection (used after settings are saved).
-    *   **Test Print Capability:** Added `public async Task<bool> TestPrintAsync(string printerName, string testData)` to send raw test data to a specified printer via `_rawPrinter`.
-    *   Status messages passed to `OnConnectionStatusChanged` (and thus to the UI) are now in Italian.
-*   **`ApplicationLifetimeService.cs` (Orchestration):**
-    *   Modified `OnSettingsClicked()` to set both `_signalRService.SetSettingsForm(settingsForm)` (for status updates from service to form) and `settingsForm.SignalRServiceInstance = _signalRService` (for actions from form to service like restart).
-**Key Decisions:**
-*   Centralized printer testing logic within `SignalRService` as it already holds the `IRawPrinter` dependency.
-*   Made SignalR service restart automatically upon saving settings to immediately apply changes.
-*   Prioritized Italian localization for all user-facing elements in the Settings Form.
-*   Implemented a development-only SSL certificate bypass with clear warnings.
-**Next Steps:**
-*   User to build and test the `SagraFacile.WindowsPrinterService` thoroughly:
-    *   Verify UI localization and new controls.
-    *   Test SignalR connection with correct base URL (e.g., `https://<IP>:<PORT>`).
-    *   Confirm status label updates correctly (connecting, connected, registered, disconnected, errors).
-    *   Test "Genera GUID", "Test Stampante", and saving settings (triggering service restart).
-*   If connection issues persist, use breakpoints in `SignalRService.cs` (e.g., in `StartAsync` after reading config, after URL construction, in `ConnectWithRetriesAsync` catch block) and in `SettingsForm.cs` (`GetSignalRConfig`).
-    *   Once the companion app's UI/UX and connection are stable, resume debugging USB thermal printer functionality.
-
-## (2025-06-06) - Resolved JsonException in Printer Assignments API
-**Context:** Encountered a `System.Text.Json.JsonException` (object cycle detected) when retrieving printer assignments via the `GET /api/Printers/{printerId}/assignments` endpoint. This was due to circular references between `Printer` and `PrinterCategoryAssignment` entities during serialization.
-**Accomplishments:**
-*   **`PrinterCategoryAssignmentDto.cs` Created (`SagraFacile.NET/SagraFacile.NET.API/DTOs/`):**
-    *   Introduced a new DTO (`PrinterCategoryAssignmentDto`) to represent printer assignments specifically for API responses. This DTO includes `PrinterId`, `MenuCategoryId`, `MenuCategoryName`, and `MenuCategoryAreaId`, effectively flattening the structure and avoiding the circular reference to the `Printer` entity.
-*   **`IPrinterAssignmentService.cs` Updated:**
-    *   Modified the `GetAssignmentsForPrinterAsync` method signature to return `Task<IEnumerable<PrinterCategoryAssignmentDto>>` instead of `Task<IEnumerable<PrinterCategoryAssignment>>`.
-*   **`PrinterAssignmentService.cs` Updated:**
-    *   Adjusted the `GetAssignmentsForPrinterAsync` implementation to:
-        *   Use the new `PrinterCategoryAssignmentDto`.
-        *   Modify the LINQ query to select and map the `PrinterCategoryAssignment` entities (with their related `MenuCategory` details) into `PrinterCategoryAssignmentDto` instances. This ensures only the necessary, non-cyclical data is returned.
-**Key Decisions:**
-*   Opted for a targeted DTO approach to resolve the serialization cycle instead of a global `JsonSerializerOptions` change (e.g., `ReferenceHandler.Preserve`), to avoid potential unintended side effects in other parts of the API.
-**Next Steps:**
-*   User to test the `GET /api/Printers/{id}/assignments?areaId={areaId}` endpoint to confirm the `JsonException` is resolved and the data is returned as expected.
-
-## (2025-06-06) - Resolved .NET Build Error on macOS
-**Context:** Encountered a build error `NETSDK1100` when attempting to build the `SagraFacile.WindowsPrinterService` project on macOS.
-**Accomplishments:**
-*   **`SagraFacile.WindowsPrinterService.csproj` Updated:**
-    *   Added `<EnableWindowsTargeting>true</EnableWindowsTargeting>` to the main `<PropertyGroup>` to allow building the Windows-targeted project on a non-Windows OS. This resolves the `NETSDK1100` error.
-
-**Next Steps:**
-*   Attempt to build the project again to confirm the fix.
-
 ## (Next Session) - Planned Work
 **Context:** Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub.
 **Next Steps:**
@@ -475,6 +144,64 @@ changed from string to byte[] the prinitng. euro symbol still not prinitng corre
     *   Once the companion app is improved and its connection/registration can be reliably verified, continue debugging the USB thermal printer functionality.
     *   Focus on ensuring the companion app correctly registers with the `OrderHub` using the matching GUID.
     *   Verify print jobs are dispatched and received by the companion app.
+
+
+---
+# Historical Sessions (Condensed)
+
+## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
+*   **Summary:** Completed on-demand printing for Windows Companion App, making it a full-window UI with minimize-to-tray. Implemented models (`PrintMode`, `PrinterConfigDto`, `PrintJobItem`), updated `SignalRService` for config fetching, job queuing/printing, and SSL bypass. Created `PrintStationForm` for queue management and refactored `ApplicationLifetimeService` for form lifecycle. Key decisions included full-window UI, dev SSL bypass, and `ApplicationLifetimeService` managing `PrintStationForm`. User testing of UI, config, job handling, and tray icon functionality is next.
+
+## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
+*   **Summary:** Implemented backend support for on-demand printing. Added `PrintMode` to `Printer` entity (defaulting to `Immediate`), created EF Core migration. Updated DTOs (`PrinterDto`, `PrinterUpsertDto`) and `PrinterService` to handle `PrintMode`. Added public endpoint `GET /api/printers/config/{instanceGuid}` for companion app to fetch config. Key decisions: `PrintMode` defaults to `Immediate`, public config endpoint. Next steps: apply migration, update Admin UI, implement companion app logic for on-demand queue and UI.
+
+## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
+*   **Summary:** Refactored `EscPosDocumentBuilder` to use `ESCPOS_NET` library to fix special character encoding (Euro symbol, accented chars) and small QR codes. Set default code page to `PC858_EURO` and updated `PrintQRCode` to use `ESCPOS_NET.Size2DCode` (e.g., `EXTRA`, `LARGE`). `SetDoubleStrike` is currently non-functional. Key decisions: Adopted `ESCPOS_NET` for reliability, prioritized character encoding and QR code size. Next steps: Thoroughly test printing, review `PrinterService` for QR code sizing, investigate `SetDoubleStrike` if critical.
+
+## (2025-06-12) - Configurable PreOrder Polling Service
+*   **Summary:** Added ability to enable/disable `PreOrderPollingBackgroundService` via `ENABLE_PREORDER_POLLING_SERVICE` environment variable. Updated `.env.example` and `docker-compose.yml` to pass this variable, defaulting to `true`. Modified `Program.cs` to conditionally register the service based on this config, with clear startup logging. Key decisions: Polling service enabled by default, clear startup logging.
+
+## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
+*   **Summary:** Changed deployment strategy to use pre-built Docker images from a container registry instead of local builds, simplifying user setup. Updated `docker-compose.yml` to use `image:` directives. Created `start.bat/sh`, `update.bat/sh`, `stop.bat/sh` helper scripts. Updated `README.md` and `DEPLOYMENT_ARCHITECTURE.md` to reflect the new, simpler process. Key decisions: Pre-built images for simplified user experience, removing local build requirements. Next steps (developer): Set up CI/CD for image building/pushing, update `docker-compose.yml` with actual image paths, finalize distributable package.
+
+## (2025-06-11) - Initiated Docker-Based Deployment Setup (Backend Aspects)
+*   **Summary:** Began comprehensive Docker-based deployment setup. Documented `DEPLOYMENT_ARCHITECTURE.md` (5-phase plan, Docker, Caddy). Verified `SagraFacile.NET.API/Dockerfile` (exposes 8080). Created `docker-compose.yml` (db, backend, frontend, caddy services, volumes, env vars, dependencies). Created `Caddyfile` (HTTPS, local_certs, reverse proxy). Created `.env.example`. Key decisions: Backend on 8080, Caddy for HTTPS, specific Caddy container name, direct connection string construction. Created `setup.bat/sh` scripts and updated `README.md` for user guidance. Next steps: Package components, finalize Windows Printer Service, create Windows Installer.
+
+## (2025-06-11) - Resolved Static Web Asset Conflict After Project Rename
+*   **Summary:** Resolved a `Conflicting assets` build error in `SagraFacile.NET.API` after project rename from `SagraPOS.NET.API`. The issue was stale references to the old project name. Resolved by manually deleting `obj` and `bin` directories within the project folder and rebuilding. Key decision: Manual deletion of build artifacts was necessary as `dotnet clean` was insufficient. Outcome: Project now builds successfully.
+
+## (2025-06-11) - Fixed VS Code Launch Configuration for .NET API
+*   **Summary:** Fixed broken VS Code launch configuration after renaming .NET project from `SagraPOS.NET.API` to `SagraFacile.NET.API`. Updated `.vscode/launch.json` to add a new configuration `"C#: SagraFacile.NET.API [https]"` that correctly references the project's `launchSettings.json` "https" profile. Key decision: Tailored new launch config to existing "https" profile. Next step: User to test launching the API with F5.
+
+## (2025-06-09) - Fixed Public Display Authentication Errors
+*   **Summary:** Resolved authentication errors on public Queue Display and Order Pickup Display pages. Removed authenticated `GET /api/areas/{areaId}/queue/state` from `QueueController`. Added new public endpoint `GET /api/public/areas/{areaId}/queue/state` to `PublicController`. Updated `GET /api/public/areas/{areaId}/orders/ready-for-pickup` to use new public-safe service methods (`GetPublicOrdersByStatusAsync` in `OrderService`, `GetPublicCurrentOpenDayAsync` in `DayService`). Key decisions: Moved queue state to `PublicController`, created parallel public service methods to avoid regressions.
+
+## (2025-06-09) - Finalized and Debugged Dynamic Ad Carousel
+*   **Summary:** Completed dynamic ad carousel implementation and debugged media serving/display issues. Enabled static file serving (`app.UseStaticFiles()` in `Program.cs`). Changed ad media storage path from `/media/ads` to `/media/promo` to avoid ad blockers. Added public API endpoint `GET /api/public/areas/{areaId}/ads` to `PublicController.cs` to serve active promotional media.
+
+## (2025-06-08) - Implemented Guest and Takeaway Charges
+*   **Summary:** Implemented per-guest "coperto" and per-order "asporto" fees. Added `GuestCharge` and `TakeawayCharge` decimal properties to `Area.cs` entity and applied EF Core migration. Updated DTOs (`AreaDto`, `AreaUpsertDto`) and `AreaService` mapping logic. Modified `OrderService` (`CreateOrderAsync`, `ConfirmPreOrderPaymentAsync`) to apply charges based on `NumberOfGuests` or `IsTakeaway`. Updated `PrinterService` to display charges on receipts. Key decisions: Charges configured at `Area` level, logic distinguishes between guest and takeaway charges.
+
+## (2025-06-08) - Increased QR Code Size on Receipts
+*   **Summary:** Increased QR code size on receipts to improve scannability. Modified `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs` to set `moduleSize` parameter to `6` (doubled from `3`) in `EscPosDocumentBuilder.PrintQRCode(...)` calls for initial and reprint receipts. Key decision: Increased QR code size via existing `moduleSize` parameter. Note: Euro symbol still not printing correctly, QR code still too small despite this change.
+
+## (2025-06-07) - Refactored Comanda Printing for Mobile & Waiter-Confirmed Orders
+*   **Summary:** Refactored comanda printing in `OrderService.cs` for consistency between mobile and waiter-confirmed orders. Extracted printing logic into `TriggerDeferredComandaPrintingAsync(Order order)` helper method, which checks for prior printing. Replaced existing printing block in `ConfirmOrderPreparationAsync` and added call to `CreateOrderAsync` for mobile table orders. Key decisions: Centralized printing logic for consistency and to prevent duplicates.
+
+## (2025-06-07) - Implemented Mobile Table Order Backend Logic
+*   **Summary:** Implemented backend logic for mobile table ordering. Modified `OrderService.CreateOrderAsync` to handle orders with `TableNumber`. If `Area.EnableWaiterConfirmation` is true, order status bypasses `Paid` and goes directly to `Preparing`/`ReadyForPickup`/`Completed`. `WaiterId` is set to the user creating the order. Added nullable `TableNumber` and `CashierStationId` to `CreateOrderDto.cs`. Key decisions: Backend intelligently progresses order status for table-side orders, user creating order is considered cashier/waiter.
+
+## (2025-06-06) - Enhanced WindowsPrinterService UI/UX and Connection Logic
+*   **Summary:** Improved `SagraFacile.WindowsPrinterService` UI/UX and connection handling. Localized `SettingsForm.Designer.cs` to Italian, added GUID generation and test printer buttons, and real-time connection status. `SettingsForm.cs` now updates status, restarts `SignalRService` on save, and handles test prints. `SignalRService.cs` improved URL parsing, added dev SSL bypass, status reporting, and restart/test print capabilities. `ApplicationLifetimeService.cs` orchestrates `SettingsForm` and `SignalRService` interaction. Key decisions: Centralized printer testing, auto-restart on save, Italian localization, dev SSL bypass. Next steps: Thorough user testing of UI, connection, and functionality.
+
+## (2025-06-06) - Resolved JsonException in Printer Assignments API
+*   **Summary:** Resolved `System.Text.Json.JsonException` (object cycle detected) when retrieving printer assignments via `GET /api/Printers/{printerId}/assignments`. Created `PrinterCategoryAssignmentDto.cs` to flatten the structure and avoid circular references. Updated `IPrinterAssignmentService.cs` and `PrinterAssignmentService.cs` to return and map to this new DTO. Key decision: Used targeted DTO to resolve serialization cycle. Next step: User to test endpoint.
+
+## (2025-06-06) - Resolved .NET Build Error on macOS
+*   **Summary:** Resolved `NETSDK1100` build error for `SagraFacile.WindowsPrinterService` on macOS. Added `<EnableWindowsTargeting>true</EnableWindowsTargeting>` to `SagraFacile.WindowsPrinterService.csproj` to allow building Windows-targeted project on non-Windows OS. Next step: Confirm fix by rebuilding.
+
+## (Next Session) - Planned Work
+*   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 
 
 ---

@@ -7,7 +7,7 @@ namespace SagraFacile.WindowsPrinterService.Models
         [JsonPropertyName("printMode")]
         public PrintMode PrintMode { get; set; }
 
-        [JsonPropertyName("windowsPrinterName")]
-        public string? WindowsPrinterName { get; set; }
+        // [JsonPropertyName("windowsPrinterName")] // Removed
+        // public string? WindowsPrinterName { get; set; } // Removed
     }
 }

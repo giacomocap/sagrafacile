@@ -15,7 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { MoreHorizontal, CheckCircle, XCircle, Network, Usb } from 'lucide-react';
+import { MoreHorizontal, CheckCircle, XCircle, Network, Usb, Send } from 'lucide-react';
 import PrinterFormDialog from '@/components/admin/PrinterFormDialog';
 import { toast } from 'sonner';
 
@@ -43,6 +43,8 @@ export default function PrintersPage() {
   const [printerToDelete, setPrinterToDelete] = useState<PrinterDto | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [isSendingTestPrint, setIsSendingTestPrint] = useState<number | null>(null); // Store printer ID being tested
 
   // --- Gestori Eventi ---
   const handleCopyClick = useCallback(async (text: string) => {
@@ -73,7 +75,7 @@ export default function PrintersPage() {
 
   useEffect(() => {
     if (user) { // Recupera solo quando il contesto utente è disponibile
-        fetchPrinters();
+      fetchPrinters();
     }
   }, [user, fetchPrinters]);
 
@@ -104,19 +106,33 @@ export default function PrintersPage() {
     setDeleteError(null);
 
     try {
-        await printerService.deletePrinter(printerToDelete.id);
-        toast.success("Stampante eliminata con successo.");
-        await fetchPrinters(); // Ricarica la lista
-        setIsDeleteDialogOpen(false);
-        setPrinterToDelete(null);
+      await printerService.deletePrinter(printerToDelete.id);
+      toast.success("Stampante eliminata con successo.");
+      await fetchPrinters(); // Ricarica la lista
+      setIsDeleteDialogOpen(false);
+      setPrinterToDelete(null);
     } catch (err: unknown) {
-        console.error('Errore nell\'eliminazione della stampante:', err);
-        const errorResponse = (err as { response?: { data?: { title?: string, message?: string } } }).response?.data;
-        const errorMessage = errorResponse?.title
-                            || errorResponse?.message
-                            || 'Eliminazione stampante fallita. Potrebbe essere assegnata come Stampante Scontrini in un\'Area.';
-        setDeleteError(errorMessage);
-        toast.error("Errore eliminazione stampante", { description: errorMessage });
+      console.error('Errore nell\'eliminazione della stampante:', err);
+      const errorResponse = (err as { response?: { data?: { title?: string, message?: string } } }).response?.data;
+      const errorMessage = errorResponse?.title
+        || errorResponse?.message
+        || 'Eliminazione stampante fallita. Potrebbe essere assegnata come Stampante Scontrini in un\'Area.';
+      setDeleteError(errorMessage);
+      toast.error("Errore eliminazione stampante", { description: errorMessage });
+    }
+  };
+
+  const handleSendTestPrint = async (printerId: number) => {
+    setIsSendingTestPrint(printerId);
+    try {
+      const response = await printerService.sendTestPrint(printerId);
+      toast.success("Stampa di Test Inviata", { description: response.message });
+    } catch (err: any) {
+      console.error('Errore invio stampa di test:', err);
+      const errorMessage = err.response?.data?.message || 'Invio stampa di test fallito.';
+      toast.error("Errore Stampa di Test", { description: errorMessage });
+    } finally {
+      setIsSendingTestPrint(null);
     }
   };
 
@@ -194,27 +210,43 @@ export default function PrintersPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Apri menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Azioni</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleOpenEditDialog(printer)}>
-                                Modifica
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                    onClick={() => handleOpenDeleteDialog(printer)}
-                                >
-                                Elimina
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Apri menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Azioni</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(printer)}>
+                            Modifica
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleSendTestPrint(printer.id)}
+                            disabled={isSendingTestPrint === printer.id || !printer.isEnabled}
+                          >
+                            {isSendingTestPrint === printer.id ? (
+                              <>
+                                <Send className="mr-2 h-4 w-4 animate-pulse" />
+                                Invio Test...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="mr-2 h-4 w-4" />
+                                Stampa Test
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                            onClick={() => handleOpenDeleteDialog(printer)}
+                          >
+                            Elimina
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -236,27 +268,27 @@ export default function PrintersPage() {
       />
 
       {/* Dialog Conferma Eliminazione */}
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                <AlertDialogTitle>Sei assolutamente sicuro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Questa azione non può essere annullata. Questo eliminerà permanentemente la stampante
-                    <span className="font-semibold"> {printerToDelete?.name}</span>.
-                    {deleteError && <p className="text-red-500 text-sm mt-2">{deleteError}</p>}
-                </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPrinterToDelete(null)}>Annulla</AlertDialogCancel>
-                <AlertDialogAction
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    onClick={handleDeletePrinter}
-                >
-                    Elimina Stampante
-                </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sei assolutamente sicuro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Questa azione non può essere annullata. Questo eliminerà permanentemente la stampante
+              <span className="font-semibold"> {printerToDelete?.name}</span>.
+              {deleteError && <p className="text-red-500 text-sm mt-2">{deleteError}</p>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPrinterToDelete(null)}>Annulla</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeletePrinter}
+            >
+              Elimina Stampante
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

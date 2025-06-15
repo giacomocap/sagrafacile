@@ -86,9 +86,10 @@ namespace SagraFacile.NET.API.Controllers
                  Name = createdPrinter.Name,
                  Type = createdPrinter.Type,
                  ConnectionString = createdPrinter.ConnectionString,
-                 WindowsPrinterName = createdPrinter.WindowsPrinterName,
+                 // WindowsPrinterName = createdPrinter.WindowsPrinterName, // Removed
                  IsEnabled = createdPrinter.IsEnabled,
-                 OrganizationId = createdPrinter.OrganizationId
+                 OrganizationId = createdPrinter.OrganizationId,
+                 PrintMode = createdPrinter.PrintMode // Ensure PrintMode is mapped
             };
 
             return CreatedAtAction(nameof(GetPrinter), new { id = createdPrinter.Id }, resultDto);
@@ -158,7 +159,43 @@ namespace SagraFacile.NET.API.Controllers
             }
 
             // Return a simple object with the configuration
-            return Ok(new { config.Value.PrintMode, config.Value.WindowsPrinterName });
+            // WindowsPrinterName is no longer part of the config returned by the service
+            return Ok(new { PrintMode = config.Value });
+        }
+
+        // POST: api/Printers/5/test-print
+        [HttpPost("{id}/test-print")]
+        [Authorize(Roles = "Admin,SuperAdmin")] // Ensure only authorized users can trigger this
+        public async Task<IActionResult> TestPrint(int id)
+        {
+            _logger.LogInformation("Received request to test print for printer ID: {PrinterId}", id);
+
+            var (success, error) = await _printerService.SendTestPrintAsync(id);
+
+            if (!success)
+            {
+                if (error == "Printer not found.")
+                {
+                    _logger.LogWarning("Test print failed for printer ID {PrinterId}: Printer not found.", id);
+                    return NotFound(new { message = error });
+                }
+                if (error == "User not authorized for this printer.")
+                {
+                    _logger.LogWarning("Test print failed for printer ID {PrinterId}: User not authorized.", id);
+                    return Forbid(); // Or BadRequest(new { message = error }) if Forbid is too strong
+                }
+                if (error == "Printer is disabled.")
+                {
+                    _logger.LogWarning("Test print failed for printer ID {PrinterId}: Printer is disabled.", id);
+                    return BadRequest(new { message = error });
+                }
+                // For other errors from SendToPrinterAsync (e.g., network issues)
+                _logger.LogError("Test print failed for printer ID {PrinterId}: {Error}", id, error);
+                return StatusCode(500, new { message = $"Test print failed: {error}" });
+            }
+
+            _logger.LogInformation("Test print successfully sent to printer ID: {PrinterId}", id);
+            return Ok(new { message = "Test print sent successfully." });
         }
     }
 }
