@@ -101,7 +101,7 @@ namespace SagraFacile.WindowsPrinterService
 
             if (jobToPrint != null)
             {
-                LogActivity($"Stampa Job ID: {jobToPrint.JobId} per stampante: {jobToPrint.TargetWindowsPrinterName}...");
+                LogActivity($"Stampa Job ID: {jobToPrint.JobId} per stampante");
                 bool success = await _signalRService.PrintQueuedJobAsync(jobToPrint);
                 if (success)
                 {

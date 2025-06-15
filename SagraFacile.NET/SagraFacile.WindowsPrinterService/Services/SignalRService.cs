@@ -348,8 +348,8 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             if (rawData != null)
             {
-                // string hexString = string.Join(" ", rawData.Select(b => b.ToString("X2"))); // Can be very verbose
-                // _logger.LogDebug("Received Print Job Data (HEX) for JobID {JobId}: {HexString}", jobId, hexString);
+                string hexString = string.Join(" ", rawData.Select(b => b.ToString("X2"))); // Can be very verbose
+                _logger.LogInformation("Received Print Job Data (HEX) for JobID {JobId}: {HexString}", jobId, hexString);
             }
 
             if (string.IsNullOrWhiteSpace(printerToUse))
