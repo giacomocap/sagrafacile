@@ -30,6 +30,15 @@ if (appDomain) {
   });
 }
 
+// Add internal API service pattern for direct access from frontend container
+// This allows Next.js to fetch images directly from the API service without going through Caddy
+remotePatternsConfig.push({
+  protocol: 'http', // Internal Docker network uses HTTP
+  hostname: 'api', // Internal service name
+  port: '8080', // Internal API port
+  pathname: '/media/**', // Allow all images served under /media/
+});
+
 // Existing patterns below are likely for local development or specific IP access.
 // Add them to the remotePatternsConfig array
 remotePatternsConfig.push(
@@ -51,6 +60,9 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["http://192.168.1.219:3000", "https://192.168.1.219:3000", "https://192.168.1.38"],
   images: {
     remotePatterns: remotePatternsConfig,
+    // Custom loader to handle internal API routing
+    loader: 'custom',
+    loaderFile: './src/lib/imageLoader.ts',
   },
 };
 
