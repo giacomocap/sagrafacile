@@ -12,6 +12,21 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-15) - Resolved Docker Permissions for API Media Uploads
+**Context:** The .NET API service, when running in Docker, encountered `System.UnauthorizedAccessException` when attempting to save uploaded ad media to `/app/wwwroot/media/promo`. This was due to the application user (`$APP_UID`) lacking write permissions to the target directory.
+**Accomplishments:**
+*   **Diagnosed Permission Issue:** Identified that the non-root user specified in the API's Dockerfile (`USER $APP_UID`) did not have write access to the `wwwroot/media` directory after it was copied during the image build.
+*   **Dockerfile Modification (`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`):**
+    *   The `final` stage was updated to correctly prepare the media directory.
+    *   Added `USER root` before creating the `/app/wwwroot/media/promo` directory and setting its ownership to `$APP_UID:$APP_UID` and permissions to `755`.
+    *   Switched back to `USER $APP_UID` after these operations to ensure the application runs with the intended non-root user. This resolved a build failure where `mkdir` was denied permission when run as `$APP_UID`.
+*   **Docker Compose Update (`docker-compose.yml`):**
+    *   Removed the temporary `user: root` directive from the `api` service definition, as the permission issue is now correctly handled within the Docker image build process.
+**Key Decisions:**
+*   Prioritized running the API service as a non-root user for security.
+*   Ensured that directory creation and permission settings within the Dockerfile are executed by a user with sufficient privileges (`root`) before switching to the less privileged application user.
+**Outcome:** The .NET API can now successfully save uploaded ad media files within the Docker container without requiring the service to run as root. The Docker image builds successfully with the corrected permission setup.
+
 ## (2025-06-15) - Resolved Next.js Image Optimization Issue in Docker Environment
 **Context:** The SagraFacile frontend was experiencing "400 Bad Request - The requested resource isn't a valid image" errors when using Next.js image optimization (`/_next/image`) in the Docker production environment. While direct image access worked, Next.js's internal image fetcher was receiving HTML responses instead of image content, indicating a circular routing issue through Caddy.
 **Accomplishments:**
