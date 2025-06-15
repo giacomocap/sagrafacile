@@ -18,7 +18,7 @@ services:
       - ACME_AGREE=true # Added as per slothcroissant image docs, to agree to Let's Encrypt's SA
     depends_on:
       - api
-      - frontend
+      # - frontend # Removed to break circular dependency with frontend's extra_hosts
 
   # The C# API (NO LONGER EXPOSES PORTS TO HOST)
   api: # Renamed from 'backend'
@@ -54,8 +54,11 @@ services:
       NEXT_PUBLIC_API_BASE_URL: /api # Preserved from existing
       NODE_ENV: production # Preserved from existing
       MY_DOMAIN: ${MY_DOMAIN} # Added for Next.js Image optimization to know its public domain
+    extra_hosts:
+      - "${MY_DOMAIN}:host-gateway" # Make MY_DOMAIN resolve to the host's IP, which Caddy is mapped to
     depends_on:
       - api
+      - caddy # Add explicit dependency on caddy
 
   # The PostgreSQL Database (no direct port exposure to host)
   db:
