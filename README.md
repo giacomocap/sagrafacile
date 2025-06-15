@@ -230,7 +230,6 @@ For printing receipts and comandas to USB-connected printers on Windows machines
     *   **Selected Printer:** Choose the correct Windows printer from the dropdown.
 4.  Ensure the Windows PC can access the SagraFacile server URL (e.g., `https://pos.my-restaurant-pos.com`). The Let's Encrypt certificate will be trusted automatically by Windows if the PC has internet access.
 5.  In the SagraFacile Admin interface, configure these printers using their GUIDs.
->>>>>>> REPLACE
 
 See `docs/PrinterArchitecture.md` for more details.
 

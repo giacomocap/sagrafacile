@@ -6,6 +6,11 @@
     # If path starts with /api/, proxy to backend, keeping /api/ in the path
     reverse_proxy /api/* api:8080
 
+    # Route media file requests directly to the API.
+    # The API serves static files from its wwwroot, so /media/... should map to /app/wwwroot/media/...
+    # This needs to come BEFORE the frontend proxy.
+    reverse_proxy /media/* api:8080
+
     # For all other paths, proxy to frontend
     reverse_proxy frontend:3000
 
