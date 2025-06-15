@@ -55,8 +55,9 @@ namespace SagraFacile.NET.API.Utils
             
             // Initialize printer and set default code page for European characters
             AppendCommand(_emitter.Initialize());
-            // PC858_EURO (Code Page 19)
-            AppendCommand(_emitter.CodePage(CodePage.PC858_EURO));
+            // User confirmed Code Page 14 works for their printer (IBM CP858 variant)
+            int i = 14; 
+            AppendCommand(_emitter.CodePage((CodePage)i));
         }
 
         private EscPosDocumentBuilder AppendCommand(byte[] command)
@@ -87,7 +88,9 @@ namespace SagraFacile.NET.API.Utils
             _commands.Clear(); // Clear existing commands if re-initializing
             _currentStyles = PrintStyle.None;
             AppendCommand(_emitter.Initialize());
-            return AppendCommand(_emitter.CodePage(CodePage.PC858_EURO)); // Re-apply code page
+            // User confirmed Code Page 14 works for their printer (IBM CP858 variant)
+            int i = 14; 
+            return AppendCommand(_emitter.CodePage((CodePage)i)); // Re-apply code page
         }
 
         public EscPosDocumentBuilder AppendText(string text)

@@ -13,6 +13,20 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-15) - Fixed Printer Character Encoding for Euro & Accented Characters
+**Context:** Euro symbol (€) and accented characters (à, è, ì, ò, ù, etc.) were printing incorrectly on thermal receipts and comandas. The printer manual indicated support for an IBM code page at index 14.
+**Accomplishments:**
+*   **Identified Correct Code Page:** User confirmed via printer manual that code page 14 (likely a variant of IBM CP858) was the correct one for their printer.
+*   **`EscPosDocumentBuilder.cs` Update:**
+    *   Modified the constructor and `InitializePrinter()` method to default to `(CodePage)14`. This ensures all documents (receipts, comandas, test prints) use this code page by default.
+*   **`PrinterService.cs` Update:**
+    *   Removed an explicit selection of `CodePage.PC858_EURO` (which corresponds to code page 19) from the receipt generation logic in `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync`. This allows the builder's new default (CP 14) to be used consistently.
+    *   The `SendTestPrintAsync` method was initially updated to test CP14, and this explicit selection remains for clarity during test prints, though it's now redundant with the builder's default.
+**Key Decisions:**
+*   Standardized on Code Page 14 for all ESC/POS document generation based on printer manual and successful testing.
+*   Made Code Page 14 the default in `EscPosDocumentBuilder` for system-wide consistency.
+**Outcome:** Euro symbol and accented characters now print correctly on all thermal printer outputs.
+
 ## (2025-06-15) - Refactored Windows Printer Name Handling
 **Context:** The `WindowsPrinterName` for `WindowsUsb` type printers was previously managed and stored in the backend database and sent to the Windows Printer Service companion app. This created redundancy as the companion app already manages the specific Windows printer to use via its local profiles (`SelectedPrinter` in `ProfileSettings`).
 **Accomplishments:**

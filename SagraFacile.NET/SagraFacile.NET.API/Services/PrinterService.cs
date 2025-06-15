@@ -421,10 +421,10 @@ namespace SagraFacile.NET.API.Services
                 {
                     if (receiptPrinter.IsEnabled)
                     {
-                        var docBuilder = new EscPosDocumentBuilder();
-                        docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
-                        // Explicitly re-select for absolute clarity in this service's logic.
-                        docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
+                        var docBuilder = new EscPosDocumentBuilder(); // Constructor now defaults to CodePage 14
+                        docBuilder.InitializePrinter(); // Also re-initializes with CodePage 14
+                        // No longer needed to explicitly select PC858_EURO (CP19) as builder defaults to CP14.
+                        // docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO); 
                         docBuilder.SetAlignment(EscPosAlignment.Center);
                         docBuilder.SetEmphasis(true);
                         docBuilder.AppendLine(order.Organization?.Name ?? "Sagrafacile");
@@ -849,9 +849,9 @@ namespace SagraFacile.NET.API.Services
             var docBuilder = new EscPosDocumentBuilder(); // Reusable builder
 
             // --- Receipt Reprinting --- (Always done if a printer is found)
-            docBuilder.InitializePrinter(); // This already sets PC858_EURO in the builder
-            // Explicitly re-select for absolute clarity in this service's logic.
-            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
+            docBuilder.InitializePrinter(); // Constructor now defaults to CodePage 14, InitializePrinter also uses CP14
+            // No longer needed to explicitly select PC858_EURO (CP19) as builder defaults to CP14.
+            // docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
             docBuilder.SetAlignment(EscPosAlignment.Center);
             docBuilder.SetEmphasis(true);
             docBuilder.SetFontSize(1, 2); // Slightly larger for "RISTAMPA"
@@ -1062,8 +1062,10 @@ namespace SagraFacile.NET.API.Services
 
             _logger.LogInformation($"Generating test print document for printer '{printer.Name}' (ID: {printerId}).");
             var docBuilder = new EscPosDocumentBuilder();
-            docBuilder.InitializePrinter();
-            docBuilder.SelectCharacterCodeTable(CodePage.PC858_EURO);
+            docBuilder.InitializePrinter(); // Initializes with default code page from EscPosDocumentBuilder
+            // int i = 14; 
+            // _logger.LogInformation($"Test Print: Attempting to use code page {i}.");
+            // docBuilder.SelectCharacterCodeTable((CodePage)i);
             docBuilder.SetAlignment(EscPosAlignment.Center);
             docBuilder.SetEmphasis(true);
             docBuilder.SetFontSize(2, 1);
