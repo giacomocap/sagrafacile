@@ -37,7 +37,6 @@ services:
       # Add other backend-specific environment variables from .env if any were missed
       # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
       # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
-    user: root # TEMPORARY: Run as root to diagnose permission issue. TODO: Fix permissions in API Dockerfile.
     volumes:
       - sagrafacile_media_data:/app/wwwroot/media # Persist uploaded media
     depends_on:

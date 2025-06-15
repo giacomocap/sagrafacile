@@ -27,4 +27,10 @@ RUN dotnet publish "./SagraFacile.NET.API.csproj" -c $BUILD_CONFIGURATION -o /ap
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Create the media directory and set permissions
+RUN mkdir -p wwwroot/media/promo && \
+    chown -R $APP_UID:$APP_UID wwwroot/media && \
+    chmod -R 755 wwwroot/media
+
 ENTRYPOINT ["dotnet", "SagraFacile.NET.API.dll"]

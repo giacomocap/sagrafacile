@@ -49,7 +49,7 @@ import type { NextConfig } from "next";
 // });
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["http://192.168.1.219:3000", "https://192.168.1.219:3000", "https://192.168.1.38"],
+  allowedDevOrigins: ["http://192.168.1.219:3000", "https://192.168.1.219:3000", "https://192.168.1.38", "192.168.1.24"],
   // images: { // Configuration for Next.js Image Optimization removed
   //   remotePatterns: remotePatternsConfig,
   //   dangerouslyAllowSVG: true, // This was part of images config, can be removed if not needed elsewhere
