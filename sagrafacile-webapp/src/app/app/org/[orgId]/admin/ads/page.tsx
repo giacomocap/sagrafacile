@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from 'react'; // Added useCallback
-import apiClient, { apiBaseUrl } from '@/services/apiClient';
+import apiClient from '@/services/apiClient'; // Removed apiBaseUrl from import
 import { useParams } from 'next/navigation';
-import Image from 'next/image'; // Added Image import
+// import Image from 'next/image'; // Removed Image import
 import { AdMediaItemDto, AdAreaAssignmentDto } from '@/types';
-import { getInternalMediaUrl } from '@/lib/imageUtils';
+import { getMediaUrl as getSharedMediaUrl } from '@/lib/imageUtils'; // Import shared getMediaUrl
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
@@ -141,11 +141,7 @@ export default function AdManagementPage() {
         }
     };
 
-    const getMediaUrl = (filePath: string) => {
-        if (!apiBaseUrl || !filePath) return "";
-        const baseUrl = apiBaseUrl.replace(/\/api$/, '');
-        return `${baseUrl}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
-    };
+    // Removed local getMediaUrl, will use getSharedMediaUrl from @/lib/imageUtils for video tags
 
     return (
         <div className="space-y-6">
@@ -183,8 +179,8 @@ export default function AdManagementPage() {
                                 <TableRow key={ad.id}>
                                     <TableCell>
                                         {ad.mediaType === 'Image' ? (
-                                            <Image
-                                                src={getInternalMediaUrl(ad.filePath)}
+                                            <img
+                                                src={getSharedMediaUrl(ad.filePath)}
                                                 alt="Ad preview"
                                                 width={100} // Example fixed width
                                                 height={64} // h-16 is 64px
@@ -192,7 +188,7 @@ export default function AdManagementPage() {
                                                 style={{ objectFit: 'cover' }}
                                             />
                                         ) : (
-                                            <video src={getMediaUrl(ad.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
+                                            <video src={getSharedMediaUrl(ad.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
                                         )}
                                     </TableCell>
                                     <TableCell>{ad.name}</TableCell>
@@ -255,8 +251,8 @@ export default function AdManagementPage() {
                                         <TableRow key={assignment.id}>
                                             <TableCell>
                                                 {assignment.adMediaItem.mediaType === 'Image' ? (
-                                                    <Image
-                                                        src={getInternalMediaUrl(assignment.adMediaItem.filePath)}
+                                                    <img
+                                                        src={getSharedMediaUrl(assignment.adMediaItem.filePath)}
                                                         alt="Ad preview"
                                                         width={100} // Example fixed width
                                                         height={64} // h-16 is 64px
@@ -264,7 +260,7 @@ export default function AdManagementPage() {
                                                         style={{ objectFit: 'cover' }}
                                                     />
                                                 ) : (
-                                                    <video src={getMediaUrl(assignment.adMediaItem.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
+                                                    <video src={getSharedMediaUrl(assignment.adMediaItem.filePath)} className="h-16 w-auto object-cover rounded" muted playsInline />
                                                 )}
                                             </TableCell>
                                             <TableCell>{assignment.adMediaItem.name}</TableCell>

@@ -21,8 +21,8 @@ import useSignalRHub from '@/hooks/useSignalRHub';
 import useAnnouncements from '@/hooks/useAnnouncements'; // Import useAnnouncements
 import { Button } from '@/components/ui/button';
 import AdCarousel, { AdMedia } from '@/components/public/AdCarousel'; // Import AdCarousel
-import { apiBaseUrl } from '@/services/apiClient';
-import { getOptimizedImageUrl } from '@/lib/imageUtils';
+// import { apiBaseUrl } from '@/services/apiClient'; // No longer needed here if imageUtils.getMediaUrl is used
+import { getMediaUrl as getSharedMediaUrl } from '@/lib/imageUtils'; // Import shared getMediaUrl
 
 // Default state if needed
 const defaultQueueState: QueueStateDto = {
@@ -140,21 +140,18 @@ export default function QueueDisplayPage() {
         }
     }, [areaId]);
 
-    const getMediaUrl = (filePath: string) => {
-        if (!apiBaseUrl || !filePath) return "";
-        const baseUrl = apiBaseUrl.replace(/\/api$/, '');
-        return `${baseUrl}${filePath.startsWith('/') ? '' : '/'}${filePath}`;
-    };
+    // Removed local getMediaUrl, will use getSharedMediaUrl from @/lib/imageUtils
 
     const fetchAds = useCallback(async () => {
         if (!areaId) return;
         try {
             const response = await apiClient.get<AdAreaAssignmentDto[]>(`/public/areas/${areaId}/ads`);
             const transformedAds: AdMedia[] = response.data.map(ad => {
-                const mediaUrl = getMediaUrl(ad.adMediaItem.filePath);
+                const mediaUrl = getSharedMediaUrl(ad.adMediaItem.filePath); // Use shared utility
                 return {
                     type: ad.adMediaItem.mediaType.toLowerCase() as 'image' | 'video',
-                    src: ad.adMediaItem.mediaType === 'Image' ? getOptimizedImageUrl(mediaUrl) : mediaUrl,
+                    // For AdCarousel, we just pass the direct URL. It will decide to render <img> or <video>
+                    src: mediaUrl, 
                     durationSeconds: ad.durationSeconds ?? undefined, // Coalesce null to undefined
                 };
             });

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+// import Image from 'next/image';
 
 // Define the structure for a media item in the carousel
 export interface AdMedia {
@@ -67,12 +67,10 @@ const AdCarousel: React.FC<AdCarouselProps> = ({ mediaItems }) => {
           }`}
         >
           {item.type === 'image' && (
-            <Image
+            <img
               src={item.src}
               alt={`Ad image ${index + 1}`}
-              fill
-              style={{ objectFit: 'contain' }}
-              priority={index === 0} // Prioritize loading the first image
+              className="w-full h-full object-contain"
             />
           )}
           {item.type === 'video' && (
