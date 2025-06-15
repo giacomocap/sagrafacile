@@ -174,6 +174,8 @@ namespace SagraFacile.NET.API.Services
                 throw new InvalidOperationException("Cannot create order: No operational day (Giornata) is currently open.");
             }
 
+            var cashierStation = await _context.CashierStations.FirstOrDefaultAsync(e => e.Id == orderDto.CashierStationId);
+
             // --- Determine Next Status based on Workflow Flags ---
             OrderStatus nextStatus;
             string? waiterId = null; // To store waiter ID if table order is confirmed
@@ -237,7 +239,8 @@ namespace SagraFacile.NET.API.Services
                 NumberOfGuests = orderDto.NumberOfGuests, // Added NumberOfGuests
                 IsTakeaway = orderDto.IsTakeaway,       // Added IsTakeaway
                 TableNumber = orderDto.TableNumber,     // Added TableNumber
-                OrderItems = orderItems
+                OrderItems = orderItems,
+                CashierStationId = cashierStation?.Id
             };
 
             // Transactions are not supported by the InMemory provider used in tests
@@ -289,7 +292,7 @@ namespace SagraFacile.NET.API.Services
                     {
                         mi.Scorta -= oi.Quantity;
                         // EF Core will track changes to mi if it's tracked from the menuItems dictionary load
-                        _context.MenuItems.Update(mi); 
+                        _context.MenuItems.Update(mi);
                     }
                 }
                 // --- End Stock Decrement ---
@@ -298,9 +301,9 @@ namespace SagraFacile.NET.API.Services
                 await _context.SaveChangesAsync(); // This will save the order, sequence, and stock updates
 
                 if (useTransaction && transaction != null)
-                { 
+                {
                     await transaction.CommitAsync();
-                } 
+                }
 
                 // --- SignalR Broadcast for Stock Updates ---
                 foreach (var oi in order.OrderItems)

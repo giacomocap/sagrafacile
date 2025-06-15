@@ -36,17 +36,8 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "Il nome della stampante è obbligatorio." }),
   type: z.nativeEnum(PrinterType, { required_error: "Il tipo di stampante è obbligatorio." }),
   connectionString: z.string().min(1, { message: "La stringa di connessione o il GUID sono obbligatori." }),
-  windowsPrinterName: z.string().optional(),
   isEnabled: z.boolean(),
-  printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }), // Added printMode
-}).refine(data => {
-  if (data.type === PrinterType.WindowsUsb) {
-    return data.windowsPrinterName && data.windowsPrinterName.trim().length > 0;
-  }
-  return true;
-}, {
-  message: "Il Nome Stampante Windows è obbligatorio quando il tipo è Windows USB.",
-  path: ["windowsPrinterName"], // Assegna l'errore a questo campo
+  printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }),
 }).refine(data => {
   if (data.type === PrinterType.Network) {
     // Validazione di base: controlla il pattern qualcosa:numero
@@ -87,7 +78,6 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       name: '',
       type: undefined,
       connectionString: '',
-      windowsPrinterName: '',
       isEnabled: true,
       printMode: PrintMode.Immediate, // Default to Immediate
     },
@@ -104,7 +94,6 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: printerToEdit.name,
           type: printerToEdit.type,
           connectionString: printerToEdit.connectionString,
-          windowsPrinterName: printerToEdit.windowsPrinterName || '',
           isEnabled: printerToEdit.isEnabled,
           printMode: printerToEdit.printMode, // Set printMode in edit mode
         });
@@ -113,7 +102,6 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: '',
           type: undefined,
           connectionString: '', // Mantiene vuoto inizialmente per l'aggiunta
-          windowsPrinterName: '',
           isEnabled: true,
           printMode: PrintMode.Immediate, // Default for new printers
         });
@@ -157,7 +145,6 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       name: values.name,
       type: values.type,
       connectionString: values.connectionString,
-      windowsPrinterName: values.type === PrinterType.WindowsUsb ? values.windowsPrinterName : null,
       isEnabled: values.isEnabled,
       organizationId: orgId,
       printMode: values.printMode, // Added printMode to dataToSend
@@ -259,25 +246,8 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
               )}
             />
 
-            {/* Render condizionale per Nome Stampante Windows e Modalità di Stampa */}
+            {/* Render condizionale per Modalità di Stampa */}
             {printerType === PrinterType.WindowsUsb && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="windowsPrinterName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome Stampante Windows*</FormLabel>
-                      <FormControl>
-                        <Input placeholder="es. ZDesigner ZD420-203dpi ZPL" {...field} value={field.value ?? ''} />
-                      </FormControl>
-                      <FormDescription>
-                        Il nome esatto della stampante come appare nel Pannello di Controllo di Windows.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="printMode"
@@ -306,10 +276,8 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
                     </FormItem>
                   )}
                 />
-              </>
             )}
 
-            {/* Se la stampante è di tipo Network, mostriamo comunque il campo PrintMode ma disabilitato e impostato su Immediata */}
             {printerType === PrinterType.Network && (
                  <FormField
                  control={form.control}

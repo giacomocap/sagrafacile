@@ -386,7 +386,6 @@ export interface PrinterDto {
   name: string;
   type: PrinterType; // Enum: Network, WindowsUsb
   connectionString: string; // IP:Port for Network, GUID for WindowsUsb
-  windowsPrinterName?: string | null; // Required for WindowsUsb
   isEnabled: boolean;
   printMode: PrintMode; // Added for On-Demand Printing
 }
@@ -395,7 +394,6 @@ export interface PrinterUpsertDto {
   name: string;
   type: PrinterType;
   connectionString: string;
-  windowsPrinterName?: string | null;
   isEnabled: boolean;
   organizationId: number;
   printMode: PrintMode; // Added for On-Demand Printing

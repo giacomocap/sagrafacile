@@ -101,12 +101,6 @@ namespace SagraFacile.NET.API.Services
                 return (null, $"Organization with ID {printerDto.OrganizationId} not found.");
             }
 
-            // Validation 3: Windows Printer Name requirement
-            if (printerDto.Type == PrinterType.WindowsUsb && string.IsNullOrWhiteSpace(printerDto.WindowsPrinterName))
-            {
-                return (null, "Windows Printer Name is required when the type is 'WindowsUsb'.");
-            }
-
             var printer = new Printer
             {
                 Name = printerDto.Name,
@@ -161,12 +155,6 @@ namespace SagraFacile.NET.API.Services
                     return (false, $"Target organization with ID {printerDto.OrganizationId} not found.");
                 }
                 existingPrinter.OrganizationId = printerDto.OrganizationId;
-            }
-
-            // Validation 2: Windows Printer Name requirement
-            if (printerDto.Type == PrinterType.WindowsUsb && string.IsNullOrWhiteSpace(printerDto.WindowsPrinterName))
-            {
-                return (false, "Windows Printer Name is required when the type is 'WindowsUsb'.");
             }
 
             // Update properties

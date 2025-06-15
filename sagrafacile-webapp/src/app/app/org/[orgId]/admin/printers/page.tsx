@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PrinterDto, PrinterType } from '@/types';
+import { PrinterDto, PrinterType, PrintMode } from '@/types';
 import printerService from '@/services/printerService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -43,6 +43,17 @@ export default function PrintersPage() {
   const [printerToDelete, setPrinterToDelete] = useState<PrinterDto | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // --- Gestori Eventi ---
+  const handleCopyClick = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copiato!", { description: "Valore di connessione copiato negli appunti." });
+    } catch (err) {
+      console.error("Errore durante la copia:", err);
+      toast.error("Errore", { description: "Impossibile copiare il valore." });
+    }
+  }, []);
 
   // --- Recupero Dati ---
   const fetchPrinters = useCallback(async () => {
@@ -121,6 +132,17 @@ export default function PrintersPage() {
     }
   };
 
+  const renderPrintMode = (mode: PrintMode) => {
+    switch (mode) {
+      case PrintMode.Immediate:
+        return 'Immediata';
+      case PrintMode.OnDemandWindows:
+        return 'Su Richiesta';
+      default:
+        return 'Sconosciuta';
+    }
+  };
+
   // --- Render ---
   return (
     <div className="space-y-6">
@@ -143,7 +165,7 @@ export default function PrintersPage() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Connessione</TableHead>
-                  <TableHead>Nome Windows</TableHead>
+                  <TableHead>Modalità di Stampa</TableHead>
                   <TableHead>Abilitata</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
                 </TableRow>
@@ -154,8 +176,16 @@ export default function PrintersPage() {
                     <TableCell className="font-medium">{printer.id}</TableCell>
                     <TableCell>{printer.name}</TableCell>
                     <TableCell>{renderPrinterType(printer.type)}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={printer.connectionString}>{printer.connectionString}</TableCell>
-                    <TableCell>{printer.windowsPrinterName || '-'}</TableCell>
+                    <TableCell
+                      className="max-w-[200px] truncate cursor-pointer hover:underline"
+                      title={printer.connectionString}
+                      onClick={() => handleCopyClick(printer.connectionString)}
+                    >
+                      {printer.connectionString}
+                    </TableCell>
+                    <TableCell>
+                      {renderPrintMode(printer.printMode)}
+                    </TableCell>
                     <TableCell>
                       {printer.isEnabled ? (
                         <CheckCircle className="h-5 w-5 text-green-500" />
