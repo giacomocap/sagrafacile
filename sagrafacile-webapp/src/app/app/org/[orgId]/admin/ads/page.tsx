@@ -5,6 +5,7 @@ import apiClient, { apiBaseUrl } from '@/services/apiClient';
 import { useParams } from 'next/navigation';
 import Image from 'next/image'; // Added Image import
 import { AdMediaItemDto, AdAreaAssignmentDto } from '@/types';
+import { getInternalMediaUrl } from '@/lib/imageUtils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
@@ -183,7 +184,7 @@ export default function AdManagementPage() {
                                     <TableCell>
                                         {ad.mediaType === 'Image' ? (
                                             <Image
-                                                src={getMediaUrl(ad.filePath)}
+                                                src={getInternalMediaUrl(ad.filePath)}
                                                 alt="Ad preview"
                                                 width={100} // Example fixed width
                                                 height={64} // h-16 is 64px
@@ -255,7 +256,7 @@ export default function AdManagementPage() {
                                             <TableCell>
                                                 {assignment.adMediaItem.mediaType === 'Image' ? (
                                                     <Image
-                                                        src={getMediaUrl(assignment.adMediaItem.filePath)}
+                                                        src={getInternalMediaUrl(assignment.adMediaItem.filePath)}
                                                         alt="Ad preview"
                                                         width={100} // Example fixed width
                                                         height={64} // h-16 is 64px

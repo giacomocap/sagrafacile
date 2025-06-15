@@ -22,6 +22,7 @@ import useAnnouncements from '@/hooks/useAnnouncements'; // Import useAnnounceme
 import { Button } from '@/components/ui/button';
 import AdCarousel, { AdMedia } from '@/components/public/AdCarousel'; // Import AdCarousel
 import { apiBaseUrl } from '@/services/apiClient';
+import { getOptimizedImageUrl } from '@/lib/imageUtils';
 
 // Default state if needed
 const defaultQueueState: QueueStateDto = {
@@ -149,11 +150,14 @@ export default function QueueDisplayPage() {
         if (!areaId) return;
         try {
             const response = await apiClient.get<AdAreaAssignmentDto[]>(`/public/areas/${areaId}/ads`);
-            const transformedAds: AdMedia[] = response.data.map(ad => ({
-                type: ad.adMediaItem.mediaType.toLowerCase() as 'image' | 'video',
-                src: getMediaUrl(ad.adMediaItem.filePath),
-                durationSeconds: ad.durationSeconds ?? undefined, // Coalesce null to undefined
-            }));
+            const transformedAds: AdMedia[] = response.data.map(ad => {
+                const mediaUrl = getMediaUrl(ad.adMediaItem.filePath);
+                return {
+                    type: ad.adMediaItem.mediaType.toLowerCase() as 'image' | 'video',
+                    src: ad.adMediaItem.mediaType === 'Image' ? getOptimizedImageUrl(mediaUrl) : mediaUrl,
+                    durationSeconds: ad.durationSeconds ?? undefined, // Coalesce null to undefined
+                };
+            });
             setAdMediaItems(transformedAds);
         } catch (error) {
             console.error("Failed to fetch ads:", error);

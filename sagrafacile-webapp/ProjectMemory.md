@@ -12,6 +12,27 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-15) - Resolved Next.js Image Optimization Issue in Docker Environment
+**Context:** The SagraFacile frontend was experiencing "400 Bad Request - The requested resource isn't a valid image" errors when using Next.js image optimization (`/_next/image`) in the Docker production environment. While direct image access worked, Next.js's internal image fetcher was receiving HTML responses instead of image content, indicating a circular routing issue through Caddy.
+**Accomplishments:**
+*   **Root Cause Identified:** The issue was that Next.js was trying to fetch images using the public domain URL (`https://app.sagrafacile.it/media/...`) from within the frontend container, creating a circular routing path: frontend → host-gateway → Caddy → frontend. This caused Caddy to return HTML responses instead of the actual image content.
+*   **Environment-Aware Solution Implemented:** Created a comprehensive solution that maintains full Next.js image optimization while fixing the Docker networking issue:
+    *   **`sagrafacile-webapp/next.config.ts` Updated:** Added internal API service patterns (`http://api:8080/media/**`) and local development backend patterns for specific IP addresses. Removed custom loader configuration to maintain default Next.js optimization.
+    *   **`sagrafacile-webapp/src/lib/imageUtils.ts` Created:** Implemented environment-aware URL transformation functions:
+        *   `getInternalMediaUrl()`: Returns internal API URLs (`http://api:8080/media/...`) in Docker production, backend API URLs in local development.
+        *   `getOptimizedImageUrl()`: Transforms public URLs to internal URLs for optimization.
+        *   `getMediaUrl()`: Standard media URL generation with environment awareness.
+    *   **Image Component Updates:** Modified `sagrafacile-webapp/src/app/app/org/[orgId]/admin/ads/page.tsx` and `sagrafacile-webapp/src/app/(public)/qdisplay/org/[orgSlug]/area/[areaId]/page.tsx` to use the new utility functions for proper image optimization.
+*   **Docker Networking Fix:** The solution allows Next.js to fetch images directly from the API service within the Docker network, bypassing Caddy's reverse proxy for internal image requests and eliminating the circular routing issue.
+*   **Local Development Compatibility:** Fixed double `/media/` path issue by implementing smart path handling that detects and handles file paths that already include the `/media/` prefix.
+**Key Decisions:**
+*   Maintained full Next.js image optimization capabilities (resizing, format conversion, quality adjustment) rather than disabling optimization entirely.
+*   Implemented environment-aware URL handling to ensure compatibility with both local development and Docker production environments.
+*   Used internal Docker network communication for image fetching in production while preserving public URL access for direct requests.
+*   Created reusable utility functions to centralize image URL logic and ensure consistency across components.
+**Outcome:** Next.js image optimization now works correctly in both local development and Docker production environments. Images load properly with full optimization benefits, and the 400 "invalid image" errors have been resolved. The admin ads page and queue display carousel now display images correctly with proper optimization.
+
+
 ## (2025-06-12) - Implemented Frontend for On-Demand Printer Configuration
 **Context:** Continued implementation of the "On-Demand Printing for Windows Companion App" feature, focusing on the frontend Admin UI changes. This follows the backend changes made in `SagraFacile.NET` project memory from 2025-06-12.
 **Accomplishments:**

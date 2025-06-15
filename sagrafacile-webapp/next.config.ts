@@ -39,30 +39,36 @@ remotePatternsConfig.push({
   pathname: '/media/**', // Allow all images served under /media/
 });
 
-// Existing patterns below are likely for local development or specific IP access.
-// Add them to the remotePatternsConfig array
-remotePatternsConfig.push(
-  {
-    protocol: 'https',
-    hostname: '192.168.1.38', // Example local IP
-    port: '7075',
+// Add local development backend API patterns
+// Common local development URLs for the backend API
+const localBackendPatterns = [
+  { hostname: '192.168.1.38', port: '7075' },
+  { hostname: '192.168.1.237', port: '7075' },
+  { hostname: '192.168.1.24', port: '7075' },
+];
+
+localBackendPatterns.forEach(pattern => {
+  remotePatternsConfig.push({
+    protocol: 'http',
+    hostname: pattern.hostname,
+    port: pattern.port,
     pathname: '/media/**',
-  },
-  {
+  });
+  remotePatternsConfig.push({
     protocol: 'https',
-    hostname: '192.168.1.237', // Example local IP
-    port: '7075',
+    hostname: pattern.hostname,
+    port: pattern.port,
     pathname: '/media/**',
-  }
-);
+  });
+});
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["http://192.168.1.219:3000", "https://192.168.1.219:3000", "https://192.168.1.38"],
   images: {
     remotePatterns: remotePatternsConfig,
-    // Custom loader to handle internal API routing
-    loader: 'custom',
-    loaderFile: './src/lib/imageLoader.ts',
+    // Configure Next.js to use internal API for image fetching during optimization
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
   },
 };
 
