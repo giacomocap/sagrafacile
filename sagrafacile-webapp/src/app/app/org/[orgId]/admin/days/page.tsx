@@ -18,6 +18,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, CalendarPlus, CalendarOff } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 // Removed date-fns import
 
 const AdminDaysPage = () => {
@@ -26,6 +29,8 @@ const AdminDaysPage = () => {
     const [days, setDays] = useState<DayDto[]>([]);
     const [isLoadingDays, setIsLoadingDays] = useState(false);
     const [isOperating, setIsOperating] = useState(false); // For open/close actions
+    const [isConfirmOpenDayDialogOpen, setIsConfirmOpenDayDialogOpen] = useState(false);
+    const [isConfirmCloseDayDialogOpen, setIsConfirmCloseDayDialogOpen] = useState(false);
 
     // const orgId = params.orgId as string; // orgId from params is not used
     const isAdmin = user?.roles?.includes('Admin') || user?.roles?.includes('SuperAdmin');
@@ -97,23 +102,54 @@ const AdminDaysPage = () => {
                     <CardTitle>Gestione Giornate Operative</CardTitle>
                     {isAdmin && (
                         <div className="flex space-x-2">
-                            <Button
-                                onClick={handleOpenDay}
-                                disabled={isLoading || !!currentDay} // Disable if loading or a day is already open
-                                size="sm"
-                            >
-                                {isOperating && !currentDay ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarPlus className="mr-2 h-4 w-4" />}
-                                Apri Giornata
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={handleCloseDay}
-                                disabled={isLoading || !currentDay} // Disable if loading or no day is open
-                                size="sm"
-                            >
-                                {isOperating && currentDay ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarOff className="mr-2 h-4 w-4" />}
-                                Chiudi Giornata Corrente
-                            </Button>
+                            <AlertDialog open={isConfirmOpenDayDialogOpen} onOpenChange={setIsConfirmOpenDayDialogOpen}>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        disabled={isLoading || !!currentDay} // Disable if loading or a day is already open
+                                        size="sm"
+                                    >
+                                        {isOperating && !currentDay ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarPlus className="mr-2 h-4 w-4" />}
+                                        Apri Giornata
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Conferma Apertura Giornata</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Sei sicuro di voler aprire una nuova giornata operativa? Verrà creata una nuova giornata e quella precedente, se aperta, verrà chiusa automaticamente.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleOpenDay}>Conferma Apertura</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+
+                            <AlertDialog open={isConfirmCloseDayDialogOpen} onOpenChange={setIsConfirmCloseDayDialogOpen}>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="destructive"
+                                        disabled={isLoading || !currentDay} // Disable if loading or no day is open
+                                        size="sm"
+                                    >
+                                        {isOperating && currentDay ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarOff className="mr-2 h-4 w-4" />}
+                                        Chiudi Giornata Corrente
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Conferma Chiusura Giornata</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Sei sicuro di voler chiudere la giornata operativa corrente? Questa azione non può essere annullata.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleCloseDay}>Conferma Chiusura</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
                     )}
                 </CardHeader>

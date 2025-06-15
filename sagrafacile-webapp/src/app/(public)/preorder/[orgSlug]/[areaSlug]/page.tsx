@@ -73,7 +73,7 @@ export default function PreOrderPage() {
 
             // Ensure slugs are available before fetching
             if (!orgSlug || !areaSlug) {
-                setErrorData("Organization or Area slug missing from URL.");
+                setErrorData("Slug dell'Organizzazione o dell'Area mancante dall'URL.");
                 setIsLoadingData(false);
                 return;
             }
@@ -81,13 +81,13 @@ export default function PreOrderPage() {
             try {
                 // 1. Fetch Organization
                 const orgRes = await apiClient.get<OrganizationDto>(`/public/organizations/${orgSlug}`);
-                if (!orgRes.data) throw new Error("Organization not found.");
+                if (!orgRes.data) throw new Error("Organizzazione non trovata.");
                 setOrganization(orgRes.data);
 
                 // 2. Fetch Area
                 const areaRes = await apiClient.get<AreaDto>(`/public/organizations/${orgSlug}/areas/${areaSlug}`);
                 if (!areaRes.data || areaRes.data.organizationId !== orgRes.data.id) {
-                    throw new Error("Area not found or does not belong to the organization.");
+                    throw new Error("Area non trovata o non appartiene all'organizzazione.");
                 }
                 setArea(areaRes.data);
                 const currentAreaId = areaRes.data.id;
@@ -114,7 +114,7 @@ export default function PreOrderPage() {
 
             } catch (error: unknown) {
                 console.error("Error fetching pre-order data:", error);
-                let errorMsg = "Failed to load pre-order page data.";
+                let errorMsg = "Impossibile caricare i dati della pagina di pre-ordine.";
                 if (typeof error === 'object' && error !== null) {
                     if ('message' in error) {
                         errorMsg = String((error as { message: string }).message);
@@ -161,7 +161,7 @@ export default function PreOrderPage() {
                 note: item.isNoteRequired ? item.noteSuggestion || '' : null
             }]);
         }
-        toast.success(`${item.name} added to cart`);
+        toast.success(`${item.name} aggiunto al carrello`);
 
         // Removed the logic that automatically flashed the cart sheet on first item add.
     };
@@ -269,26 +269,26 @@ export default function PreOrderPage() {
         event.preventDefault();
         // Ensure data is loaded before submitting
         if (!organization || !area || isLoadingData) {
-            toast.error("Data is still loading or missing. Cannot submit order.");
+            toast.error("I dati sono ancora in caricamento o mancanti. Impossibile inviare l'ordine.");
             return;
         }
 
         setIsSubmitting(true); // Use isSubmitting state
 
         if (cart.length === 0) {
-            toast.error("Your cart is empty.");
+            toast.error("Il tuo carrello è vuoto.");
             setIsSubmitting(false);
             return;
         }
 
         if (!customerName.trim() || !customerEmail.trim()) {
-            toast.error("Please enter your name and email.");
+            toast.error("Inserisci il tuo nome e la tua email.");
             setIsSubmitting(false);
             return;
         }
 
         if (!/\S+@\S+\.\S+/.test(customerEmail)) {
-            toast.error("Please enter a valid email address.");
+            toast.error("Inserisci un indirizzo email valido.");
             setIsSubmitting(false);
             return;
         }
@@ -312,7 +312,7 @@ export default function PreOrderPage() {
             const result = response.data;
 
             // Use order ID (string) instead of orderNumber
-            toast.success(`Order #${result?.id || ''} submitted! You'll receive a confirmation email.`);
+            toast.success(`Ordine #${result?.id || ''} inviato! Riceverai un'email di conferma.`);
             // Use orderId and qrCodeBase64 as query params
             const successUrlParams = new URLSearchParams({
                 orderId: result?.id || '',
@@ -328,7 +328,7 @@ export default function PreOrderPage() {
                 } catch (storageError) {
                     console.error("Failed to save QR code to sessionStorage:", storageError);
                     // Optionally inform the user or log this error
-                    toast.warning("Could not store QR code for immediate display, please check your email.");
+                    toast.warning("Impossibile memorizzare il codice QR per la visualizzazione immediata, controlla la tua email.");
                 }
             }
 
@@ -340,7 +340,7 @@ export default function PreOrderPage() {
             setIsCartSheetOpen(false);
         } catch (error: unknown) {
             console.error("Order submission error:", error);
-            let errorMsg = "Error submitting order.";
+            let errorMsg = "Errore durante l'invio dell'ordine.";
             if (typeof error === 'object' && error !== null) {
                 if ('message' in error) {
                     errorMsg = String((error as { message: string }).message);
@@ -354,7 +354,7 @@ export default function PreOrderPage() {
                     }
                 }
             }
-            toast.error(`Error: ${errorMsg}`);
+            toast.error(`Errore: ${errorMsg}`);
         } finally {
             setIsSubmitting(false); // Use isSubmitting state
         }
@@ -377,7 +377,7 @@ export default function PreOrderPage() {
         return (
             <div className="flex justify-center items-center h-screen">
                 <Loader2 className="h-8 w-8 animate-spin mr-2" />
-                <span>Loading Pre-Order...</span>
+                <span>Caricamento Pre-Ordine...</span>
             </div>
         );
     }
@@ -386,16 +386,16 @@ export default function PreOrderPage() {
         return (
             <div className="flex flex-col justify-center items-center h-screen p-4 text-center">
                 <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-                <h2 className="text-xl font-semibold text-red-600 mb-2">Error Loading Pre-Order</h2>
+                <h2 className="text-xl font-semibold text-red-600 mb-2">Errore Caricamento Pre-Ordine</h2>
                 <p className="text-muted-foreground mb-4">{errorData}</p>
-                <Button onClick={() => window.location.reload()}>Try Again</Button>
+                <Button onClick={() => window.location.reload()}>Riprova</Button>
             </div>
         );
     }
 
     if (!organization || !area) {
          // This case should ideally be covered by errorData, but as a fallback
-         return <div className="flex justify-center items-center h-screen">Error: Organization or Area data missing.</div>;
+         return <div className="flex justify-center items-center h-screen">Errore: Dati Organizzazione o Area mancanti.</div>;
     }
 
     // Main component render if data loaded successfully

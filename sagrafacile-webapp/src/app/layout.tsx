@@ -13,7 +13,7 @@ const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "SagraFacile",
-  description: "Self-hosted POS for Food Festivals & Events",
+  description: "Gestionale per Sagre e Eventi Gastronomici gratuito",
 };
 
 export default function RootLayout({

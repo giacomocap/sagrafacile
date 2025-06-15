@@ -37,7 +37,7 @@ export default function HomePage() {
         // Authenticated user without an organization ID or specific role mapping
         // This might be an error state or a user type not yet handled.
         // For now, redirect to login as a fallback.
-        console.error("Authenticated user has no organizationId or specific role route.", user);
+        console.error("L'utente autenticato non ha un organizationId o una rotta di ruolo specifica.", user);
         router.replace('/app/login'); // Fallback
       }
     }
