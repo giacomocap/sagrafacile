@@ -67,7 +67,7 @@ This document outlines the architecture for the public-facing Order Pickup Displ
 *   **`PUT /api/orders/{orderId}/confirm-pickup` (Ensure Exists/Correct):**
     *   This endpoint is called by the staff-facing UI to confirm an order has been picked up.
     *   It should call `_orderService.ConfirmOrderPickupAsync(orderId, User)`.
-    *   Requires authorization (e.g., Cashier, OrgAdmin, SuperAdmin).
+    *   Requires authorization (e.g., Cashier, Admin, SuperAdmin).
 
 ### 3.4. `OrderHub.cs`
 

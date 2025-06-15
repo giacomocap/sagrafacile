@@ -234,7 +234,7 @@ public class AccountsController : ControllerBase
 
             if (userDto == null)
             {
-                // Service returns null if user not found OR if caller is not authorized (e.g., OrgAdmin trying to access other org)
+                // Service returns null if user not found OR if caller is not authorized (e.g., Admin trying to access other org)
                 _logger.LogWarning("User with ID {UserId} not found or access denied.", userId);
                 return NotFound(new { Message = $"User with ID {userId} not found or access denied." });
             }
@@ -293,7 +293,7 @@ public class AccountsController : ControllerBase
                 bool isNotFound = false;
                 foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
                 {
-                    // Check for "not found" errors returned by the service (covers user not existing or OrgAdmin trying to access outside their org)
+                    // Check for "not found" errors returned by the service (covers user not existing or Admin trying to access outside their org)
                     if (error.Description.Contains("not found", StringComparison.OrdinalIgnoreCase))
                     {
                         isNotFound = true;
@@ -372,7 +372,7 @@ public class AccountsController : ControllerBase
 
                 if (isNotFound)
                 {
-                    // Covers user not existing or OrgAdmin trying to access outside their org
+                    // Covers user not existing or Admin trying to access outside their org
                     return NotFound(new { Message = $"User with ID {userId} not found or access denied." });
                 }
                 else if (isSelfDeleteAttempt)

@@ -85,7 +85,7 @@ public class BasicIntegrationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     // Example of a test that should fail without authentication
-    // Test that OrgAdmin cannot access Organization endpoints
+    // Test that Admin cannot access Organization endpoints
     [Fact]
     public async Task Get_Organizations_WhenOrgAdmin_ReturnsForbidden()
     {

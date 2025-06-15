@@ -505,7 +505,7 @@ changed from string to byte[] the prinitng. euro symbol still not prinitng corre
 
 ## Customer Queue System (Backend - "Previous Date" prior to 2025-05-29)
 *   **Summary:** Completed the backend implementation for the Customer Queue System. This included the `AreaQueueState` entity, `Area.EnableQueueSystem` flag, and EF Core migration `AddQueueManagement`. DTOs (`CalledNumberDto`, `CalledNumberBroadcastDto`, `QueueStateDto`) and `ServiceResult` were created. `IQueueService` and `QueueService.cs` were implemented with logic for managing queue state, calling numbers, and admin operations, including SignalR broadcasts (`QueueNumberCalled`, `QueueReset`, `QueueStateUpdated`). A `QueueController.cs` was added with API endpoints and role-based authorization.
-*   **Key Decisions:** Used optimistic concurrency for state updates. `CallSpecificAsync` updates 'last called' but not `NextSequentialNumber`. Admin actions require `OrgAdmin`/`SuperAdmin`, Cashier actions allow `Cashier` role.
+*   **Key Decisions:** Used optimistic concurrency for state updates. `CallSpecificAsync` updates 'last called' but not `NextSequentialNumber`. Admin actions require `Admin`/`SuperAdmin`, Cashier actions allow `Cashier` role.
 *   **Outcome:** Frontend UI implementation for Cashier and Public Display followed. User was tasked to apply the database migration.
 
 ## Customer Queue System - Initial Models (Various Dates)

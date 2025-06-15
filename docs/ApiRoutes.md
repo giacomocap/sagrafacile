@@ -8,7 +8,7 @@ This document lists the available API routes based on the controllers.
 *   `POST /api/Accounts/login` - Log in a user and receive a JWT.
 *   `POST /api/Accounts/assign-role` - Assign a role to a user (SuperAdmin only).
 *   `POST /api/Accounts/unassign-role` - Unassign a role from a user (SuperAdmin only).
-*   `GET /api/Accounts` - Get users for the current organization (OrgAdmin) or all users (SuperAdmin).
+*   `GET /api/Accounts` - Get users for the current organization (Admin) or all users (SuperAdmin).
 *   `GET /api/Accounts/{userId}` - Get a specific user by ID (with multi-tenancy checks).
 *   `PUT /api/Accounts/{userId}` - Update a specific user (with multi-tenancy checks).
 *   `DELETE /api/Accounts/{userId}` - Delete a specific user (with multi-tenancy checks).
@@ -51,13 +51,13 @@ This document lists the available API routes based on the controllers.
 ## KDS Stations (`/api/organizations/{organizationId}/areas/{areaId}/kds-stations`)
 
 *   `GET /` - List KDS stations for the specified area (Admin roles).
-*   `POST /` - Create a new KDS station for the area (OrgAdmin/SuperAdmin roles).
+*   `POST /` - Create a new KDS station for the area (Admin/SuperAdmin roles).
 *   `GET /{kdsStationId}` - Get details of a specific KDS station (Admin roles).
-*   `PUT /{kdsStationId}` - Update a KDS station's name (OrgAdmin/SuperAdmin roles).
-*   `DELETE /{kdsStationId}` - Delete a KDS station (OrgAdmin/SuperAdmin roles).
+*   `PUT /{kdsStationId}` - Update a KDS station's name (Admin/SuperAdmin roles).
+*   `DELETE /{kdsStationId}` - Delete a KDS station (Admin/SuperAdmin roles).
 *   `GET /{kdsStationId}/categories` - List menu categories assigned to the KDS station (Admin roles).
-*   `POST /{kdsStationId}/categories/{menuCategoryId}` - Assign a menu category to the KDS station (OrgAdmin/SuperAdmin roles).
-*   `DELETE /{kdsStationId}/categories/{menuCategoryId}` - Unassign a menu category from the KDS station (OrgAdmin/SuperAdmin roles).
+*   `POST /{kdsStationId}/categories/{menuCategoryId}` - Assign a menu category to the KDS station (Admin/SuperAdmin roles).
+*   `DELETE /{kdsStationId}/categories/{menuCategoryId}` - Unassign a menu category from the KDS station (Admin/SuperAdmin roles).
 
 ## Organizations (`/api/Organizations`)
 

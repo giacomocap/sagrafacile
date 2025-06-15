@@ -293,9 +293,9 @@ namespace SagraFacile.NET.API.Services
                 return ServiceResult.Fail("User organization context could not be determined.");
             }
 
-            // Role check: Only SuperAdmin or OrgAdmin should be able to reset
+            // Role check: Only SuperAdmin or Admin should be able to reset
             var user = _httpContextAccessor.HttpContext?.User;
-            if (!isSuperAdmin && !(user?.IsInRole("OrgAdmin") ?? false))
+            if (!isSuperAdmin && !(user?.IsInRole("Admin") ?? false))
             {
                 return ServiceResult.Fail("User is not authorized to reset the queue.");
             }
@@ -364,9 +364,9 @@ namespace SagraFacile.NET.API.Services
                 return ServiceResult.Fail("User organization context could not be determined.");
             }
 
-            // Role check: Only SuperAdmin or OrgAdmin should be able to do this
+            // Role check: Only SuperAdmin or Admin should be able to do this
             var user = _httpContextAccessor.HttpContext?.User;
-            if (!isSuperAdmin && !(user?.IsInRole("OrgAdmin") ?? false))
+            if (!isSuperAdmin && !(user?.IsInRole("Admin") ?? false))
             {
                 return ServiceResult.Fail("User is not authorized to update the next sequential number.");
             }
@@ -428,9 +428,9 @@ namespace SagraFacile.NET.API.Services
                 return ServiceResult.Fail("User organization context could not be determined.");
             }
 
-            // Role check: Only SuperAdmin or OrgAdmin should be able to toggle this
+            // Role check: Only SuperAdmin or Admin should be able to toggle this
             var user = _httpContextAccessor.HttpContext?.User;
-            if (!isSuperAdmin && !(user?.IsInRole("OrgAdmin") ?? false))
+            if (!isSuperAdmin && !(user?.IsInRole("Admin") ?? false))
             {
                 return ServiceResult.Fail("User is not authorized to manage queue system settings.");
             }

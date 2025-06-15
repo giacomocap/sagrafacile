@@ -671,7 +671,7 @@ namespace SagraFacile.NET.API.Services
                 // Non-SuperAdmin: Ignore provided organizationId, use their own context
                 if (!userOrganizationId.HasValue)
                 {
-                    // Should not happen for OrgAdmin/AreaAdmin roles if claims are set correctly
+                    // Should not happen for Admin/AreaAdmin roles if claims are set correctly
                     throw new UnauthorizedAccessException("User organization context could not be determined.");
                 }
                 targetOrganizationId = userOrganizationId.Value;

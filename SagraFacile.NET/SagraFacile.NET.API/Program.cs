@@ -110,12 +110,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpContextAccessor();
 
 // Optional: Configure a named client for the platform API
-builder.Services.AddHttpClient("PreOrderPlatformClient", client =>
-{
-    // Configure base address or default headers if needed, although base address is dynamic
-    // client.BaseAddress = new Uri(...);
-    client.Timeout = TimeSpan.FromSeconds(30); // Example timeout
-});
+builder.Services.AddHttpClient("PreOrderPlatformClient");
 
 builder.Services.AddControllers();
 

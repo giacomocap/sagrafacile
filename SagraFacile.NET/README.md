@@ -165,7 +165,7 @@ Once the API is running, you can test the endpoints using tools like:
 *   `POST /api/orders` with JSON body (refer to `CreateOrderDto` structure in `SagraFacile/Services/Interfaces/IOrderService.cs`)
 *   `POST /api/accounts/register` with JSON body: `{ "email": "test@example.com", "password": "Password123!", "confirmPassword": "Password123!", "firstName": "Test", "lastName": "User" }`
 *   `POST /api/accounts/login` with JSON body: `{ "email": "test@example.com", "password": "Password123!" }` (Returns JWT on success)
-*   `GET /api/accounts` (Requires "OrgAdmin" or "SuperAdmin" role and JWT)
+*   `GET /api/accounts` (Requires "Admin" or "SuperAdmin" role and JWT)
 *   `PUT /api/accounts/{userId}` (Requires appropriate Admin role and JWT) with JSON body: `{ "firstName": "Updated", "lastName": "Name", "email": "updated@example.com" }`
 *   `DELETE /api/accounts/{userId}` (Requires appropriate Admin role and JWT)
 *   `GET /api/accounts/roles` (Requires Admin role and JWT)

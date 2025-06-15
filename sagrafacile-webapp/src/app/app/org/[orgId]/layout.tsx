@@ -92,7 +92,7 @@ export default function OrganizationLayout({
             // Don't set setIsReady(true) yet if redirecting
         }
     } else if (user) {
-        // Non-SuperAdmin Logic (OrgAdmin, etc.)
+        // Non-SuperAdmin Logic (Admin, etc.)
         console.log("OrgLayout: Non-SuperAdmin detected.");
         if (userOrgId && currentOrgId === userOrgId) {
             console.log(`OrgLayout: Non-SuperAdmin - Org ${currentOrgId} matches user's org. Allowed.`);

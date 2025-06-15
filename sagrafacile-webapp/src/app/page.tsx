@@ -30,7 +30,7 @@ export default function HomePage() {
         // and redirecting to the first one if available, or a dedicated selector page.
         router.replace(`/app/org/1/admin`); // Defaulting to org 1 for now
       } else if (organizationId) {
-        // OrgAdmin or other role with an organization: Redirect to their org's admin page
+        // Admin or other role with an organization: Redirect to their org's admin page
         // TODO: Adjust '/admin' part based on specific roles later (e.g., /cashier)
         router.replace(`/app/org/${organizationId}/admin`);
       } else {

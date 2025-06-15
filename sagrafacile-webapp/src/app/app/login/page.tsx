@@ -33,7 +33,7 @@ export default function LoginPage() {
                 console.log("Login Page Effect: Redirecting SuperAdmin...");
                 router.replace(`/app/org/1/admin`);
             } else {
-                console.log(`Login Page Effect: Redirecting OrgAdmin/Other User for Org ${organizationId} to admin...`);
+                console.log(`Login Page Effect: Redirecting Admin/Other User for Org ${organizationId} to admin...`);
                 router.replace(`/app/org/${organizationId}/admin`);
             }
         } else if (isSuperAdmin && !organizationId) {

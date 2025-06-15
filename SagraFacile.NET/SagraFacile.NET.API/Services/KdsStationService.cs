@@ -35,9 +35,9 @@ namespace SagraFacile.NET.API.Services
                 throw new UnauthorizedAccessException($"User does not belong to organization {organizationId}.");
             }
 
-            if (requireAdmin && !isSuperAdmin && !user.IsInRole("OrgAdmin"))
+            if (requireAdmin && !isSuperAdmin && !user.IsInRole("Admin"))
             {
-                 throw new UnauthorizedAccessException($"User requires OrgAdmin or SuperAdmin role for this operation.");
+                 throw new UnauthorizedAccessException($"User requires Admin or SuperAdmin role for this operation.");
             }
 
             // Verify the Area exists and belongs to the Organization

@@ -58,7 +58,7 @@ public class AccountService : BaseService, IAccountService
         }
         else
         {
-            // OrgAdmin registers users within their own organization
+            // Admin registers users within their own organization
             if (!callerOrganizationId.HasValue)
             {
                 // This shouldn't happen if authorization is set up correctly, but good to check.
@@ -66,7 +66,7 @@ public class AccountService : BaseService, IAccountService
             }
             organizationIdToAssign = callerOrganizationId.Value;
 
-            // Optional: Double-check if OrgAdmin tries to specify a different OrgId in DTO (should ideally be ignored or error)
+            // Optional: Double-check if Admin tries to specify a different OrgId in DTO (should ideally be ignored or error)
             if (registerDto.OrganizationId.HasValue && registerDto.OrganizationId.Value != organizationIdToAssign)
             {
                  return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "OrgAdmins cannot assign users to a different organization." } } };

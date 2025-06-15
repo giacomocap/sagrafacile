@@ -45,15 +45,15 @@ This document outlines the architecture for implementing a stock management feat
 
 *   `Task<ServiceResult> UpdateStockAsync(int menuItemId, int? newScorta, ClaimsPrincipal user)`:
     *   Updates `Scorta` for a single `MenuItem`.
-    *   Authorization: Requires Admin/OrgAdmin.
+    *   Authorization: Requires Admin/Admin.
     *   Broadcasts `StockUpdateBroadcastDto` via SignalR.
 *   `Task<ServiceResult> ResetStockAsync(int menuItemId, ClaimsPrincipal user)`:
     *   Sets `Scorta` to `null` for a single `MenuItem`.
-    *   Authorization: Requires Admin/OrgAdmin.
+    *   Authorization: Requires Admin/Admin.
     *   Broadcasts `StockUpdateBroadcastDto` via SignalR.
 *   `Task<ServiceResult> ResetAllStockForAreaAsync(int areaId, ClaimsPrincipal user)`:
     *   Sets `Scorta` to `null` for all `MenuItem` entities within the specified `Area`.
-    *   Authorization: Requires Admin/OrgAdmin.
+    *   Authorization: Requires Admin/Admin.
     *   Broadcasts multiple `StockUpdateBroadcastDto` (or a summary event) via SignalR.
 
 ### 2.4. API Controller (`MenuItemsController` or new `StockController`)
@@ -64,13 +64,13 @@ This document outlines the architecture for implementing a stock management feat
     *   `PUT /api/menuitems/{menuItemId}/stock`
         *   Accepts: `{ "newScorta": int? }`
         *   Calls: `UpdateStockAsync`
-        *   Authorization: Admin/OrgAdmin
+        *   Authorization: Admin/Admin
     *   `POST /api/menuitems/{menuItemId}/stock/reset`
         *   Calls: `ResetStockAsync`
-        *   Authorization: Admin/OrgAdmin
+        *   Authorization: Admin/Admin
     *   `POST /api/areas/{areaId}/stock/reset-all`
         *   Calls: `ResetAllStockForAreaAsync`
-        *   Authorization: Admin/OrgAdmin
+        *   Authorization: Admin/Admin
 
 ### 2.5. Order Processing Logic (`OrderService.cs`)
 
