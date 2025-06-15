@@ -1,13 +1,9 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SagraFacile.NET.API.Data;
 using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
 using SagraFacile.NET.API.Services.Interfaces;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SagraFacile.NET.API.Services
 {
