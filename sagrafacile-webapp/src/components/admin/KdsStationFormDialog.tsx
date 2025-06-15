@@ -64,11 +64,11 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name.trim()) {
-            setError("Station name is required.");
+            setError("Il nome della stazione è obbligatorio.");
             return;
         }
         if (isEditMode && formData.name.trim() === stationToEdit?.name) {
-            setError("No changes detected.");
+            setError("Nessuna modifica rilevata.");
             return;
         }
 
@@ -79,8 +79,8 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
             ? `/organizations/${orgId}/areas/${areaId}/kds-stations/${stationToEdit?.id}`
             : `/organizations/${orgId}/areas/${areaId}/kds-stations`;
         const apiMethod = isEditMode ? apiClient.put : apiClient.post;
-        const successMessage = isEditMode ? 'KDS Station updated successfully.' : 'KDS Station created successfully.';
-        const failureMessage = isEditMode ? 'Failed to update KDS Station.' : 'Failed to create KDS Station.';
+        const successMessage = isEditMode ? 'Stazione KDS aggiornata con successo.' : 'Stazione KDS creata con successo.';
+        const failureMessage = isEditMode ? 'Impossibile aggiornare la stazione KDS.' : 'Impossibile creare la stazione KDS.';
 
         try {
             // Backend expects only the name in the body for Upsert Dto
@@ -91,7 +91,7 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
             onOpenChange(false); // Close the dialog
         } catch (err: any) {
             console.error(failureMessage, err);
-            const message = `${failureMessage} ${err.response?.data?.title || err.message || 'Check console.'}`;
+            const message = `${failureMessage} ${err.response?.data?.title || err.message || 'Controlla la console.'}`;
             setError(message);
             toast.error(message);
         } finally {
@@ -103,16 +103,16 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit KDS Station' : 'Add New KDS Station'}</DialogTitle>
+                    <DialogTitle>{isEditMode ? 'Modifica Stazione KDS' : 'Aggiungi Nuova Stazione KDS'}</DialogTitle>
                     {!isEditMode && (
-                        <DialogDescription>Enter the name for the new KDS station.</DialogDescription>
+                        <DialogDescription>Inserisci il nome per la nuova stazione KDS.</DialogDescription>
                     )}
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">
-                                Name*
+                                Nome*
                             </Label>
                             <Input
                                 id="name"
@@ -120,7 +120,7 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
                                 value={formData.name}
                                 onChange={handleInputChange}
                                 className="col-span-3"
-                                placeholder="e.g., Cucina Caldi, Bar, Pizzeria"
+                                placeholder="Es. Cucina Caldi, Bar, Pizzeria"
                                 disabled={isLoading}
                             />
                         </div>
@@ -131,16 +131,16 @@ export const KdsStationFormDialog: React.FC<KdsStationFormDialogProps> = ({
                     <DialogFooter>
                         <DialogClose asChild>
                             <Button type="button" variant="outline" disabled={isLoading}>
-                                Cancel
+                                Annulla
                             </Button>
                         </DialogClose>
                         <Button type="submit" disabled={isLoading || !formData.name.trim() || (isEditMode && formData.name.trim() === stationToEdit?.name)}>
                             {isLoading ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : isEditMode ? (
-                                'Save Changes'
+                                'Salva Modifiche'
                             ) : (
-                                'Create Station'
+                                'Crea Stazione'
                             )}
                         </Button>
                     </DialogFooter>

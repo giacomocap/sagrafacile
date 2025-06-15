@@ -134,7 +134,7 @@ export default function AdminLayout({
           </div>
           {isSuperAdminContext && organizations.length > 0 && (
             <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground hidden sm:inline">Cambia Org:</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">Cambia Organizzazione:</span>
               <Select
                 value={selectedOrganizationId?.toString() ?? ''}
                 onValueChange={handleOrgChange}

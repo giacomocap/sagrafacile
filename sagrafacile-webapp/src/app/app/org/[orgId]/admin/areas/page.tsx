@@ -301,19 +301,19 @@ export default function AreasPage() {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Manage Areas</CardTitle>
-                        <CardDescription>Add, edit, or delete operational areas for your organization.</CardDescription>
+                        <CardTitle>Gestisci Aree</CardTitle>
+                        <CardDescription>Aggiungi, modifica o elimina le aree operative per la tua organizzazione.</CardDescription>
                     </div>
                     {/* Add Area Dialog Trigger */}
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button size="sm" onClick={handleOpenAddDialog}>Add New Area</Button>
+                            <Button size="sm" onClick={handleOpenAddDialog}>Aggiungi Nuova Area</Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
-                            <DialogHeader><DialogTitle>Add New Area</DialogTitle></DialogHeader>
+                            <DialogHeader><DialogTitle>Aggiungi Nuova Area</DialogTitle></DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="add-name" className="text-left">Name*</Label>
+                                    <Label htmlFor="add-name" className="text-left">Nome*</Label>
                                     <Input
                                         id="add-name"
                                         value={newAreaData.name || ''}
@@ -324,17 +324,17 @@ export default function AreasPage() {
                                 </div>
                                 {/* Added Printer Fields for Add Dialog */}
                                 <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="add-receiptPrinterId" className="text-left">Default Printer</Label>
+                                    <Label htmlFor="add-receiptPrinterId" className="text-left">Stampante Predefinita</Label>
                                     <Select
                                         value={newAreaData.receiptPrinterId?.toString() || NONE_PRINTER_VALUE}
                                         onValueChange={(value) => setNewAreaData(prev => ({ ...prev, receiptPrinterId: value === NONE_PRINTER_VALUE ? null : parseInt(value) }))}
                                         disabled={isLoadingPrinters}
                                     >
                                         <SelectTrigger className="col-span-3">
-                                            <SelectValue placeholder="Select a default printer (optional)" />
+                                            <SelectValue placeholder="Seleziona una stampante predefinita (opzionale)" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value={NONE_PRINTER_VALUE}>None</SelectItem>
+                                            <SelectItem value={NONE_PRINTER_VALUE}>Nessuna</SelectItem>
                                             {printers.map((printer) => (
                                                 <SelectItem key={printer.id} value={printer.id.toString()}>
                                                     {printer.name}
@@ -348,10 +348,10 @@ export default function AreasPage() {
                                         <TooltipProvider delayDuration={100}>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <span className="cursor-help border-b border-dashed border-gray-400">Print Comandas at Default</span>
+                                                    <span className="cursor-help border-b border-dashed border-gray-400">Stampa Comande su Predefinita</span>
                                                 </TooltipTrigger>
                                                 <TooltipContent side="right">
-                                                    <p className="max-w-xs">If ON, all comandas for this area (not tied to a specific Cashier Station with its own settings) print to the Default Printer selected above. If OFF, comandas print based on category-to-printer assignments.</p>
+                                                    <p className="max-w-xs">Se ATTIVO, tutte le comande per quest'area (non legate a una specifica Postazione Cassa con le proprie impostazioni) verranno stampate sulla Stampante Predefinita selezionata sopra. Se DISATTIVO, le comande verranno stampate in base alle assegnazioni categoria-stampante.</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
@@ -370,19 +370,19 @@ export default function AreasPage() {
                                 )}
                             </div>
                             <DialogFooter>
-                                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                                <Button type="submit" onClick={handleAddArea} disabled={!newAreaData.name?.trim()}>Save Area</Button>
+                                <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+                                <Button type="submit" onClick={handleAddArea} disabled={!newAreaData.name?.trim()}>Salva Area</Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? <p>Loading areas...</p> : error ? <p className="text-red-500">{error}</p> : areas.length > 0 ? (
+                    {isLoading ? <p>Caricamento aree...</p> : error ? <p className="text-red-500">{error}</p> : areas.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>ID</TableHead>
-                                    <TableHead>Name</TableHead>
+                                    <TableHead>Nome</TableHead>
                                     <TableHead>
                                         <div className="flex items-center">
                                             Slug
@@ -392,25 +392,25 @@ export default function AreasPage() {
                                                         <Info className="h-3 w-3 ml-1.5 text-muted-foreground cursor-help" />
                                                     </TooltipTrigger>
                                                     <TooltipContent side="top">
-                                                    <p className="max-w-xs">
-                                                            The Area Slug is used to generate the prefix for Display Order Numbers.
+                                                        <p className="max-w-xs">
+                                                            Lo Slug dell'Area viene utilizzato per generare il prefisso per i Numeri Ordine Display.
                                                             <br />
-                                                            (e.g., "cucina-1" might become "CUC-").
+                                                            (es., "cucina-1" potrebbe diventare "CUC-").
                                                         </p>
                                                     </TooltipContent>
                                                 </Tooltip>
                                             </TooltipProvider>
                                         </div>
                                     </TableHead>
-                                    <TableHead>Default Printer</TableHead>
-                                    <TableHead>Print Comandas</TableHead>
-                                    <TableHead>Waiter Confirm</TableHead>
-                                    <TableHead>Use KDS</TableHead>
-                                    <TableHead>Confirm Pickup</TableHead>
-                                    <TableHead>Queue System</TableHead>
-                                    <TableHead>Guest Charge</TableHead>
-                                    <TableHead>Takeaway Charge</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead>Stampante Predefinita</TableHead>
+                                    <TableHead>Stampa Comande</TableHead>
+                                    <TableHead>Conferma Cameriere</TableHead>
+                                    <TableHead>Usa KDS</TableHead>
+                                    <TableHead>Conferma Ritiro</TableHead>
+                                    <TableHead>Sistema Coda</TableHead>
+                                    <TableHead>Costo Coperto</TableHead>
+                                    <TableHead>Costo Asporto</TableHead>
+                                    <TableHead className="text-right">Azioni</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -419,33 +419,33 @@ export default function AreasPage() {
                                         <TableCell>{area.id}</TableCell>
                                         <TableCell className="font-medium">{area.name}</TableCell>
                                         <TableCell>{area.slug}</TableCell>
-                                        <TableCell>{printers.find(p => p.id === area.receiptPrinterId)?.name || 'None'}</TableCell>
-                                        <TableCell>{area.printComandasAtCashier ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell>{area.enableWaiterConfirmation ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell>{area.enableKds ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell>{area.enableCompletionConfirmation ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell>{area.enableQueueSystem ? 'Yes' : 'No'}</TableCell>
+                                        <TableCell>{printers.find(p => p.id === area.receiptPrinterId)?.name || 'Nessuna'}</TableCell>
+                                        <TableCell>{area.printComandasAtCashier ? 'Sì' : 'No'}</TableCell>
+                                        <TableCell>{area.enableWaiterConfirmation ? 'Sì' : 'No'}</TableCell>
+                                        <TableCell>{area.enableKds ? 'Sì' : 'No'}</TableCell>
+                                        <TableCell>{area.enableCompletionConfirmation ? 'Sì' : 'No'}</TableCell>
+                                        <TableCell>{area.enableQueueSystem ? 'Sì' : 'No'}</TableCell>
                                         <TableCell>{area.guestCharge?.toFixed(2)}</TableCell>
                                         <TableCell>{area.takeawayCharge?.toFixed(2)}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             {/* Edit Button Trigger */}
-                                            <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(area)}>Edit</Button>
+                                            <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(area)}>Modifica</Button>
                                             {/* Delete Button Trigger */}
                                             <AlertDialog open={isDeleteDialogOpen && areaToDelete?.id === area.id} onOpenChange={(open) => { if (!open) setAreaToDelete(null); setIsDeleteDialogOpen(open); }}>
                                                 <AlertDialogTrigger asChild>
-                                                    <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteDialog(area)}>Delete</Button>
+                                                    <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteDialog(area)}>Elimina</Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                        <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            Delete area "{areaToDelete?.name}"? This action cannot be undone and might affect associated categories and items.
+                                                            Eliminare l'area "{areaToDelete?.name}"? Questa azione non può essere annullata e potrebbe influenzare categorie e articoli associati.
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => setAreaToDelete(null)}>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDeleteArea}>Continue</AlertDialogAction>
+                                                        <AlertDialogCancel onClick={() => setAreaToDelete(null)}>Annulla</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={handleDeleteArea}>Continua</AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
@@ -454,18 +454,18 @@ export default function AreasPage() {
                                 ))}
                             </TableBody>
                         </Table>
-                    ) : <p>No areas found. Add one to get started.</p>}
+                    ) : <p>Nessuna area trovata. Aggiungine una per iniziare.</p>}
                 </CardContent>
             </Card>
 
             {/* Edit Area Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) setEditingArea(null); setIsEditDialogOpen(open); }}>
                 <DialogContent className="sm:max-w-lg">
-                    <DialogHeader><DialogTitle>Edit Area: {editingArea?.name}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>Modifica Area: {editingArea?.name}</DialogTitle></DialogHeader>
                     <div className="grid gap-6 py-4">
                         {/* Name Input */}
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-name" className="text-left">Name*</Label>
+                            <Label htmlFor="edit-name" className="text-left">Nome*</Label>
                             <Input
                                 id="edit-name"
                                 value={editAreaData.name || ''}
@@ -476,17 +476,17 @@ export default function AreasPage() {
 
                         {/* Printer Configuration Fields for Edit Dialog */}
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-receiptPrinterId" className="text-left">Default Printer</Label>
+                            <Label htmlFor="edit-receiptPrinterId" className="text-left">Stampante Predefinita</Label>
                             <Select
                                 value={editAreaData.receiptPrinterId?.toString() || NONE_PRINTER_VALUE}
                                 onValueChange={(value) => setEditAreaData(prev => ({ ...prev, receiptPrinterId: value === NONE_PRINTER_VALUE ? null : parseInt(value) }))}
                                 disabled={isLoadingPrinters}
                             >
                                 <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select a default printer (optional)" />
+                                    <SelectValue placeholder="Seleziona una stampante predefinita (opzionale)" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value={NONE_PRINTER_VALUE}>None</SelectItem>
+                                    <SelectItem value={NONE_PRINTER_VALUE}>Nessuna</SelectItem>
                                     {printers.map((printer) => (
                                         <SelectItem key={printer.id} value={printer.id.toString()}>
                                             {printer.name}
@@ -495,38 +495,18 @@ export default function AreasPage() {
                                 </SelectContent>
                             </Select>
                         </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="add-guestCharge" className="text-left">Guest Charge</Label>
-                                    <Input
-                                        id="add-guestCharge"
-                                        type="number"
-                                        value={newAreaData.guestCharge || 0}
-                                        onChange={(e) => setNewAreaData(prev => ({ ...prev, guestCharge: parseFloat(e.target.value) || 0 }))}
-                                        className="col-span-3"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="add-takeawayCharge" className="text-left">Takeaway Charge</Label>
-                                    <Input
-                                        id="add-takeawayCharge"
-                                        type="number"
-                                        value={newAreaData.takeawayCharge || 0}
-                                        onChange={(e) => setNewAreaData(prev => ({ ...prev, takeawayCharge: parseFloat(e.target.value) || 0 }))}
-                                        className="col-span-3"
-                                    />
-                                </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="add-printComandasAtCashier" className="text-left">
-                                        <TooltipProvider delayDuration={100}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <span className="cursor-help border-b border-dashed border-gray-400">Print Comandas at Default</span>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="right">
-                                                    <p className="max-w-xs">If ON, all comandas for this area (not tied to a specific Cashier Station with its own settings) print to the Default Printer selected above. If OFF, comandas print based on category-to-printer assignments.</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="edit-printComandasAtCashier" className="text-left">
+                                <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="cursor-help border-b border-dashed border-gray-400">Stampa Comande su Predefinita</span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right">
+                                            <p className="max-w-xs">Se ATTIVO, tutte le comande per quest'area (non legate a una specifica Postazione Cassa con le proprie impostazioni) verranno stampate sulla Stampante Predefinita selezionata sopra. Se DISATTIVO, le comande verranno stampate in base alle assegnazioni categoria-stampante.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </Label>
                             <Switch
                                 id="edit-printComandasAtCashier"
@@ -537,7 +517,7 @@ export default function AreasPage() {
                         </div>
 
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-guestCharge" className="text-left">Guest Charge</Label>
+                            <Label htmlFor="edit-guestCharge" className="text-left">Costo Coperto</Label>
                             <Input
                                 id="edit-guestCharge"
                                 type="number"
@@ -547,7 +527,7 @@ export default function AreasPage() {
                             />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="edit-takeawayCharge" className="text-left">Takeaway Charge</Label>
+                            <Label htmlFor="edit-takeawayCharge" className="text-left">Costo Asporto</Label>
                             <Input
                                 id="edit-takeawayCharge"
                                 type="number"
@@ -564,10 +544,10 @@ export default function AreasPage() {
                                 <Label htmlFor="edit-waiter" className="text-left">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span className="cursor-help border-b border-dashed border-gray-400">Waiter Confirm</span>
+                                            <span className="cursor-help border-b border-dashed border-gray-400">Conferma Cameriere</span>
                                         </TooltipTrigger>
                                         <TooltipContent side="right">
-                                            <p className="max-w-xs">If ON, orders go to 'Paid' and require a Waiter scan to become 'Preparing'. Comandas print after scan. If OFF, orders go directly to 'Preparing' (or later status) and comandas print immediately.</p>
+                                            <p className="max-w-xs">Se ATTIVO, gli ordini passano a 'Pagato' e richiedono una scansione del Cameriere per diventare 'In Preparazione'. Le comande vengono stampate dopo la scansione. Se DISATTIVO, gli ordini passano direttamente a 'In Preparazione' (o stato successivo) e le comande vengono stampate immediatamente.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </Label>
@@ -584,10 +564,10 @@ export default function AreasPage() {
                                 <Label htmlFor="edit-kds" className="text-left">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span className="cursor-help border-b border-dashed border-gray-400">Use KDS</span>
+                                            <span className="cursor-help border-b border-dashed border-gray-400">Usa KDS</span>
                                         </TooltipTrigger>
                                         <TooltipContent side="right">
-                                            <p className="max-w-xs">If ON, orders go from 'Preparing' to 'ReadyForPickup' only after all items are confirmed on relevant KDS screens. If OFF, orders skip this step.</p>
+                                            <p className="max-w-xs">Se ATTIVO, gli ordini passano da 'In Preparazione' a 'Pronto per il Ritiro' solo dopo che tutti gli articoli sono stati confermati sulle schermate KDS pertinenti. Se DISATTIVO, gli ordini saltano questo passaggio.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </Label>
@@ -604,10 +584,10 @@ export default function AreasPage() {
                                 <Label htmlFor="edit-completion" className="text-left">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span className="cursor-help border-b border-dashed border-gray-400">Confirm Pickup</span>
+                                            <span className="cursor-help border-b border-dashed border-gray-400">Conferma Ritiro</span>
                                         </TooltipTrigger>
                                         <TooltipContent side="right">
-                                            <p className="max-w-xs">If ON, orders go from 'ReadyForPickup' to 'Completed' only after an explicit confirmation action (e.g., scan/button at pickup point - requires UI implementation). If OFF, orders complete automatically after KDS/preparation.</p>
+                                            <p className="max-w-xs">Se ATTIVO, gli ordini passano da 'Pronto per il Ritiro' a 'Completato' solo dopo un'azione di conferma esplicita (es. scansione/pulsante al punto di ritiro - richiede implementazione UI). Se DISATTIVO, gli ordini si completano automaticamente dopo KDS/preparazione.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </Label>
@@ -624,10 +604,10 @@ export default function AreasPage() {
                                 <Label htmlFor="edit-queueSystem" className="text-left">
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <span className="cursor-help border-b border-dashed border-gray-400">Queue System</span>
+                                            <span className="cursor-help border-b border-dashed border-gray-400">Sistema Coda</span>
                                         </TooltipTrigger>
                                         <TooltipContent side="right">
-                                            <p className="max-w-xs">If ON, activates the queue number calling system for this area.</p>
+                                            <p className="max-w-xs">Se ATTIVO, attiva il sistema di chiamata del numero di coda per quest'area.</p>
                                         </TooltipContent>
                                     </Tooltip>
                                 </Label>
@@ -647,8 +627,8 @@ export default function AreasPage() {
                         )}
                     </div>
                     <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="outline" onClick={() => setEditingArea(null)}>Cancel</Button></DialogClose>
-                        <Button type="submit" onClick={handleEditArea} disabled={!editAreaData.name?.trim()}>Save Changes</Button>
+                        <DialogClose asChild><Button type="button" variant="outline" onClick={() => setEditingArea(null)}>Annulla</Button></DialogClose>
+                        <Button type="submit" onClick={handleEditArea} disabled={!editAreaData.name?.trim()}>Salva Modifiche</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

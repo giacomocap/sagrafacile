@@ -60,7 +60,7 @@ export default function AdminDashboardPage() {
     },
     {
       title: 'Stazioni KDS',
-      description: 'Kitchen Display System',
+      description: 'Sistema di Visualizzazione Cucina',
       icon: Monitor,
       href: `/app/org/${currentOrgId}/admin/kds`,
       color: 'bg-red-500'

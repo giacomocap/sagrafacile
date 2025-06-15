@@ -276,7 +276,7 @@ export default function MenuItemsPage() {
   // --- Render ---
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Manage Menu Items</h1>
+      <h1 className="text-2xl font-bold">Gestione Prodotti Menu</h1>
 
       <AdminAreaSelector
         selectedAreaId={selectedAreaId}
@@ -290,9 +290,9 @@ export default function MenuItemsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Menu Items</CardTitle>
+              <CardTitle>Prodotti Menu</CardTitle>
               <CardDescription>
-                {categories.length > 0 ? `Manage items for the selected area.` : `No menu categories found for this area. Please add categories first.`}
+                {categories.length > 0 ? `Gestisci i prodotti per l'area selezionata.` : `Nessuna categoria di menu trovata per quest'area. Aggiungi prima le categorie.`}
               </CardDescription>
             </div>
             <div className="flex space-x-2">
@@ -302,14 +302,14 @@ export default function MenuItemsPage() {
                 size="sm"
                 onClick={async () => {
                   if (selectedAreaId && categories) {
-                    toast.info("Refreshing items...");
+                    toast.info("Aggiornamento prodotti...");
                     await fetchAllItemsForArea(selectedAreaId, categories);
-                    toast.success("Items refreshed.");
+                    toast.success("Prodotti aggiornati.");
                   }
                 }}
                 disabled={!selectedAreaId || isLoadingItems || isLoadingCategories}
               >
-                Refresh Items
+                Aggiorna Prodotti
               </Button>
 
               {/* Reset All Stock for Area Button Trigger */}
@@ -321,25 +321,25 @@ export default function MenuItemsPage() {
                     onClick={() => { setResetAllStockAreaError(null); setIsResetAllStockAreaDialogOpen(true); }}
                     disabled={!selectedAreaId || items.length === 0}
                   >
-                    Reset All Area Stock
+                    Reimposta Tutte le Scorte dell'Area
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will reset the stock for ALL menu items in the selected area to "Unlimited". This action cannot be undone.
+                      Questo reimposterà la scorta per TUTTI i prodotti del menu nell'area selezionata a "Illimitata". Questa azione non può essere annullata.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   {resetAllStockAreaError && <p className="text-red-500 text-sm">{resetAllStockAreaError}</p>}
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Annulla</AlertDialogCancel>
                     <AlertDialogAction onClick={async () => {
                       if (!selectedAreaId) return;
                       setResetAllStockAreaError(null);
                       try {
                         await apiClient.post(`/areas/${selectedAreaId}/stock/reset-all`);
-                        toast.success("Stock for all items in the area has been reset.");
+                        toast.success("Scorta per tutti i prodotti nell'area è stata reimpostata.");
                         if (selectedAreaId) {
                           await fetchAllItemsForArea(selectedAreaId, categories); // Refresh list
                         }
@@ -347,11 +347,11 @@ export default function MenuItemsPage() {
                       } catch (err: unknown) {
                         console.error('Error resetting all area stock:', err);
                         const errorResponse = (err as { response?: { data?: { title?: string, message?: string } } }).response?.data;
-                        const errorMessage = errorResponse?.title || errorResponse?.message || 'Failed to reset all area stock.';
+                        const errorMessage = errorResponse?.title || errorResponse?.message || 'Impossibile reimpostare tutte le scorte dell\'area.';
                         setResetAllStockAreaError(errorMessage);
                         toast.error(errorMessage);
                       }
-                    }}>Confirm Reset All</AlertDialogAction>
+                    }}>Conferma Reimposta Tutto</AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
@@ -359,21 +359,21 @@ export default function MenuItemsPage() {
               {/* Add Item Dialog Trigger */}
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" onClick={handleOpenAddDialog} disabled={!selectedAreaId || categories.length === 0}>Add New Item</Button>
+                  <Button size="sm" onClick={handleOpenAddDialog} disabled={!selectedAreaId || categories.length === 0}>Aggiungi Nuovo Prodotto</Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
-                  <DialogHeader><DialogTitle>Add New Menu Item</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Aggiungi Nuovo Prodotto Menu</DialogTitle></DialogHeader>
                   {/* Add Item Form */}
                   <div className="grid gap-4 py-4">
                     {/* Category */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-category" className="text-right">Category*</Label>
+                      <Label htmlFor="add-category" className="text-right">Categoria*</Label>
                       <Select
                         value={newItemData.menuCategoryId?.toString()}
                         onValueChange={(value) => setNewItemData({ ...newItemData, menuCategoryId: parseInt(value, 10) })}
                       >
                         <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select a category" />
+                          <SelectValue placeholder="Seleziona una categoria" />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((cat) => (
@@ -386,39 +386,39 @@ export default function MenuItemsPage() {
                     </div>
                     {/* Name */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-name" className="text-right">Name*</Label>
+                      <Label htmlFor="add-name" className="text-right">Nome*</Label>
                       <Input id="add-name" value={newItemData.name || ''} onChange={(e) => setNewItemData({ ...newItemData, name: e.target.value })} className="col-span-3" />
                     </div>
                     {/* Description */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-desc" className="text-right">Description</Label>
+                      <Label htmlFor="add-desc" className="text-right">Descrizione</Label>
                       <Textarea id="add-desc" value={newItemData.description || ''} onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })} className="col-span-3" />
                     </div>
                     {/* Price */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-price" className="text-right">Price* (€)</Label>
+                      <Label htmlFor="add-price" className="text-right">Prezzo* (€)</Label>
                       <Input id="add-price" type="number" step="0.01" value={newItemData.price || ''} onChange={(e) => setNewItemData({ ...newItemData, price: parseFloat(e.target.value) || 0 })} className="col-span-3" />
                     </div>
                     {/* Note Required */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-note-req" className="text-right">Note Required?</Label>
+                      <Label htmlFor="add-note-req" className="text-right">Nota Obbligatoria?</Label>
                       <Checkbox id="add-note-req" checked={newItemData.isNoteRequired} onCheckedChange={(checked) => setNewItemData({ ...newItemData, isNoteRequired: Boolean(checked) })} className="col-span-3 justify-self-start" />
                     </div>
                     {/* Note Suggestion (conditional) */}
                     {newItemData.isNoteRequired && (
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-note-sug" className="text-right">Note Suggestion</Label>
+                        <Label htmlFor="add-note-sug" className="text-right">Suggerimento Nota</Label>
                         <Input id="add-note-sug" value={newItemData.noteSuggestion || ''} onChange={(e) => setNewItemData({ ...newItemData, noteSuggestion: e.target.value })} className="col-span-3" />
                       </div>
                     )}
                     {/* Scorta */}
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="add-scorta" className="text-right">Stock (Scorta)</Label>
+                      <Label htmlFor="add-scorta" className="text-right">Scorta</Label>
                       <Input
                         id="add-scorta"
                         type="number"
                         step="1"
-                        placeholder="Unlimited"
+                        placeholder="Illimitata"
                         value={newItemData.scorta === null || newItemData.scorta === undefined ? '' : newItemData.scorta.toString()}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -430,25 +430,25 @@ export default function MenuItemsPage() {
                     {addError && <p className="col-span-4 text-red-500 text-sm text-center">{addError}</p>}
                   </div>
                   <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                    <Button type="submit" onClick={handleAddItem} disabled={!newItemData.name || newItemData.price == null}>Save Item</Button>
+                    <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+                    <Button type="submit" onClick={handleAddItem} disabled={!newItemData.name || newItemData.price == null}>Salva Prodotto</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
           <CardContent>
-            {isLoadingItems ? <p>Loading items...</p> : error ? <p className="text-red-500">{error}</p> : items.length > 0 ? (
+            {isLoadingItems ? <p>Caricamento prodotti...</p> : error ? <p className="text-red-500">{error}</p> : items.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Stock</TableHead>
-                    <TableHead>Note Req.</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Prezzo</TableHead>
+                    <TableHead>Scorta</TableHead>
+                    <TableHead>Nota Obbl.</TableHead>
+                    <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -459,27 +459,27 @@ export default function MenuItemsPage() {
                       <TableCell>{item.categoryName}</TableCell>
                       <TableCell>€{item.price.toFixed(2)}</TableCell>
                       <TableCell>
-                        {item.scorta === null || item.scorta === undefined ? 'Unlimited' : item.scorta === 0 ? <span className="text-red-500">Out of Stock</span> : item.scorta}
+                        {item.scorta === null || item.scorta === undefined ? 'Illimitata' : item.scorta === 0 ? <span className="text-red-500">Esaurito</span> : item.scorta}
                       </TableCell>
-                      <TableCell>{item.isNoteRequired ? 'Yes' : 'No'}</TableCell>
+                      <TableCell>{item.isNoteRequired ? 'Sì' : 'No'}</TableCell>
                       <TableCell className="text-right space-x-2">
                         {/* Edit Button Trigger */}
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(item)}>Edit</Button>
+                        <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(item)}>Modifica</Button>
                         {/* Reset Stock Button Trigger */}
                         <AlertDialog open={isResetStockDialogOpen && itemToResetStock?.id === item.id} onOpenChange={(open) => { if (!open) setItemToResetStock(null); setIsResetStockDialogOpen(open); }}>
                           <AlertDialogTrigger asChild>
-                            <Button variant="secondary" size="sm" onClick={() => { setItemToResetStock(item); setResetStockError(null); setIsResetStockDialogOpen(true); }}>Reset Stock</Button>
+                            <Button variant="secondary" size="sm" onClick={() => { setItemToResetStock(item); setResetStockError(null); setIsResetStockDialogOpen(true); }}>Reimposta Scorta</Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Reset stock for item "{itemToResetStock?.name}" to unlimited?
+                                Reimpostare la scorta per il prodotto "{itemToResetStock?.name}" a illimitata?
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             {resetStockError && <p className="text-red-500 text-sm">{resetStockError}</p>}
                             <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => setItemToResetStock(null)}>Cancel</AlertDialogCancel>
+                              <AlertDialogCancel onClick={() => setItemToResetStock(null)}>Annulla</AlertDialogCancel>
                               <AlertDialogAction onClick={async () => {
                                 if (!itemToResetStock) return;
                                 setResetStockError(null);
@@ -493,29 +493,29 @@ export default function MenuItemsPage() {
                                 } catch (err: unknown) {
                                   console.error('Error resetting stock:', err);
                                   const errorResponse = (err as { response?: { data?: { title?: string, message?: string } } }).response?.data;
-                                  const errorMessage = errorResponse?.title || errorResponse?.message || 'Failed to reset stock.';
+                                  const errorMessage = errorResponse?.title || errorResponse?.message || 'Impossibile reimpostare la scorta.';
                                   setResetStockError(errorMessage);
                                 }
-                              }}>Confirm Reset</AlertDialogAction>
+                              }}>Conferma Reimposta</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
                         {/* Delete Button Trigger */}
                         <AlertDialog open={isDeleteDialogOpen && itemToDelete?.id === item.id} onOpenChange={(open) => { if (!open) setItemToDelete(null); setIsDeleteDialogOpen(open); }}>
                           <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteDialog(item)}>Delete</Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteDialog(item)}>Elimina</Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                              <AlertDialogTitle>Sei sicuro?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Delete item "{itemToDelete?.name}"? This cannot be undone.
+                                Eliminare il prodotto "{itemToDelete?.name}"? Questa azione non può essere annullata.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
                             <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => setItemToDelete(null)}>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleDeleteItem}>Continue</AlertDialogAction>
+                              <AlertDialogCancel onClick={() => setItemToDelete(null)}>Annulla</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleDeleteItem}>Continua</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -524,7 +524,7 @@ export default function MenuItemsPage() {
                   ))}
                 </TableBody>
               </Table>
-            ) : <p>No menu items found for this category.</p>}
+            ) : <p>Nessun prodotto menu trovato per quest'area.</p>}
           </CardContent>
         </Card>
       )}
@@ -532,18 +532,18 @@ export default function MenuItemsPage() {
       {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Edit Menu Item</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Modifica Prodotto Menu</DialogTitle></DialogHeader>
           {/* Edit Item Form */}
           <div className="grid gap-4 py-4">
             {/* Category */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-category" className="text-right">Category*</Label>
+              <Label htmlFor="edit-category" className="text-right">Categoria*</Label>
               <Select
                 value={editItemData.menuCategoryId?.toString() || editingItem?.menuCategoryId.toString()}
                 onValueChange={(value) => setEditItemData({ ...editItemData, menuCategoryId: parseInt(value, 10) })}
               >
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Seleziona una categoria" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -556,39 +556,39 @@ export default function MenuItemsPage() {
             </div>
             {/* Name */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-name" className="text-right">Name*</Label>
+              <Label htmlFor="edit-name" className="text-right">Nome*</Label>
               <Input id="edit-name" value={editItemData.name || ''} onChange={(e) => setEditItemData({ ...editItemData, name: e.target.value })} className="col-span-3" />
             </div>
             {/* Description */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-desc" className="text-right">Description</Label>
+              <Label htmlFor="edit-desc" className="text-right">Descrizione</Label>
               <Textarea id="edit-desc" value={editItemData.description || ''} onChange={(e) => setEditItemData({ ...editItemData, description: e.target.value })} className="col-span-3" />
             </div>
             {/* Price */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-price" className="text-right">Price* (€)</Label>
+              <Label htmlFor="edit-price" className="text-right">Prezzo* (€)</Label>
               <Input id="edit-price" type="number" step="0.01" value={editItemData.price || ''} onChange={(e) => setEditItemData({ ...editItemData, price: parseFloat(e.target.value) || 0 })} className="col-span-3" />
             </div>
             {/* Note Required */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-note-req" className="text-right">Note Required?</Label>
+              <Label htmlFor="edit-note-req" className="text-right">Nota Obbligatoria?</Label>
               <Checkbox id="edit-note-req" checked={editItemData.isNoteRequired} onCheckedChange={(checked) => setEditItemData({ ...editItemData, isNoteRequired: Boolean(checked) })} className="col-span-3 justify-self-start" />
             </div>
             {/* Note Suggestion (conditional) */}
             {editItemData.isNoteRequired && (
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-note-sug" className="text-right">Note Suggestion</Label>
+                <Label htmlFor="edit-note-sug" className="text-right">Suggerimento Nota</Label>
                 <Input id="edit-note-sug" value={editItemData.noteSuggestion || ''} onChange={(e) => setEditItemData({ ...editItemData, noteSuggestion: e.target.value })} className="col-span-3" />
               </div>
             )}
             {/* Scorta */}
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-scorta" className="text-right">Stock (Scorta)</Label>
+              <Label htmlFor="edit-scorta" className="text-right">Scorta</Label>
               <Input
                 id="edit-scorta"
                 type="number"
                 step="1"
-                placeholder="Unlimited"
+                        placeholder="Illimitata"
                 value={editItemData.scorta === null || editItemData.scorta === undefined ? '' : editItemData.scorta.toString()}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -600,8 +600,8 @@ export default function MenuItemsPage() {
             {editError && <p className="col-span-4 text-red-500 text-sm text-center">{editError}</p>}
           </div>
           <DialogFooter>
-            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-            <Button type="submit" onClick={handleEditItem} disabled={!editItemData.name || editItemData.price == null || !editItemData.menuCategoryId}>Save Changes</Button>
+            <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+            <Button type="submit" onClick={handleEditItem} disabled={!editItemData.name || editItemData.price == null || !editItemData.menuCategoryId}>Salva Modifiche</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

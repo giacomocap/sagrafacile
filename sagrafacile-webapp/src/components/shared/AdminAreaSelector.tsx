@@ -37,7 +37,7 @@ export default function AdminAreaSelector({
           onAreaChange(fetchedAreas[0].id.toString());
         }
       } catch (err) {
-        console.error('Error fetching areas:', err);
+        console.error('Errore nel recupero delle aree:', err);
         setError('Caricamento aree fallito.');
       } finally {
         setIsLoading(false);

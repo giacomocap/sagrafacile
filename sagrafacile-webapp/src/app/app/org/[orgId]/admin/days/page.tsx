@@ -37,7 +37,7 @@ const AdminDaysPage = () => {
             const fetchedDays = await dayService.getDays();
             setDays(fetchedDays || []);
         } catch (error) {
-            console.error("Error fetching days:", error);
+            console.error("Errore nel recupero delle giornate:", error);
             const errorMessage = (error instanceof Error) ? error.message : 'Errore sconosciuto';
             toast.error(`Impossibile caricare le giornate: ${errorMessage}`);
             setDays([]);
@@ -64,7 +64,7 @@ const AdminDaysPage = () => {
             toast.success("Giornata aperta con successo!");
             refreshData();
         } catch (error) {
-            console.error("Error opening day:", error);
+            console.error("Errore nell'apertura della giornata:", error);
             const errorMessage = (error instanceof Error) ? error.message : 'Errore sconosciuto';
             toast.error(`Impossibile aprire la giornata: ${errorMessage}`);
         } finally {
@@ -80,7 +80,7 @@ const AdminDaysPage = () => {
             toast.success("Giornata chiusa con successo!");
             refreshData();
         } catch (error) {
-            console.error("Error closing day:", error);
+            console.error("Errore nella chiusura della giornata:", error);
             const errorMessage = (error instanceof Error) ? error.message : 'Errore sconosciuto';
             toast.error(`Impossibile chiudere la giornata: ${errorMessage}`);
         } finally {

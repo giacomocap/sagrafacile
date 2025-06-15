@@ -45,7 +45,7 @@ export default function AdManagementPage() {
                     setAds(response.data);
                 })
                 .catch(error => {
-                    console.error("Error fetching ads:", error);
+                    console.error("Errore nel recupero delle pubblicità:", error);
                     toast.error("Errore nel caricamento delle pubblicità");
                 })
                 .finally(() => {
@@ -65,7 +65,7 @@ export default function AdManagementPage() {
                     setAssignments(response.data);
                 })
                 .catch(error => {
-                    console.error("Error fetching assignments:", error);
+                    console.error("Errore nel recupero delle assegnazioni:", error);
                     toast.error("Errore nel caricamento delle assegnazioni");
                 })
                 .finally(() => {
@@ -181,7 +181,7 @@ export default function AdManagementPage() {
                                         {ad.mediaType === 'Image' ? (
                                             <img
                                                 src={getSharedMediaUrl(ad.filePath)}
-                                                alt="Ad preview"
+                                                alt="Anteprima pubblicità"
                                                 width={100} // Example fixed width
                                                 height={64} // h-16 is 64px
                                                 className="rounded"
@@ -192,16 +192,16 @@ export default function AdManagementPage() {
                                         )}
                                     </TableCell>
                                     <TableCell>{ad.name}</TableCell>
-                                    <TableCell>{ad.mediaType}</TableCell>
-                                    <TableCell className="space-x-2">
-                                        <Button variant="outline" size="icon" onClick={() => handleEditAdClick(ad)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="destructive" size="icon" onClick={() => handleDeleteAdClick(ad.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
+                                            <TableCell>{ad.mediaType}</TableCell>
+                                            <TableCell className="space-x-2">
+                                                <Button variant="outline" size="icon" onClick={() => handleEditAdClick(ad)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="destructive" size="icon" onClick={() => handleDeleteAdClick(ad.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
                             ))}
                         </TableBody>
                         </Table>
@@ -253,7 +253,7 @@ export default function AdManagementPage() {
                                                 {assignment.adMediaItem.mediaType === 'Image' ? (
                                                     <img
                                                         src={getSharedMediaUrl(assignment.adMediaItem.filePath)}
-                                                        alt="Ad preview"
+                                                        alt="Anteprima pubblicità"
                                                         width={100} // Example fixed width
                                                         height={64} // h-16 is 64px
                                                         className="rounded"
@@ -265,7 +265,7 @@ export default function AdManagementPage() {
                                             </TableCell>
                                             <TableCell>{assignment.adMediaItem.name}</TableCell>
                                             <TableCell>{assignment.displayOrder}</TableCell>
-                                            <TableCell>{assignment.adMediaItem.mediaType === 'Image' ? assignment.durationSeconds : 'N/A'}</TableCell>
+                                            <TableCell>{assignment.adMediaItem.mediaType === 'Image' ? assignment.durationSeconds : 'N/D'}</TableCell>
                                             <TableCell>
                                                 <Badge variant={assignment.isActive ? 'default' : 'secondary'}>
                                                     {assignment.isActive ? 'Attiva' : 'Inattiva'}

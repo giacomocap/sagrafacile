@@ -70,7 +70,7 @@ const OrgKdsStationsAdminPage = () => {
                     setSelectedAreaId(undefined); // Ensure no area is selected if multiple exist initially
                 }
             } catch (err) {
-                console.error("Error fetching areas:", err);
+                console.error("Errore nel recupero delle aree:", err);
                 const message = `Caricamento aree fallito: ${(err instanceof Error ? err.message : 'Errore sconosciuto')}`;
                 setAreasError(message);
                 toast.error(message);
@@ -93,7 +93,7 @@ const OrgKdsStationsAdminPage = () => {
             const response = await apiClient.get<KdsStationDto[]>(`/organizations/${orgId}/areas/${areaId}/kds-stations`);
             setStations(response.data || []);
         } catch (err) {
-            console.error(`Error fetching KDS stations for area ${areaId}:`, err);
+            console.error(`Errore nel recupero delle stazioni KDS per l'area ${areaId}:`, err);
             const message = `Caricamento stazioni KDS per l'area selezionata fallito: ${(err instanceof Error ? err.message : 'Errore sconosciuto')}`;
             setStationsError(message);
             setStations([]); // Clear stations on error
@@ -138,7 +138,7 @@ const OrgKdsStationsAdminPage = () => {
             }
             setStationToDelete(null);
         } catch (err) {
-            console.error("Error deleting KDS station:", err);
+            console.error("Errore nell'eliminazione della stazione KDS:", err);
             const errorResponse = err as { response?: { data?: { title?: string } }, message?: string };
             const message = `Eliminazione della stazione KDS ${stationToDelete.name} fallita: ${errorResponse.response?.data?.title || errorResponse.message || 'Controlla la console per i dettagli.'}`;
             setDeleteError(message); // Show error within the dialog

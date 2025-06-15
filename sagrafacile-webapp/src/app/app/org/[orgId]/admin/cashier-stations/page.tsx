@@ -88,7 +88,7 @@ export default function CashierStationsPage() {
             const response = await apiClient.get<AreaDto[]>('/Areas');
             setAreas(response.data || []);
         } catch (err) {
-            console.error('Error fetching areas:', err);
+            console.error('Errore nel recupero delle aree:', err);
             setPageError('Caricamento aree fallito.');
             toast.error('Caricamento aree fallito.');
         } finally {
@@ -104,7 +104,7 @@ export default function CashierStationsPage() {
             const response = await printerService.getPrinters();
             setPrinters(response || []);
         } catch (err) {
-            console.error('Error fetching printers:', err);
+            console.error('Errore nel recupero delle stampanti:', err);
             setPageError('Caricamento stampanti fallito.');
             toast.error('Caricamento stampanti fallito.');
         } finally {
@@ -120,7 +120,7 @@ export default function CashierStationsPage() {
             const response = await apiClient.get<CashierStationDto[]>(`/CashierStations/organization/${orgId}`);
             setCashierStations(response.data || []);
         } catch (err) {
-            console.error('Error fetching cashier stations:', err);
+            console.error('Errore nel recupero delle postazioni cassa:', err);
             setPageError('Caricamento postazioni cassa fallito.');
             toast.error('Caricamento postazioni cassa fallito.');
         } finally {
@@ -192,7 +192,7 @@ export default function CashierStationsPage() {
             setIsAddDialogOpen(false);
             fetchCashierStations(); // Refresh list
         } catch (err: unknown) { // Changed to unknown
-            console.error('Error adding cashier station:', err);
+            console.error('Errore nell\'aggiunta della postazione cassa:', err);
             const errorResponse = (err as { response?: { data?: { title?: string, errors?: Record<string, string[]> } } }).response?.data;
             let errorMsg = errorResponse?.title || 'Aggiunta postazione cassa fallita.';
             
@@ -257,7 +257,7 @@ export default function CashierStationsPage() {
             setEditingStation(null);
             fetchCashierStations(); // Refresh list
         } catch (err: unknown) {
-            console.error('Error updating cashier station:', err);
+            console.error('Errore nell\'aggiornamento della postazione cassa:', err);
             const errorResponse = (err as { response?: { data?: { title?: string, errors?: Record<string, string[]> } } }).response?.data;
             let errorMsg = errorResponse?.title || 'Aggiornamento postazione cassa fallito.';
             
@@ -292,7 +292,7 @@ export default function CashierStationsPage() {
             setStationToDelete(null);
             fetchCashierStations(); // Refresh list
         } catch (err) {
-            console.error('Error deleting cashier station:', err);
+            console.error('Errore nell\'eliminazione della postazione cassa:', err);
             setDeleteError("Eliminazione della postazione cassa fallita. Potrebbe essere ancora associata a degli ordini.");
             toast.error("Eliminazione della postazione cassa fallita.");
         }
@@ -387,29 +387,29 @@ export default function CashierStationsPage() {
     );
 
     if (!orgId) {
-        return <p>Organization ID not found.</p>;
+        return <p>ID Organizzazione non trovato.</p>;
     }
 
     if (isLoadingAreas || isLoadingPrinters && !cashierStations.length) { // Show loading only on initial data fetch phase
-        return <p>Loading configuration data...</p>;
+        return <p>Caricamento dati di configurazione...</p>;
     }
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Manage Cashier Stations</h1>
+            <h1 className="text-2xl font-bold">Gestisci Postazioni Cassa</h1>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Filter Stations</CardTitle>
-                    <CardDescription>Display cashier stations for a specific area or all areas.</CardDescription>
+                    <CardTitle>Filtra Postazioni</CardTitle>
+                    <CardDescription>Visualizza le postazioni cassa per un'area specifica o per tutte le aree.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Select onValueChange={setSelectedFilterAreaId} value={selectedFilterAreaId}>
                         <SelectTrigger className="w-[280px]">
-                            <SelectValue placeholder="Select an area to filter" />
+                            <SelectValue placeholder="Seleziona un'area per filtrare" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="all">All Areas</SelectItem>
+                            <SelectItem value="all">Tutte le Aree</SelectItem>
                             {areas.map((area) => (
                                 <SelectItem key={area.id} value={area.id.toString()}>
                                     {area.name}
@@ -423,19 +423,19 @@ export default function CashierStationsPage() {
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle>Cashier Stations List</CardTitle>
-                        <CardDescription>View and manage all cashier stations in your organization.</CardDescription>
+                        <CardTitle>Elenco Postazioni Cassa</CardTitle>
+                        <CardDescription>Visualizza e gestisci tutte le postazioni cassa nella tua organizzazione.</CardDescription>
                     </div>
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                         <DialogTrigger asChild>
                             <Button size="sm" onClick={handleOpenAddDialog} disabled={areas.length === 0 || printers.length === 0 && !isLoadingAreas && !isLoadingPrinters}>
-                                Add New Station
+                                Aggiungi Nuova Postazione
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-md">
                             <DialogHeader>
-                                <DialogTitle>Add New Cashier Station</DialogTitle>
-                                <DialogDescription>Configure the details for the new station.</DialogDescription>
+                                <DialogTitle>Aggiungi Nuova Postazione Cassa</DialogTitle>
+                                <DialogDescription>Configura i dettagli per la nuova postazione.</DialogDescription>
                             </DialogHeader>
                             {renderFormFields(addFormData, handleAddFormChange)}
                             {addError && (
@@ -444,58 +444,58 @@ export default function CashierStationsPage() {
                                 </div>
                             )}
                             <DialogFooter>
-                                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                                <Button type="submit" onClick={handleAddStation} disabled={!addFormData.name.trim() || !addFormData.areaId}>Save Station</Button>
+                                <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+                                <Button type="submit" onClick={handleAddStation} disabled={!addFormData.name.trim() || !addFormData.areaId}>Salva Postazione</Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
                 </CardHeader>
                 <CardContent>
                     {isLoadingStations ? (
-                        <p>Loading stations...</p>
+                        <p>Caricamento postazioni...</p>
                     ) : pageError && !filteredStations.length ? (
                         <p className="text-red-500">{pageError}</p>
                     ) : filteredStations.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
+                                    <TableHead>Nome</TableHead>
                                     <TableHead>Area</TableHead>
-                                    <TableHead>Receipt Printer</TableHead>
-                                    <TableHead>Prints Comandas</TableHead>
-                                    <TableHead>Enabled</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead>Stampante Scontrini</TableHead>
+                                    <TableHead>Stampa Comande</TableHead>
+                                    <TableHead>Abilitata</TableHead>
+                                    <TableHead className="text-right">Azioni</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredStations.map((station) => (
                                     <TableRow key={station.id}>
                                         <TableCell className="font-medium">{station.name}</TableCell>
-                                        <TableCell>{station.areaName || areas.find(a => a.id === station.areaId)?.name || 'N/A'}</TableCell>
-                                        <TableCell>{station.receiptPrinterName || printers.find(p => p.id === station.receiptPrinterId)?.name || 'None'}</TableCell>
-                                        <TableCell>{station.printComandasAtThisStation ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell>{station.isEnabled ? 'Yes' : 'No'}</TableCell>
+                                        <TableCell>{station.areaName || areas.find(a => a.id === station.areaId)?.name || 'N/D'}</TableCell>
+                                        <TableCell>{station.receiptPrinterName || printers.find(p => p.id === station.receiptPrinterId)?.name || 'Nessuna'}</TableCell>
+                                        <TableCell>{station.printComandasAtThisStation ? 'Sì' : 'No'}</TableCell>
+                                        <TableCell>{station.isEnabled ? 'Sì' : 'No'}</TableCell>
                                         <TableCell className="text-right space-x-2">
                                             <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(station)} disabled={areas.length === 0 || printers.length === 0 && !isLoadingAreas && !isLoadingPrinters}>
-                                                Edit
+                                                Modifica
                                             </Button>
                                             <AlertDialog open={isDeleteDialogOpen && stationToDelete?.id === station.id} onOpenChange={(open) => { if (!open) setStationToDelete(null); setIsDeleteDialogOpen(open); }}>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="sm" onClick={() => handleOpenDeleteDialog(station)}>
-                                                        Delete
+                                                        Elimina
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                        <AlertDialogTitle>Sei assolutamente sicuro?</AlertDialogTitle>
                                                         <AlertDialogDescription>
-                                                            This action cannot be undone. This will permanently delete the cashier station "{stationToDelete?.name}".
+                                                            Questa azione non può essere annullata. Questo eliminerà permanentemente la postazione cassa "{stationToDelete?.name}".
                                                         </AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
                                                     <AlertDialogFooter>
-                                                        <AlertDialogCancel onClick={() => { setStationToDelete(null); setDeleteError(null); }}>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleDeleteStation}>Continue</AlertDialogAction>
+                                                        <AlertDialogCancel onClick={() => { setStationToDelete(null); setDeleteError(null); }}>Annulla</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={handleDeleteStation}>Continua</AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </AlertDialogContent>
                                             </AlertDialog>
@@ -505,7 +505,7 @@ export default function CashierStationsPage() {
                             </TableBody>
                         </Table>
                     ) : (
-                        <p>No cashier stations found{selectedFilterAreaId !== 'all' ? ' for the selected area' : ' for this organization'}. {pageError}</p>
+                        <p>Nessuna postazione cassa trovata{selectedFilterAreaId !== 'all' ? ' per l\'area selezionata' : ' per questa organizzazione'}. {pageError}</p>
                     )}
                 </CardContent>
             </Card>
@@ -514,8 +514,8 @@ export default function CashierStationsPage() {
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Edit Cashier Station</DialogTitle>
-                        <DialogDescription>Update the details for "{editingStation?.name}".</DialogDescription>
+                        <DialogTitle>Modifica Postazione Cassa</DialogTitle>
+                        <DialogDescription>Aggiorna i dettagli per "{editingStation?.name}".</DialogDescription>
                     </DialogHeader>
                     {editingStation && renderFormFields(editFormData, handleEditFormChange)}
                     {editError && (
@@ -524,8 +524,8 @@ export default function CashierStationsPage() {
                         </div>
                     )}
                     <DialogFooter>
-                        <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                        <Button type="submit" onClick={handleEditStation} disabled={!editFormData.name.trim() || !editFormData.areaId}>Save Changes</Button>
+                        <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+                        <Button type="submit" onClick={handleEditStation} disabled={!editFormData.name.trim() || !editFormData.areaId}>Salva Modifiche</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
