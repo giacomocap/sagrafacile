@@ -487,3 +487,65 @@ export interface AdMediaItemUpsertDto {
   isActive: boolean;
   file?: File;
 }
+
+// ==================
+// Analytics & Charts
+// ==================
+export interface DashboardKPIsDto {
+  todayTotalSales: number;
+  todayOrderCount: number;
+  averageOrderValue: number;
+  mostPopularCategory: string | null;
+  totalCoperti: number; // Total number of guests served (coperti)
+  dayId: number | null;
+  dayDate: string | null; // ISO Date string
+}
+
+export interface SalesTrendDataDto {
+  date: string; // ISO Date string
+  sales: number;
+  orderCount: number;
+  dayId: number | null;
+}
+
+export interface OrderStatusDistributionDto {
+  status: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TopMenuItemDto {
+  itemName: string;
+  categoryName: string;
+  quantity: number;
+  revenue: number;
+}
+
+export interface OrdersByHourDto {
+  hour: number;
+  orderCount: number;
+  revenue: number;
+}
+
+export interface PaymentMethodDistributionDto {
+  paymentMethod: string;
+  count: number;
+  amount: number;
+  percentage: number;
+}
+
+export interface AverageOrderValueTrendDto {
+  date: string; // ISO Date string
+  averageValue: number;
+  orderCount: number;
+  dayId: number | null;
+}
+
+export interface OrderStatusTimelineEventDto {
+  orderId: string;
+  displayOrderNumber: string | null;
+  status: string;
+  timestamp: string; // ISO Date string
+  previousStatus: string | null;
+  durationInPreviousStatusMinutes: number | null;
+}

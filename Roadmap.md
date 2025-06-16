@@ -420,8 +420,8 @@ This document outlines the planned development phases for the SagraFacile system
 *   **Implementation Phases:**
     *   `[x]` **Phase 9.1 (Backend):** Foundation setup (DTOs, Service Interface, Controller, DI Registration).
     *   `[x]` **Phase 9.2 (Backend):** Full implementation of data querying and business logic in `AnalyticsService.cs` for all defined analytics endpoints and text-based report generation.
-    *   `[ ]` **Phase 9.3 (Frontend):** Foundation setup (charts component installation, `analyticsService.ts`, TypeScript types).
-    *   `[ ]` **Phase 9.4 (Frontend):** Dashboard KPIs and charts component implementation and integration.
+    *   `[x]` **Phase 9.3 (Frontend):** Foundation setup (charts component installation, `analyticsService.ts`, TypeScript types).
+    *   `[x]` **Phase 9.4 (Frontend):** Dashboard KPIs and charts component implementation and integration.
     *   `[ ]` **Phase 9.5 (Frontend):** Orders analytics charts component implementation and integration.
     *   `[ ]` **Phase 9.6 (Frontend & Backend):** Polish, comprehensive testing, potential enhancement of report export (e.g., PDF/Excel), and user feedback integration.
 

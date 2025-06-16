@@ -81,6 +81,59 @@ Improved pre-order UX by adding a client-side warning toast in Cashier page (`ha
 ## (2025-06-06) - Adjust Cashier Order Panel Styling for Laptop Screens
 Adjusted styling in `CashierOrderPanel.tsx` to reduce horizontal and vertical space, improving visibility of the order summary on laptop screens.
 
+## (2025-06-16) - Implemented Charts & Analytics Dashboard Frontend (Phase 9.3 & 9.4) + Chart Fixes
+**Context:** Completed frontend implementation for Charts & Analytics Dashboard feature as outlined in `docs/ChartsAnalyticsArchitecture.md` and `Roadmap.md` Phase 9, including additional enhancements and bug fixes.
+**Accomplishments:**
+*   **Phase 9.3 - Frontend Foundation:**
+    *   **Shadcn Charts Component:** Installed `shadcn-ui@latest add chart` for chart functionality.
+    *   **Analytics DTOs:** Added all analytics TypeScript interfaces to `src/types/index.ts` (`DashboardKPIsDto`, `SalesTrendDataDto`, `OrderStatusDistributionDto`, `TopMenuItemDto`, `OrdersByHourDto`, `PaymentMethodDistributionDto`, `AverageOrderValueTrendDto`, `OrderStatusTimelineEventDto`).
+    *   **Analytics Service:** Created `src/services/analyticsService.ts` with all API interaction methods for dashboard and orders analytics.
+    *   **Component Structure:** Created organized chart components in `src/components/charts/`:
+        *   `shared/`: `LoadingChart.tsx`, `EmptyChart.tsx` for consistent UI states
+        *   `dashboard/`: `DashboardKPIs.tsx`, `SalesTrendChart.tsx`, `OrderStatusChart.tsx`, `TopMenuItemsChart.tsx`
+    *   **Responsive Hook:** Created `src/hooks/useMediaQuery.ts` for responsive behavior.
+*   **Phase 9.4 - Frontend Dashboard Implementation:**
+    *   **Dashboard KPIs Component:** Mobile-friendly 5-card layout (Total Sales, Order Count, Average Order Value, **Total Coperti**, Top Category) with Italian localization, currency formatting, automatic refresh every 5 minutes, and proper error handling.
+    *   **Chart Components:** 
+        *   **Sales Trend Chart:** Area chart showing sales and order trends over 7 days with dual Y-axes
+        *   **Order Status Chart:** Pie chart with donut design showing order distribution by status with legend
+        *   **Top Menu Items Chart:** Horizontal bar chart with detailed list showing top-selling items by quantity
+    *   **Dedicated Analytics Page:** Created `/app/org/[orgId]/admin/analytics/page.tsx` with comprehensive analytics dashboard including all charts and future report generation placeholder.
+    *   **Day Selection Feature:** Added dropdown selector to view analytics for different operational days (Giornate) with proper integration to all components.
+    *   **Navigation Integration:** Added "Analytics" menu item to `AdminNavigation.tsx`.
+    *   **Dashboard Integration:** Updated main admin dashboard (`/admin/page.tsx`) to show only KPIs, with full charts available on dedicated analytics page.
+*   **Additional Enhancements:**
+    *   **Coperti KPI:** Added new "Coperti Totali" card showing total guests served, providing valuable operational insights.
+    *   **Day Selection:** Implemented comprehensive day selection functionality allowing users to view analytics for any historical operational day.
+    *   **Chart Color Fixes:** Resolved chart visualization issues by replacing CSS variable references with hardcoded hex colors for better compatibility with Recharts library.
+*   **Bug Fixes:**
+    *   **Order Status Chart:** Fixed pie chart segments appearing in same color by using distinct hex colors for each status.
+    *   **Top Menu Items Chart:** Fixed invisible bars by correcting color references and ensuring proper chart rendering.
+*   **Key Technical Features:**
+    *   All components include proper loading states, error handling, and empty data states
+    *   Automatic refresh every 5 minutes (configurable)
+    *   Italian localization and proper currency formatting
+    *   Responsive design with mobile-friendly KPIs
+    *   Integration with operational day (Giornata) system for accurate reporting
+    *   Day-based filtering for historical analysis
+    *   Proper TypeScript typing and error boundaries
+**Key Decisions:**
+*   Created dedicated analytics page instead of cramming all charts into main dashboard for better organization and user experience
+*   Kept only KPIs on main dashboard for quick overview
+*   Used shadcn/ui charts (built on Recharts) for consistent design system integration
+*   Avoided index files to maintain optimal Next.js tree-shaking and code splitting
+*   Implemented comprehensive error handling and loading states for robust user experience
+*   Switched from CSS variables to hardcoded colors for chart compatibility
+*   Added coperti tracking as a key operational metric
+**Outcome:** 
+*   Complete analytics dashboard with working charts and day selection
+*   Enhanced KPIs including guest volume tracking
+*   Robust chart visualization with distinct colors
+*   Historical analysis capability through day selection
+**Next Steps:**
+*   Phase 9.5: Implement orders analytics charts for the orders admin page
+*   Phase 9.6: Polish, testing, and potential PDF/Excel report generation enhancement
+
 ## (Next Session) - Planned Work
 Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub. This impacts both backend and frontend testing of the printing feature.
 

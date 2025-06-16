@@ -97,7 +97,9 @@ export default function AdminLayout({
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0 flex flex-col">
           <div className="flex-shrink-0 p-4 border-b">
-            <h2 className="text-xl font-semibold">Sagrafacile Admin</h2>
+             <Link href={`/app/org/${currentOrgId}`}>
+          <h2 className="text-xl font-semibold">Sagrafacile Admin</h2>
+        </Link>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <AdminNavigation

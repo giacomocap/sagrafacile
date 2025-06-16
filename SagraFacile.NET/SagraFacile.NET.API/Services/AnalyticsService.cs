@@ -89,7 +89,8 @@ namespace SagraFacile.NET.API.Services
                     MostPopularCategory = "N/A",
                     TodayTotalSales = 0,
                     TodayOrderCount = 0,
-                    AverageOrderValue = 0
+                    AverageOrderValue = 0,
+                    TotalCoperti = 0
                 };
             }
 
@@ -99,6 +100,7 @@ namespace SagraFacile.NET.API.Services
             var todayTotalSales = await ordersQuery.SumAsync(o => o.TotalAmount);
             var todayOrderCount = await ordersQuery.CountAsync();
             var averageOrderValue = todayOrderCount > 0 ? Math.Round(todayTotalSales / todayOrderCount, 2) : 0;
+            var totalCoperti = await ordersQuery.SumAsync(o => o.NumberOfGuests);
 
             var mostPopularCategory = "N/A";
             if (todayOrderCount > 0)
@@ -124,6 +126,7 @@ namespace SagraFacile.NET.API.Services
                 TodayOrderCount = todayOrderCount,
                 AverageOrderValue = averageOrderValue,
                 MostPopularCategory = mostPopularCategory,
+                TotalCoperti = totalCoperti,
                 DayId = targetDay.Id,
                 DayDate = targetDay.StartTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
             };

@@ -22,6 +22,7 @@ import {
   ChefHat,
   Wallet
 } from 'lucide-react';
+import { DashboardKPIs } from '@/components/charts/dashboard/DashboardKPIs';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -128,6 +129,17 @@ export default function AdminDashboardPage() {
             </Badge>
           </div>
         )}
+      </div>
+
+      {/* Analytics Section */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Analytics</h2>
+        
+        {/* KPIs - Always visible */}
+        <DashboardKPIs 
+          organizationId={currentOrgId} 
+          dayId={currentDay?.id}
+        />
       </div>
 
       {/* Management Section */}
