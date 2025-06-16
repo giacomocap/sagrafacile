@@ -57,6 +57,9 @@ jobs:
         with:
           images: ghcr.io/giacomocap/sagrafacile-api
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push API Docker image
         uses: docker/build-push-action@v5
         with:
@@ -93,6 +96,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/giacomocap/sagrafacile-frontend
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
