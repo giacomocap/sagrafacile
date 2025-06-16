@@ -163,10 +163,10 @@ Once the API is running, you can test the endpoints using tools like:
 *   `POST /api/areas` with JSON body: `{ "name": "Stand Gastronomico", "organizationId": 1 }`
 *   `GET /api/menucategories?areaId=1`
 *   `POST /api/orders` with JSON body (refer to `CreateOrderDto` structure in `SagraFacile/Services/Interfaces/IOrderService.cs`)
-*   `POST /api/accounts/register` with JSON body: `{ "email": "test@example.com", "password": "Password123!", "confirmPassword": "Password123!", "firstName": "Test", "lastName": "User" }`
-*   `POST /api/accounts/login` with JSON body: `{ "email": "test@example.com", "password": "Password123!" }` (Returns JWT on success)
+*   `POST /api/accounts/register` with JSON body: `{ "email": "test@sagrafacile.it", "password": "Password123!", "confirmPassword": "Password123!", "firstName": "Test", "lastName": "User" }`
+*   `POST /api/accounts/login` with JSON body: `{ "email": "test@sagrafacile.it", "password": "Password123!" }` (Returns JWT on success)
 *   `GET /api/accounts` (Requires "Admin" or "SuperAdmin" role and JWT)
-*   `PUT /api/accounts/{userId}` (Requires appropriate Admin role and JWT) with JSON body: `{ "firstName": "Updated", "lastName": "Name", "email": "updated@example.com" }`
+*   `PUT /api/accounts/{userId}` (Requires appropriate Admin role and JWT) with JSON body: `{ "firstName": "Updated", "lastName": "Name", "email": "updated@sagrafacile.it" }`
 *   `DELETE /api/accounts/{userId}` (Requires appropriate Admin role and JWT)
 *   `GET /api/accounts/roles` (Requires Admin role and JWT)
 *   `POST /api/accounts/roles` (Requires "SuperAdmin" role and JWT) with JSON body: `{ "name": "NewRoleName" }`

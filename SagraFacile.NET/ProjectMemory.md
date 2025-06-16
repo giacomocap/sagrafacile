@@ -1,5 +1,35 @@
 # Project Memory - SagraFacile.NET Backend & Services
 
+---
+# Session Summaries (Newest First)
+
+## (2025-06-16) - Refactored Data Seeding Logic
+**Context:** The initial data seeding logic (System Defaults, Demo Data, Initial Org/Admin from env vars) was previously located directly in `Program.cs`. This made `Program.cs` verbose and mixed startup configuration with data initialization.
+**Accomplishments:**
+*   **Created `InitialDataSeeder.cs`:**
+    *   A new service `SagraFacile.NET.API.Data.InitialDataSeeder` (and `IInitialDataSeeder` interface) was created.
+    *   This class now encapsulates all data seeding logic, including:
+        *   `SeedSystemDefaultsAsync()`: Seeds "System" organization, default roles ("SuperAdmin", "Admin", "AreaAdmin", "Cashier", "Waiter"), and a SuperAdmin user (credentials configurable via `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`).
+        *   `SeedSagraDiTencarolaDataAsync()`: Seeds the "Sagra di Tencarola" demo data (organization, users, areas, menu categories, and items). Demo user password configurable via `DEMO_USER_PASSWORD`.
+        *   `SeedInitialOrganizationAndAdminAsync()`: Seeds an initial organization and an "Admin" user based on environment variables (`INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`). This runs only if `SAGRAFACILE_SEED_DEMO_DATA` is `false` (or not set) and no other user-defined organizations (besides "System" or "Sagra di Tencarola") exist.
+    *   The main `SeedAsync()` method orchestrates these based on the `SAGRAFACILE_SEED_DEMO_DATA` environment variable (defaults to `false`).
+    *   The seeder uses `IServiceScopeFactory` to correctly resolve `DbContext`, `UserManager`, and `RoleManager` within its scope.
+    *   Includes a `GenerateSlug` utility for creating slugs for seeded organizations.
+*   **Updated `Program.cs`:**
+    *   Registered the new service: `builder.Services.AddScoped<IInitialDataSeeder, InitialDataSeeder>();`.
+    *   Removed all previous inline data seeding blocks.
+    *   Added a static extension method `SeedDatabaseAsync(this IApplicationBuilder app)` in `InitialDataSeeder.cs` which calls `IInitialDataSeeder.SeedAsync()`.
+    *   This extension method is called in `Program.cs` after database migrations are applied and before `app.Run()`, ensuring it only runs when not in the "Testing" environment.
+    *   Corrected logger instantiation in the static extension method to use `ILoggerFactory`.
+**Key Decisions:**
+*   Centralized all initial data seeding logic into a dedicated service for better organization and maintainability.
+*   Made the seeding process conditional based on the `SAGRAFACILE_SEED_DEMO_DATA` environment variable.
+*   Ensured that seeding of an initial organization/admin from environment variables is skipped if other user-defined organizations already exist, preventing accidental overwrites or duplicate setups.
+*   SuperAdmin and Demo User passwords can be configured via environment variables for better security in production-like setups.
+**Outcome:** `Program.cs` is now cleaner. Data seeding is more modular and easier to manage. The logic for choosing between demo data and initial admin setup is clearly defined.
+
+---
+
 # How to work on the project
 *   **Technology:** ASP.NET Core (.NET 9), Entity Framework Core, PostgreSQL.
 *   **Architecture:** RESTful API following a Service Layer Pattern. Designed for multi-tenancy (data isolation per organization).
