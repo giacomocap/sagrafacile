@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.ComponentModel;
 using SagraFacile.WindowsPrinterService.Services;
+using SagraFacile.WindowsPrinterService.Utils; // For StartupManager
 
 namespace SagraFacile.WindowsPrinterService
 {
@@ -99,6 +100,12 @@ namespace SagraFacile.WindowsPrinterService
 
             if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHost) txtHubHost.Text = _currentSettings.HubHostAndPort ?? string.Empty;
             if (this.Controls.Find("txtInstanceGuid", true).FirstOrDefault() is TextBox txtInstanceGuid) txtInstanceGuid.Text = _currentSettings.InstanceGuid ?? string.Empty;
+            
+            // Assuming chkAutoStart is the name of the CheckBox added in the designer
+            if (this.Controls.Find("chkAutoStart", true).FirstOrDefault() is CheckBox chkAutoStartCtrl)
+            {
+                chkAutoStartCtrl.Checked = _currentSettings.AutoStartEnabled;
+            }
         }
 
         private ProfileSettings LoadProfileSettings(string? profileName)
@@ -175,7 +182,9 @@ namespace SagraFacile.WindowsPrinterService
                 ProfileName = profileNameToSave,
                 SelectedPrinter = comboBoxPrinters.SelectedItem?.ToString(),
                 HubHostAndPort = hubHostAndPort,
-                InstanceGuid = instanceGuid
+                InstanceGuid = instanceGuid,
+                // Assuming chkAutoStart is the name of the CheckBox added in the designer
+                AutoStartEnabled = (this.Controls.Find("chkAutoStart", true).FirstOrDefault() is CheckBox chkAutoStartCtrl) && chkAutoStartCtrl.Checked
             };
 
             string profilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
@@ -186,6 +195,17 @@ namespace SagraFacile.WindowsPrinterService
                 _currentSettings = settingsToSave; 
                 _currentProfileName = profileNameToSave; 
                 this.Text = $"Modifica Profilo: {_currentProfileName}"; // Update title if it was a new profile
+
+                // Manage Windows Startup entry
+                if (!string.IsNullOrEmpty(settingsToSave.ProfileName) && !string.IsNullOrEmpty(settingsToSave.InstanceGuid))
+                {
+                    StartupManager.SetAutoStart(settingsToSave, settingsToSave.AutoStartEnabled);
+                }
+                else
+                {
+                    // Log or handle error: ProfileName or InstanceGuid is missing, cannot set autostart
+                    Console.WriteLine("Warning: ProfileName or InstanceGuid is missing. Cannot manage autostart entry.");
+                }
                 return true;
             }
             catch (Exception ex)

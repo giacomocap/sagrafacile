@@ -3,6 +3,38 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-16) - Enhanced Windows Printer Service Packaging and Autostart
+**Context:** To improve the deployment and usability of the `SagraFacile.WindowsPrinterService`, it needed to be packaged as a self-contained executable and support profile-specific autostart functionality.
+**Accomplishments:**
+*   **Command-Line Profile Loading:**
+    *   Modified `SagraFacile.WindowsPrinterService/Program.cs` to parse a `--profile-guid <GUID>` command-line argument.
+    *   If a valid profile GUID is provided, the application now loads that specific profile directly, bypassing the `ProfileSelectionForm`.
+*   **In-App Autostart Management:**
+    *   Added `AutoStartEnabled` boolean property to `SagraFacile.WindowsPrinterService/Models/ProfileSettings.cs`.
+    *   Updated `SagraFacile.WindowsPrinterService/SettingsForm.cs`:
+        *   A new checkbox (`chkAutoStart`) allows users to enable/disable autostart for the current profile.
+        *   The state of this checkbox is saved to the profile's JSON file.
+        *   When saved, the form now calls `StartupManager.SetAutoStart()` to create or delete a shortcut in the Windows Startup folder.
+    *   Created `SagraFacile.WindowsPrinterService/Utils/StartupManager.cs`:
+        *   This new static class contains the `SetAutoStart(ProfileSettings profile, bool enable)` method.
+        *   It uses `IWshRuntimeLibrary` (Windows Script Host Object Model) to create/delete `.lnk` shortcuts in `Environment.SpecialFolder.Startup`.
+        *   The shortcut target includes the `--profile-guid` argument to launch the specific profile.
+    *   Added the required COMReference for `IWshRuntimeLibrary` to `SagraFacile.WindowsPrinterService.csproj`.
+*   **Self-Contained Executable Packaging (GitHub Actions):**
+    *   Modified `.github/workflows/release-zip.yml`:
+        *   Added `actions/setup-dotnet@v4` to ensure the correct .NET SDK version.
+        *   Added a `dotnet publish` step to build `SagraFacile.WindowsPrinterService` as a self-contained, single-file executable (`SagraFacilePrinter.exe`) for `win-x64`.
+        *   The `SagraFacilePrinter.exe` is now copied into the main `SagraFacile-${VERSION}-dist.zip`.
+        *   `SagraFacilePrinter.exe` is also added as a separate asset to the GitHub Release.
+        *   Updated the release notes body in the workflow to describe the new executable and its features.
+*   **Documentation:**
+    *   Updated `SagraFacile.NET/README.md` with a new section detailing the Windows Printer Service, its features (including autostart and command-line launch), packaging, and usage.
+**Key Decisions:**
+*   The Windows Printer Service will be distributed as a self-contained `.exe` for ease of use, requiring no separate .NET runtime installation by the user.
+*   Autostart functionality is managed within the application on a per-profile basis, providing users with granular control.
+*   The GitHub Actions release workflow now fully automates the build and packaging of this service alongside the main application.
+**Outcome:** The Windows Printer Service is now easier to deploy and more user-friendly, with robust autostart capabilities for specific printer configurations.
+
 ## (2025-06-16) - Configured GitHub Actions for Release Packaging & Versioning Strategy
 **Context:** To automate the creation of distributable ZIP packages for new releases and establish a clear versioning strategy for SagraFacile, making deployment easier.
 **Accomplishments:**

@@ -7,6 +7,8 @@ using SagraFacile.WindowsPrinterService.Models; // Required for ProfileSettings
 using System.Text;
 using System.Windows.Forms; // Required for Application.Run and DialogResult
 using System; // Required for STAThread
+using System.IO; // Added for Path and File operations
+using System.Text.Json; // Added for JSON deserialization
 
 namespace SagraFacile.WindowsPrinterService;
 
@@ -20,37 +22,87 @@ static class Program
         ApplicationConfiguration.Initialize(); // Standard WinForms initialization
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-        // Show ProfileSelectionForm first
-        Application.EnableVisualStyles(); // Ensure visual styles are enabled for all forms
-        Application.SetCompatibleTextRenderingDefault(false);
-
-        ProfileSettings? selectedProfile = null;
-        using (var profileForm = new ProfileSelectionForm())
+        // Attempt to load profile from command-line arguments
+        string? profileGuidFromArgs = ParseProfileGuidFromArgs(args);
+        if (!string.IsNullOrEmpty(profileGuidFromArgs))
         {
-            if (profileForm.ShowDialog() == DialogResult.OK)
+            string profilesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SagraFacilePrinterService", "profiles");
+            // Ensure the directory exists before trying to read from it, though it should if profiles were ever saved.
+            Directory.CreateDirectory(profilesDir); // Ensures profilesDir exists, harmless if it already does.
+            string profilePath = Path.Combine(profilesDir, $"{profileGuidFromArgs}.json");
+
+            if (File.Exists(profilePath))
             {
-                selectedProfile = profileForm.SelectedProfileSettings;
+                try
+                {
+                    string json = File.ReadAllText(profilePath);
+                    Program.SelectedProfile = JsonSerializer.Deserialize<ProfileSettings>(json);
+                    if (Program.SelectedProfile != null)
+                    {
+                        Console.WriteLine($"Profile '{Program.SelectedProfile.ProfileName}' (GUID: {profileGuidFromArgs}) loaded from command line argument.");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to deserialize profile for GUID '{profileGuidFromArgs}' from command line. Profile data might be corrupt.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading profile for GUID '{profileGuidFromArgs}' from command line: {ex.Message}");
+                    Program.SelectedProfile = null; // Ensure it's null if loading failed
+                }
+            }
+            else
+            {
+                Console.WriteLine($"Profile file not found for GUID '{profileGuidFromArgs}' from command line. Path: {profilePath}");
             }
         }
 
-        if (selectedProfile == null)
+        // If no profile loaded from command line, show selection form
+        if (Program.SelectedProfile == null)
         {
-            MessageBox.Show("Nessun profilo selezionato. L'applicazione verrà chiusa.", "Chiusura Applicazione", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return; // Exit if no profile selected
+            Application.EnableVisualStyles(); // Ensure visual styles are enabled for all forms
+            Application.SetCompatibleTextRenderingDefault(false);
+            using (var profileForm = new ProfileSelectionForm())
+            {
+                if (profileForm.ShowDialog() == DialogResult.OK)
+                {
+                    Program.SelectedProfile = profileForm.SelectedProfileSettings;
+                }
+            }
+        }
+
+        // Check if a profile is selected/loaded
+        if (Program.SelectedProfile == null)
+        {
+            MessageBox.Show("Nessun profilo selezionato o caricato. L'applicazione verrà chiusa.", "Chiusura Applicazione", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return; 
         }
         
-        SelectedProfile = selectedProfile; // Store for services to access
+        // Program.SelectedProfile is now the single source of truth for the selected profile.
+        // The local 'selectedProfile' variable is no longer needed throughout this method.
 
-        var host = CreateHostBuilder(args, selectedProfile).Build();
+        var host = CreateHostBuilder(args, Program.SelectedProfile).Build();
         
-        // Set the active profile in SignalRService before the host runs and ApplicationLifetimeService starts it.
+        // Set the active profile in SignalRService before the host runs.
+        // ApplicationLifetimeService will also receive Program.SelectedProfile via DI from CreateHostBuilder.
         var signalRService = host.Services.GetRequiredService<SignalRService>();
-        signalRService.SetActiveProfile(selectedProfile);
-
-        // Pass selected profile to ApplicationLifetimeService if needed, or it can get it from Program.SelectedProfile
-        // For now, ApplicationLifetimeService will be modified to use Program.SelectedProfile
+        signalRService.SetActiveProfile(Program.SelectedProfile);
 
         host.Run(); // This will start ApplicationLifetimeService, which in turn starts SignalRService
+    }
+
+    private static string? ParseProfileGuidFromArgs(string[] args)
+    {
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (args[i].Equals("--profile-guid", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+            {
+                // Basic validation for GUID format can be added here if desired, but not strictly necessary for parsing.
+                return args[i + 1];
+            }
+        }
+        return null;
     }
 
     public static IHostBuilder CreateHostBuilder(string[] args, ProfileSettings profileSettings) =>

@@ -15,9 +15,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x' # Adjust if your project uses a different .NET 9.x version or major version
+
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Publish Windows Printer Service
+        run: |
+          dotnet publish "SagraFacile.NET/SagraFacile.WindowsPrinterService/SagraFacile.WindowsPrinterService.csproj" \
+            -r win-x64 \
+            -c Release \
+            --self-contained true \
+            /p:PublishSingleFile=true \
+            /p:AssemblyName=SagraFacilePrinter \
+            -o "${{ github.workspace }}/publish/WindowsPrinterService"
 
       - name: Create distribution directory
         run: mkdir sagrafacile-dist
@@ -25,7 +40,10 @@ jobs:
       - name: Prepare files for ZIP
         run: |
           echo "Packaging version ${{ env.VERSION }}"
-          # Copy files and directories to the staging area
+          # Copy the published Windows Printer Service executable
+          cp "${{ github.workspace }}/publish/WindowsPrinterService/SagraFacilePrinter.exe" sagrafacile-dist/SagraFacilePrinter.exe
+          
+          # Copy other files and directories to the staging area
           cp docker-compose.yml sagrafacile-dist/
           cp Caddyfile sagrafacile-dist/
           cp .env.example sagrafacile-dist/
@@ -58,11 +76,27 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: SagraFacile-${{ env.VERSION }}-dist.zip
+          files: |
+            SagraFacile-${{ env.VERSION }}-dist.zip
+            ${{ github.workspace }}/publish/WindowsPrinterService/SagraFacilePrinter.exe
           tag_name: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
           body: |
             Release of SagraFacile version ${{ env.VERSION }}.
-            Download the `SagraFacile-${{ env.VERSION }}-dist.zip` package below for deployment.
+            
+            **Downloads:**
+            *   `SagraFacile-${{ env.VERSION }}-dist.zip`: Full deployment package.
+            *   `SagraFacilePrinter.exe`: Standalone Windows Printer Service application.
+            
+            **Windows Printer Service:**
+            The `SagraFacilePrinter.exe` is a self-contained application for Windows that connects to your SagraFacile backend to handle printing.
+            It supports multiple printer profiles and can be configured to autostart with Windows for specific profiles.
+            To use:
+            1. Run `SagraFacilePrinter.exe`.
+            2. On first launch, or if no profile is auto-loaded, a profile selection window will appear.
+            3. Create a new profile or select an existing one.
+            4. In the settings for a profile, you can configure the printer, backend URL, and enable "Launch this profile when Windows starts".
+            
+            The main ZIP package also includes `SagraFacilePrinter.exe`.
           draft: false
           prerelease: false # Set to true if this is a pre-release

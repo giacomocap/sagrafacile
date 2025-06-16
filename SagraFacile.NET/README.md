@@ -178,3 +178,46 @@ Once the API is running, you can test the endpoints using tools like:
 *   `POST /api/public/preorders` with JSON body (refer to `PreOrderDto` structure in `DataStructures.md`)
 
 **Note:** ASP.NET Core Identity, JWT authentication/authorization, and role seeding are configured. Role-based authorization is applied to controllers. Login returns a JWT containing user claims (ID, email, name, organization ID, roles). Multi-tenancy checks (ensuring users only access data within their assigned organization) have been implemented across relevant services (`AccountService`, `AreaService`, `MenuCategoryService`, `MenuItemService`, `OrderService`). Remember to provide the JWT as a Bearer token in the `Authorization` header for secured endpoints. Public endpoints under `/api/public` do not require authentication.
+
+---
+
+## SagraFacile Windows Printer Service
+
+The solution includes a companion Windows Forms application, `SagraFacile.WindowsPrinterService`, designed to connect to the SagraFacile backend via SignalR and handle print jobs sent to physical printers connected to a Windows machine.
+
+### Features
+
+*   **Profile-Based Configuration:** Allows multiple instances of the printer service to run on the same machine, each configured with a different profile. Each profile specifies:
+    *   The Windows printer to use.
+    *   The SagraFacile backend Hub URL.
+    *   A unique Instance GUID for registration with the backend.
+*   **Autostart:** Profiles can be configured to launch automatically when Windows starts. This is managed via a checkbox in the profile's settings within the application.
+*   **Packaging:** The Windows Printer Service is published as a self-contained single executable (`SagraFacilePrinter.exe`). This means it bundles the .NET runtime and does not require a separate .NET installation on the user's machine.
+*   **Distribution:**
+    *   `SagraFacilePrinter.exe` is included in the main `SagraFacile-${VERSION}-dist.zip` release package.
+    *   It is also available as a separate downloadable asset in GitHub Releases.
+
+### Usage
+
+1.  Obtain `SagraFacilePrinter.exe` either from the main release ZIP or as a standalone download.
+2.  Run `SagraFacilePrinter.exe`.
+3.  **Profile Selection:**
+    *   On the first launch, or if no profile is specified to autoload, a "Profile Selection" window will appear.
+    *   You can create a new profile, or load, edit, or delete existing ones.
+4.  **Profile Settings:**
+    *   **Printer:** Select the desired Windows printer from the dropdown.
+    *   **Hub URL:** Enter the base URL of your SagraFacile backend (e.g., `https://app.yourdomain.com`).
+    *   **Instance GUID:** A unique GUID for this printer instance. Can be auto-generated.
+    *   **Autostart:** Check "Avvia questo profilo all'avvio di Windows" to have this specific printer profile launch automatically when Windows starts.
+5.  **Saving Settings:** Save the profile. If autostart is enabled, a shortcut will be created in the Windows Startup folder that launches `SagraFacilePrinter.exe` with arguments to load this specific profile.
+6.  The application will then connect to the backend and be ready to receive print jobs. It typically runs in the system tray.
+
+### Command-Line Launch
+
+The `SagraFacilePrinter.exe` supports a command-line argument to load a specific profile directly, bypassing the selection form:
+
+```
+SagraFacilePrinter.exe --profile-guid "YOUR_PROFILE_GUID"
+```
+
+This is used by the autostart mechanism.

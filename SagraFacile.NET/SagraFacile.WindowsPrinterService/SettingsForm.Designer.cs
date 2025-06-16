@@ -38,6 +38,8 @@
             label3 = new Label();
             groupBox1 = new GroupBox();
             lblStatus = new Label();
+            btnTestPrinter = new Button();
+            chkAutoStart = new CheckBox();
             groupBox1.SuspendLayout();
             SuspendLayout();
             // 
@@ -46,35 +48,21 @@
             label1.AutoSize = true;
             label1.Location = new Point(22, 32);
             label1.Name = "label1";
-            label1.Size = new Size(118, 15); // Adjusted size for longer text
+            label1.Size = new Size(116, 15);
             label1.TabIndex = 0;
             label1.Text = "Seleziona Stampante";
-            // 
-            // btnTestPrinter
-            // 
-            btnTestPrinter = new Button();
             // 
             // comboBoxPrinters
             // 
             comboBoxPrinters.FormattingEnabled = true;
             comboBoxPrinters.Location = new Point(22, 50);
             comboBoxPrinters.Name = "comboBoxPrinters";
-            comboBoxPrinters.Size = new Size(190, 23); // Shorter to make space for test button
+            comboBoxPrinters.Size = new Size(190, 23);
             comboBoxPrinters.TabIndex = 1;
-            // 
-            // btnTestPrinter
-            // 
-            btnTestPrinter.Location = new Point(218, 49);
-            btnTestPrinter.Name = "btnTestPrinter";
-            btnTestPrinter.Size = new Size(107, 24);
-            btnTestPrinter.TabIndex = 13; // New TabIndex
-            btnTestPrinter.Text = "Test Stampante";
-            btnTestPrinter.UseVisualStyleBackColor = true;
-            // btnTestPrinter.Click += BtnTestPrinter_Click; // Will be added in SettingsForm.cs
             // 
             // buttonSave
             // 
-            buttonSave.Location = new Point(22, 204);
+            buttonSave.Location = new Point(22, 238);
             buttonSave.Name = "buttonSave";
             buttonSave.Size = new Size(75, 23);
             buttonSave.TabIndex = 4;
@@ -84,7 +72,7 @@
             // 
             // buttonCancel
             // 
-            buttonCancel.Location = new Point(250, 204);
+            buttonCancel.Location = new Point(250, 238);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(75, 23);
             buttonCancel.TabIndex = 5;
@@ -112,7 +100,7 @@
             label2.AutoSize = true;
             label2.Location = new Point(23, 85);
             label2.Name = "label2";
-            label2.Size = new Size(105, 15); // Adjusted size
+            label2.Size = new Size(90, 15);
             label2.TabIndex = 9;
             label2.Text = "URL Base Server";
             // 
@@ -121,30 +109,19 @@
             label3.AutoSize = true;
             label3.Location = new Point(23, 136);
             label3.Name = "label3";
-            label3.Size = new Size(82, 15); // Adjusted size
+            label3.Size = new Size(73, 15);
             label3.TabIndex = 10;
             label3.Text = "GUID Istanza";
             // 
             // groupBox1
             // 
             groupBox1.Controls.Add(lblStatus);
-            groupBox1.Location = new Point(22, 240);
+            groupBox1.Location = new Point(22, 277);
             groupBox1.Name = "groupBox1";
             groupBox1.Size = new Size(480, 70);
             groupBox1.TabIndex = 11;
             groupBox1.TabStop = false;
             groupBox1.Text = "Stato Connessione al Server";
-            // 
-            // btnGenerateGuid
-            // 
-            // This control was added in a previous step but its initialization might be missing if the file reverted.
-            // We ensure its properties are set if it exists, or it's added if it doesn't.
-            // The click handler is assigned in SettingsForm.cs.
-            // If this block causes issues, it means the control is fully missing and needs full re-addition.
-            // For now, assuming the control object exists from a prior successful step not fully reverted in the error's file_content.
-            // If btnGenerateGuid is fully missing, this SEARCH block will fail, and we'll need to add it completely.
-            // The error message's file_content did not show btnGenerateGuid initialization, only its declaration was missing.
-            // Let's assume the object is there from the previous successful designer update.
             // 
             // lblStatus
             // 
@@ -155,25 +132,31 @@
             lblStatus.TabIndex = 0;
             lblStatus.Text = "Stato: Sconnesso";
             // 
-            // btnGenerateGuid
+            // btnTestPrinter
             // 
-            // This is where btnGenerateGuid should be initialized if it was missing.
-            // Based on the previous successful update, its initialization code should be:
-            // btnGenerateGuid.Location = new Point(331, 153);
-            // btnGenerateGuid.Name = "btnGenerateGuid";
-            // btnGenerateGuid.Size = new Size(120, 24);
-            // btnGenerateGuid.TabIndex = 12; // Ensure TabIndex is unique
-            // btnGenerateGuid.Text = "Genera GUID";
-            // btnGenerateGuid.UseVisualStyleBackColor = true;
-            // btnGenerateGuid.Click += BtnGenerateGuid_Click; // Click handler is in SettingsForm.cs
-            //
+            btnTestPrinter.Location = new Point(218, 49);
+            btnTestPrinter.Name = "btnTestPrinter";
+            btnTestPrinter.Size = new Size(107, 24);
+            btnTestPrinter.TabIndex = 13;
+            btnTestPrinter.Text = "Test Stampante";
+            btnTestPrinter.UseVisualStyleBackColor = true;
+            // 
+            // chkAutoStart
+            // 
+            chkAutoStart.AutoSize = true;
+            chkAutoStart.Location = new Point(22, 197);
+            chkAutoStart.Name = "chkAutoStart";
+            chkAutoStart.Size = new Size(243, 19);
+            chkAutoStart.TabIndex = 14;
+            chkAutoStart.Text = "Avvia questo profilo all'avvio di Windows";
+            chkAutoStart.UseVisualStyleBackColor = true;
+            // 
             // SettingsForm
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(531, 359);
-            // Ensure btnGenerateGuid is added to Controls if it was missing
-            // Controls.Add(btnGenerateGuid); // This would be needed if it was fully removed
+            Controls.Add(chkAutoStart);
             Controls.Add(btnTestPrinter);
             Controls.Add(groupBox1);
             Controls.Add(label3);
@@ -206,5 +189,6 @@
         private Label lblStatus;
         private Button btnGenerateGuid; // Declaration was missing in the error's file_content
         private Button btnTestPrinter;
+        private CheckBox chkAutoStart;
     }
 }

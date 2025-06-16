@@ -1,0 +1,10 @@
+Windows.Win32.System.Com.CoInitializeEx
+Windows.Win32.System.Com.CoUninitialize
+Windows.Win32.System.Com.CoCreateInstance
+Windows.Win32.System.Com.CLSCTX
+Windows.Win32.System.Com.COINIT
+Windows.Win32.UI.Shell.IShellLinkW
+Windows.Win32.System.Com.IPersistFile
+Windows.Win32.UI.Shell.ShellLink
+Windows.Win32.Foundation.MAX_PATH
+// Windows.Win32.Storage.StructuredStorage.STGM_READ

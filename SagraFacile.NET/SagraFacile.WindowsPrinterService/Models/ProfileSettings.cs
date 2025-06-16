@@ -6,5 +6,6 @@ namespace SagraFacile.WindowsPrinterService.Models
         public string? SelectedPrinter { get; set; }
         public string? HubHostAndPort { get; set; }
         public string? InstanceGuid { get; set; }
+        public bool AutoStartEnabled { get; set; } = false;
     }
 }
