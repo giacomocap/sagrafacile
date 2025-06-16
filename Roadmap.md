@@ -378,7 +378,11 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[x]` (`start.sh`) Add prompt for demo data seeding (`SAGRAFACILE_SEED_DEMO_DATA`) or initial admin/org setup (`INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`).
             *   `[x]` (`start.sh`) Save user choices to `sagrafacile_config.json`.
             *   `[x]` (`start.sh`) Generate `.env` file from `sagrafacile_config.json`.
-            *   `[ ]` (`start.bat`) Needs to be updated with similar interactive functionality.
+            *   `[x]` (`start.bat`) Implement logic to check for `sagrafacile_config.json`.
+            *   `[x]` (`start.bat`) Add interactive prompts for `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database credentials, `JWT_SECRET`.
+            *   `[x]` (`start.bat`) Add prompt for demo data seeding (`SAGRAFACILE_SEED_DEMO_DATA`) or initial admin/org setup (`INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`).
+            *   `[x]` (`start.bat`) Save user choices to `sagrafacile_config.json`.
+            *   `[x]` (`start.bat`) Generate `.env` file from `sagrafacile_config.json`.
         *   `[x]` **API Backend (`Program.cs` & `InitialDataSeeder.cs`) Adjustments:**
             *   `[x]` Implement logic in `InitialDataSeeder.cs` to check `SAGRAFACILE_SEED_DEMO_DATA`.
             *   `[x]` If `false` (or not set), `InitialDataSeeder.cs` uses `INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` to attempt initial setup (if no user-defined orgs exist).
@@ -388,9 +392,10 @@ This document outlines the planned development phases for the SagraFacile system
         *   `[ ]` **Automated GitHub Release Packaging:**
             *   `[ ]` Create GitHub Actions workflow (`.github/workflows/release-zip.yml`) to build the ZIP and create a release on new version tags.
         *   `[x]` **Documentation Updates:**
-            *   `[x]` Update `README.md` installation instructions for the new interactive `start.sh` script and Cloudflare Let's Encrypt setup.
-            *   `[x]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive `start.sh` script, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.
+            *   `[x]` Update `README.md` installation instructions for the new interactive `start.sh` and `start.bat` scripts and Cloudflare Let's Encrypt setup.
+            *   `[x]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive `start.sh` and `start.bat` scripts, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.
             *   `[x]` Ensure service name consistency (`api` for backend) across `docker-compose.yml`, `Caddyfile`, and docs.
+>>>>>>> REPLACE
 >>>>>>> REPLACE
 
 ### Phase 8: Guest & Takeaway Charges (Completed)

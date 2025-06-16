@@ -3,39 +3,27 @@
 ---
 # Session Summaries (Newest First)
 
-## (2025-06-16) - Implemented Interactive Setup Script (`start.sh`) & Updated Documentation
-**Context:** To simplify the deployment process for SagraFacile and provide users with more control over the initial data seeding, an interactive setup script was needed. This aligns with the goal of creating a downloadable ZIP package with guided setup.
+## (2025-06-16) - Implemented Interactive Setup Scripts (`start.sh` & `start.bat`) & Updated Documentation
+**Context:** To simplify the deployment process for SagraFacile and provide users with more control over the initial data seeding, interactive setup scripts were needed for both macOS/Linux (`start.sh`) and Windows (`start.bat`). This aligns with the goal of creating a downloadable ZIP package with guided setup.
 **Accomplishments:**
-*   **Modified `start.sh` for Interactive Setup:**
-    *   The `start.sh` script (for macOS/Linux) was significantly updated to be interactive.
-    *   **Configuration Check:** On launch, it now checks for an existing `sagrafacile_config.json` file. If found, it prompts the user whether to use the existing configuration, re-configure, or exit.
-    *   **Interactive Prompts:** If no configuration exists or the user chooses to re-configure, the script interactively prompts for:
-        *   `MY_DOMAIN` (e.g., `pos.myrestaurant.com`)
-        *   `CLOUDFLARE_API_TOKEN`
-        *   Database credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`)
-        *   `JWT_SECRET` (with an option to auto-generate a secure secret)
-    *   **Data Seeding Preference:** The script asks the user whether to seed demo data:
-        *   If "yes", `SAGRAFACILE_SEED_DEMO_DATA` is set to `true`.
-        *   If "no", `SAGRAFACILE_SEED_DEMO_DATA` is set to `false`, and the script then prompts for:
-            *   `INITIAL_ORGANIZATION_NAME`
-            *   `INITIAL_ADMIN_EMAIL`
-            *   `INITIAL_ADMIN_PASSWORD`
-    *   **Configuration Persistence:** All collected user choices are saved to `sagrafacile_config.json`.
-    *   **`.env` File Generation:** The script generates (or overwrites) the `.env` file using the values stored in `sagrafacile_config.json`. This `.env` file is then used by `docker-compose.yml`.
+*   **Modified `start.sh` for Interactive Setup (macOS/Linux):**
+    *   The `start.sh` script was significantly updated to be interactive.
+    *   It now checks for `sagrafacile_config.json`, prompts for essential settings (Domain, Cloudflare Token, DB credentials, JWT Secret), asks for data seeding preferences, saves choices to `sagrafacile_config.json`, and generates the `.env` file.
+*   **Created Interactive `start.bat` (Windows):**
+    *   A new `start.bat` script was created, mirroring the interactive functionality of `start.sh` for Windows users. This includes configuration checking, prompting, data seeding choices, saving to `sagrafacile_config.json`, and `.env` file generation.
 *   **Backend Data Seeding (`InitialDataSeeder.cs`):**
-    *   The existing `InitialDataSeeder` service was already designed to read `SAGRAFACILE_SEED_DEMO_DATA`, `INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`, and `DEMO_USER_PASSWORD` from environment variables. This means the backend seamlessly integrates with the configuration provided by the new `start.sh` script via the generated `.env` file.
+    *   The existing `InitialDataSeeder` service seamlessly integrates with the configurations provided by both `start.sh` and `start.bat` via the generated `.env` file, as it was already designed to read the necessary environment variables.
 *   **Documentation Updates:**
-    *   `README.md`: Updated the installation instructions to reflect the new interactive `start.sh` process and the role of `sagrafacile_config.json`.
-    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to detail the interactive script flow, the `sagrafacile_config.json` file, and how it relates to the `.env` file and backend seeding.
-    *   `Roadmap.md`: Marked relevant tasks under "Phase 7: Deployment & Monitoring" as complete or in progress for `start.sh` and backend seeding.
+    *   `README.md`: Updated installation instructions to reflect the new interactive `start.sh` and `start.bat` processes and the role of `sagrafacile_config.json`.
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to detail the interactive script flow for both platforms, the `sagrafacile_config.json` file, and its relation to the `.env` file and backend seeding.
+    *   `Roadmap.md`: Marked relevant tasks under "Phase 7: Deployment & Monitoring" as complete for both `start.sh` and `start.bat`, and related backend seeding logic.
 **Key Decisions:**
-*   The `start.sh` script is the primary method for guided setup on macOS and Linux.
-*   `sagrafacile_config.json` serves as the persistent store for user-defined configurations, making it easier to restart or re-configure the application without re-entering all information.
-*   The `.env` file is treated as a dynamically generated artifact based on `sagrafacile_config.json`.
-*   The backend's `InitialDataSeeder` required no changes as it was already prepared for these environment variables.
-**Outcome:** The setup process for SagraFacile on macOS/Linux is now significantly more user-friendly and flexible. Users can easily configure essential settings and control initial data seeding through an interactive command-line interface.
+*   Both `start.sh` and `start.bat` provide a consistent interactive setup experience across platforms.
+*   `sagrafacile_config.json` serves as the central, persistent store for user-defined configurations.
+*   The `.env` file is treated as a dynamically generated artifact.
+*   The backend's `InitialDataSeeder` required no changes, demonstrating good foresight in its initial design.
+**Outcome:** The setup process for SagraFacile is now significantly more user-friendly and flexible on both macOS/Linux and Windows. Users can easily configure essential settings and control initial data seeding through an interactive command-line interface.
 **Next Steps:**
-*   Update `start.bat` to provide similar interactive setup functionality for Windows users.
 *   Continue with other pending tasks in "Phase 7: Deployment & Monitoring" of the `Roadmap.md`, such as defining the deployment ZIP package contents and creating the GitHub Actions workflow for release packaging.
 
 ## (2025-06-16) - Refactored Data Seeding Logic

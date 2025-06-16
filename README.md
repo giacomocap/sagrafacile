@@ -133,14 +133,14 @@ For detailed guidance on network planning, see **`docs/NetworkingArchitecture.md
 
 3.  **Run Interactive Setup Script:**
     *   Navigate to the extracted SagraFacile folder.
-    *   **Windows:** Double-click `start.bat`. (Note: `start.bat` will be updated to be interactive in a future step).
+    *   **Windows:** Double-click `start.bat`.
     *   **macOS/Linux:**
         *   Open a terminal in the SagraFacile folder.
         *   Make scripts executable (if you haven't already): `chmod +x *.sh`
         *   Run: `./start.sh`
-    *   **Follow Prompts:** The `start.sh` script is now interactive:
-        *   It will check for an existing `sagrafacile_config.json`. If found, it will ask if you want to use it, re-configure, or exit.
-        *   If no config exists or you choose to re-configure, it will guide you to enter:
+    *   **Follow Prompts:** Both `start.bat` (Windows) and `start.sh` (macOS/Linux) scripts are now interactive:
+        *   They will check for an existing `sagrafacile_config.json`. If found, they will ask if you want to use it, re-configure, or exit.
+        *   If no config exists or you choose to re-configure, they will guide you to enter:
             *   Your full domain name (e.g., `pos.yourdomain.com`). This becomes `MY_DOMAIN`.
             *   Your Cloudflare API Token.
             *   Database credentials (user, password, DB name).
@@ -204,7 +204,7 @@ See `docs/PrinterArchitecture.md` for more details.
 
 ### 7. Services Overview (Docker Compose)
 
-The `docker-compose.yml` file defines and configures these services. The interactive `start.sh` script (and eventually `start.bat`) first collects your configuration choices into `sagrafacile_config.json`, and then uses this file to generate the necessary `.env` file that `docker-compose.yml` relies on.
+The `docker-compose.yml` file defines and configures these services. The interactive `start.sh` (macOS/Linux) and `start.bat` (Windows) scripts first collect your configuration choices into `sagrafacile_config.json`, and then use this file to generate the necessary `.env` file that `docker-compose.yml` relies on.
 
 *   **`db`**: The PostgreSQL database (version 15) where all SagraFacile data is stored. Data is persisted in a Docker volume.
 *   **`api`** (formerly `backend`): The .NET API service (SagraFacile.NET.API). This image is pulled from a container registry. It connects to the `db` service and exposes an internal HTTP port (8080), which Caddy proxies.
