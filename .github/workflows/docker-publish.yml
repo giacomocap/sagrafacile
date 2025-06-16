@@ -65,6 +65,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-and-push-frontend:
     name: Build and Push Frontend Image
@@ -102,3 +104,5 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=/api
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
