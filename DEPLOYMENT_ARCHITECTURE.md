@@ -103,7 +103,8 @@ Ensure applications are configurable via environment variables.
     }
     // ... rest of Program.cs
     ```
-*   **Initial Admin User (Optional):** Implement logic to create an initial admin user from environment variables (e.g., `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`) if no admin users exist.
+*   **Initial Admin User (Optional):** Implement logic to create an initial admin user from environment variables (e.g., `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`) if no admin users exist and if `SAGRAFACILE_SEED_DEMO_DATA` is `false` or not set.
+*   **Demo Data Seeding Control:** The API should check for an environment variable `SAGRAFACILE_SEED_DEMO_DATA`. If `true`, it seeds the standard demo data. If `false` or not present, it proceeds with the initial admin/organization setup based on the other `INITIAL_` variables.
 
 **Task 1.2: Frontend (Next.js - `sagrafacile-webapp`) Configuration**
 *   **API URL:** Ensure API calls use a relative URL. In Next.js environment configuration (e.g., `.env.local`, `next.config.js`), set `NEXT_PUBLIC_API_BASE_URL=/api`. The API client will then make calls like `${process.env.NEXT_PUBLIC_API_BASE_URL}/orders`.
@@ -135,7 +136,7 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
         *   `restart: unless-stopped`
         *   `volumes:` map named volume (e.g., `sagrafacile_db_data`) to `/var/lib/postgresql/data`.
         *   `environment:` from `.env` file (`${POSTGRES_USER}`, etc.).
-    *   **`backend` service:**
+    *   **`api` service (formerly `backend`):**
         *   `image: yourdockerhub_username/sagrafacile-api:latest` # Points to the pre-built image
         *   `restart: unless-stopped`
         *   `depends_on: [db]`
@@ -153,7 +154,7 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
             *   Map local `Caddyfile` to `/etc/caddy/Caddyfile`.
             *   Map named volume `sagrafacile_caddy_data` to `/data` (for persisting certificates).
         *   `environment:` from `.env` file (`${CLOUDFLARE_API_TOKEN}`, `${MY_DOMAIN}`).
-    *   The `backend` service should be renamed to `api` and `frontend` service name can remain. Ports for `api` and `frontend` should not be exposed directly.
+    *   Ports for `api` and `frontend` should not be exposed directly.
 
 **Task 3.2: Create `Caddyfile` (Repository Root)**
 *   Configure routing and automatic HTTPS using Let's Encrypt with the Cloudflare DNS challenge.
@@ -194,30 +195,36 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
 ### Phase 4: Deployment Package & User Experience
 
 **Task 4.1: Create User-Facing Helper Scripts**
-*   **`start.bat` / `start.sh`:**
-    1.  Check if `.env` exists; if not, guide the user to copy `.env.example` to `.env` and configure it.
-    2.  Run `docker-compose up -d`. This will pull images if they are not present locally and start the services. Caddy will attempt to obtain SSL certificates.
-    3.  Echo instructions for configuring local DNS (router) and app access URL (e.g., `https://your.domain.com`).
+*   **`start.bat` / `start.sh` (Interactive Setup):**
+    1.  **Configuration Check:** On launch, look for `sagrafacile_config.json`.
+        *   If found, ask to use existing config, re-configure, or exit.
+        *   If not found, proceed to interactive configuration.
+    2.  **Interactive Configuration:** Prompt for `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`), `JWT_SECRET`.
+    3.  Ask about demo data: "Seed demo data? (yes/no)".
+        *   If yes, set `SAGRAFACILE_SEED_DEMO_DATA=true`.
+        *   If no, prompt for `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`. Set `SAGRAFACILE_SEED_DEMO_DATA=false`.
+    4.  **Save Configuration:** Store all collected values in `sagrafacile_config.json`.
+    5.  **Generate `.env`:** Create/overwrite `.env` file using values from `sagrafacile_config.json`.
+    6.  **Start Services:** Run `docker-compose up -d`. Caddy will attempt to obtain SSL certificates using Cloudflare.
+    7.  Echo instructions for configuring local DNS (router) and app access URL (e.g., `https://your.domain.com`).
 *   **`stop.bat` / `stop.sh`:**
     1.  Run `docker-compose down`.
 *   **`update.bat` / `update.sh`:**
-    1.  Run `docker-compose pull` to get the latest versions of the `backend` and `frontend` images.
+    1.  Run `docker-compose pull` to get the latest versions of the `api` and `frontend` images.
     2.  Run `docker-compose up -d` to restart services with the new images.
 
 **Task 4.2: Write `README.md` / Installation Guide**
-*   Update the guide to reflect the new process:
+*   Update the guide to reflect the new interactive setup process:
     *   **Prerequisites:**
         *   Docker Desktop (Windows/Mac), Docker Engine (Linux).
         *   A registered domain name (e.g., `my-restaurant-pos.com`).
-        *   A Cloudflare account (free tier is sufficient).
+        *   A Cloudflare account (free tier is sufficient) with your domain added and nameservers updated.
+        *   A Cloudflare API Token with "Edit zone DNS" permissions for your domain.
         *   Internet connection (for image download and Let's Encrypt).
     *   **Installation:**
         *   Download and unzip the SagraFacile package.
-        *   **Domain & Cloudflare Setup:**
-            *   Add your domain to Cloudflare and update nameservers at your domain registrar.
-            *   In Cloudflare, create an API Token with "Edit zone DNS" permissions for your domain. Securely store this token.
-        *   Copy `.env.example` to `.env`. Configure it with your `MY_DOMAIN` (e.g., `pos.my-restaurant-pos.com`), `CLOUDFLARE_API_TOKEN`, database credentials, JWT secrets, etc.
-        *   Run `start.bat` (Windows) or `start.sh` (macOS/Linux), including `chmod +x *.sh` for Linux/macOS.
+        *   Run `start.bat` (Windows) or `start.sh` (macOS/Linux - remember `chmod +x *.sh`).
+        *   Follow the on-screen prompts to configure your domain, Cloudflare token, database, JWT secret, and initial data preferences. This will create `sagrafacile_config.json` and `.env`.
     *   **MANDATORY - Local DNS Configuration:**
         *   Explain *why*: Devices on your local Wi-Fi need to resolve `your.domain.com` to the *private IP address* of the server running Docker.
         *   Find the server's private IP (e.g., `192.168.1.50`).
@@ -231,20 +238,28 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
 
 **Task 4.3: Package for Distribution**
 *   Create a `.zip` file containing:
-    *   `docker-compose.yml` (configured to use pre-built images)
+    *   `docker-compose.yml` (configured to use pre-built images, service `backend` renamed to `api`)
     *   `Caddyfile`
-    *   `.env.example`
-    *   `start.bat`, `start.sh`
+    *   `.env.example` (as a reference)
+    *   `start.bat` (new interactive version)
+    *   `start.sh` (new interactive version)
     *   `stop.bat`, `stop.sh`
     *   `update.bat`, `update.sh`
     *   `README.md` (the updated installation guide)
     *   `docs/` directory (containing all architecture and supplementary documents)
-    *   Installer for Windows Printer Service (from Phase 5).
+    *   `sagrafacile_config.json.example` (Optional: an example of the config file structure)
+    *   Installer for Windows Printer Service (from Phase 5, or a note if built separately).
     *   **Exclusions:** The ZIP will no longer need to include the `SagraFacile.NET/` or `sagrafacile-webapp/` source code directories for the user. It should still exclude version control directories (e.g., `.git`), IDE-specific folders, etc., from the root package if any are present during packaging.
 
-**Task 4.4: Create ZIP Packaging Script(s) (Optional but Recommended)**
-*   To ensure consistency and simplify the creation of the distribution `.zip` file, consider creating a script (or scripts for different OS environments) to automate the packaging process.
-*   **Script Responsibilities:**
+**Task 4.4: Create GitHub Actions Workflow for ZIP Packaging & Release (e.g., `.github/workflows/release-zip.yml`)**
+*   **Trigger:** On push to tags matching `v*.*.*`.
+*   **Job:**
+    1.  Checkout code.
+    2.  (Optional) Build `SagraFacile.WindowsPrinterService.Setup.exe` if it's to be included directly.
+    3.  Create the distribution directory and copy files as per Task 4.3.
+    4.  Create the ZIP archive (e.g., `SagraFacile-${VERSION_TAG}-dist.zip`).
+    5.  Use an action like `softprops/action-gh-release` to create a GitHub Release and upload the ZIP as an asset.
+*   **Script Responsibilities (within the workflow or a helper script called by it):**
     *   Define the list of files and directories to include (as per Task 4.3).
     *   Implement logic to exclude specified files and directories (e.g., `.git`, `node_modules`, `bin/`, `obj/`, `.vscode`, `*.log`, etc.). This can be done via direct exclusion flags in the zipping command or by using an ignore file (e.g., a `.distignore` file, if the chosen zipping tool supports it).
     *   Name the output ZIP file consistently (e.g., `SagraFacile-vX.Y.Z-dist.zip`).
@@ -302,31 +317,31 @@ Runs parallel to main server setup.
 
 ## 5. Key Configuration Files Overview
 
-*   **`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`:** (Developer artifact) Defines how the .NET backend API image is built by the developer/CI.
+*   **`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`:** (Developer artifact) Defines how the .NET API image (service name `api`) is built by the developer/CI.
 *   **`sagrafacile-webapp/Dockerfile`:** (Developer artifact) Defines how the Next.js frontend application image is built by the developer/CI.
-*   **`docker-compose.yml`:** (User-facing) Orchestrates the entire application stack by pulling pre-built images for backend, frontend, Caddy, and PostgreSQL. Defines services, networks, volumes, and environment variable sourcing.
+*   **`docker-compose.yml`:** (User-facing) Orchestrates the entire application stack by pulling pre-built images for `api`, `frontend`, `caddy`, and `db` (PostgreSQL). Defines services, networks, volumes, and environment variable sourcing from `.env`.
 *   **`Caddyfile`:** Configuration for the Caddy reverse proxy (service name `caddy`, container name `sagrafacile-caddy`), handling HTTPS via Let's Encrypt (Cloudflare DNS challenge), and request routing to `api` (container `sagrafacile-api`) and `frontend` (container `sagrafacile-frontend`).
-*   **`.env.example`:** A template file showing all necessary environment variables, including `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN`. Users will copy this to `.env` and customize it.
+*   **`.env.example`:** A template file showing all necessary environment variables. The actual `.env` file will be generated by the interactive `start` scripts.
+*   **`sagrafacile_config.json`:** (User-facing, generated by scripts) Stores user's configuration choices for easy re-deployment.
 The database service is named `db` (container `sagrafacile-db`).
 
 ## 6. User Setup Workflow Summary (High-Level)
 
-1.  **Prerequisites:** Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
-2.  **Download & Unzip:** Obtain the SagraFacile deployment package (e.g., `SagraFacile-vX.Y.Z.zip`) and extract it.
 1.  **Prerequisites:**
     *   Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
     *   A registered domain name.
-    *   A Cloudflare account.
-2.  **Download & Unzip:** Obtain the SagraFacile deployment package and extract it.
-3.  **Domain & Cloudflare Setup:**
-    *   Add your domain to Cloudflare, update nameservers.
-    *   Create a Cloudflare API Token ("Edit zone DNS" permission for the domain).
-4.  **Configure Environment:**
-    *   Navigate to the extracted folder, copy `.env.example` to `.env`.
-    *   Edit `.env` with `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database passwords, JWT secrets, etc.
-5.  **Start Application:** Execute `start.bat` (Windows) or `start.sh` (macOS/Linux - remember to `chmod +x *.sh` first). This will pull images and start services. Caddy will attempt to get a Let's Encrypt certificate.
+    *   A Cloudflare account with your domain added and nameservers pointed to Cloudflare.
+    *   A Cloudflare API Token with "Edit zone DNS" permission for the domain.
+2.  **Download & Unzip:** Obtain the SagraFacile deployment package (e.g., `SagraFacile-vX.Y.Z-dist.zip`) and extract it.
+3.  **Run Setup Script:**
+    *   Navigate to the extracted folder.
+    *   Execute `start.bat` (Windows) or `start.sh` (macOS/Linux - remember to `chmod +x *.sh` first).
+4.  **Interactive Configuration:**
+    *   Follow the on-screen prompts to provide your domain name, Cloudflare API token, desired database credentials, JWT secret, and choose whether to seed demo data or set up an initial organization/admin user.
+    *   The script will save these settings to `sagrafacile_config.json` and generate the necessary `.env` file.
+5.  **Start Application:** The script will then start all services using `docker-compose up -d`. Caddy will attempt to obtain a Let's Encrypt certificate using your Cloudflare token.
 6.  **Configure Local DNS Resolution:**
-    *   Find your server's local IP address.
-    *   Log into your router and add a DNS entry mapping `MY_DOMAIN` to the server's local IP.
+    *   Find your server's local IP address (e.g., `192.168.1.50`).
+    *   Log into your router and add a DNS entry mapping `MY_DOMAIN` (e.g., `pos.my-restaurant.com`) to the server's local IP address.
 7.  **Access Application:** Open `https://your.domain.com` (as specified in `MY_DOMAIN`) in a browser from any device on your local network.
 8.  **Install Printer Service (if needed):** For PCs connected to printers, run the `SagraFacile.WindowsPrinterService.Setup.exe`, configuring it to point to `https://your.domain.com/api`.

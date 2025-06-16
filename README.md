@@ -101,90 +101,57 @@ SagraFacile is designed for easy local deployment using Docker and Docker Compos
 
 ### 2. Network Configuration (Important!)
 
-A stable network setup is crucial for SagraFacile to operate correctly, especially in a multi-device environment like a food festival.
+SagraFacile uses Caddy with Let's Encrypt (via Cloudflare DNS challenge) for automatic HTTPS using your domain name. This provides a trusted SSL certificate for all devices on your local network.
 
-*   **Static IP for the Server:** The computer running SagraFacile (the Docker host) **must have a static IP address** on your local network (e.g., `192.168.1.10`). This ensures that all client devices (cashier PCs, waiter phones, KDS screens) can reliably connect to the server.
-*   **DHCP Range:** Configure your main network router to assign dynamic IP addresses (DHCP) in a range that does not conflict with your chosen static IPs (e.g., DHCP range `192.168.1.50` to `192.168.1.200`).
-*   **Router IP:** Note your router's IP address (e.g., `192.168.1.1`), as this will be the gateway for your server.
+*   **Server's Local IP Address:** The computer running SagraFacile (the Docker host) should ideally have a **static local IP address** (e.g., `192.168.1.10`). This makes local network access consistent.
+*   **Public IP Address & Domain:** Your internet connection has a public IP address. Your domain name (e.g., `pos.myrestaurant.com`), managed by Cloudflare, will need an A record pointing to this public IP. This is primarily for Caddy to interact with Cloudflare and for Let's Encrypt to verify domain ownership via DNS records.
+*   **Port Forwarding (Optional - Only for External Access):**
+    *   If you **only** want to access SagraFacile from **within your local network**, you **do not need to set up port forwarding** on your router for ports 80 and 443. The Let's Encrypt DNS-01 challenge (used with Cloudflare) does not require your server to be directly accessible from the internet for certificate acquisition.
+    *   If you **do** want to access SagraFacile from the internet (outside your local network), then you would need to configure your router to forward incoming traffic on ports 80 (HTTP) and 443 (HTTPS) to the local IP address of the server running SagraFacile. **This guide assumes local network access only by default.**
+*   **Local DNS Override (Essential for Local Network Access with Domain Name):**
+    For devices *inside your local network* to use `https://your.domain.com` (the `MY_DOMAIN` you'll set) and reach your local SagraFacile server directly, you **must** configure your local network router's "Local DNS" (sometimes called "Static Hostname," "DNSMasq," or similar) feature.
+    *   Map `your.domain.com` (e.g., `pos.myrestaurant.com`) to the SagraFacile server's **local IP address** (e.g., `192.168.1.10`).
+    *   This ensures local devices resolve the domain to the local server, not to its public IP via the internet.
 
-For detailed guidance on network planning, component recommendations, and IP addressing strategies, please refer to **`docs/NetworkingArchitecture.md`** included in this package.
+For detailed guidance on network planning, see **`docs/NetworkingArchitecture.md`**.
 
 ### 3. Installation Steps
 
 1.  **Download SagraFacile:**
-    *   Download the latest `SagraFacile-vX.Y.Z.zip` package from the [GitHub Releases page](https://github.com/your-username/sagrafacile/releases) (Replace with the actual repository URL).
+    *   Download the latest `SagraFacile-vX.Y.Z-dist.zip` package from the [GitHub Releases page](https://github.com/your-username/sagrafacile/releases) (Replace with the actual repository URL).
     *   Extract the ZIP file to a folder on your computer (e.g., `C:\SagraFacile` or `/home/user/SagraFacile`).
 
-2.  **Configure Environment Variables:**
-    *   Navigate to the directory where you extracted SagraFacile.
-    *   Copy the `.env.example` file and rename the copy to `.env`.
-    *   Open `.env` with your text editor. This is a critical step.
-    *   Carefully review all settings and **you MUST change placeholder values**, especially for:
-        *   `POSTGRES_PASSWORD`
-        *   `JWT_SECRET` (make this a very long, random string for security)
-        *   `INITIAL_ADMIN_EMAIL` (if you want an initial admin user created)
-        *   `INITIAL_ADMIN_PASSWORD` (if you want an initial admin user created)
-    *   Save the `.env` file.
+2.  **Domain & Cloudflare Setup (Prerequisites for the script):**
+    *   **Domain in Cloudflare:** Ensure your registered domain name is added to your Cloudflare account, and its nameservers are pointing to Cloudflare.
+    *   **Cloudflare API Token:** Create a Cloudflare API Token:
+        *   In Cloudflare: "My Profile" -> "API Tokens" -> "Create Token".
+        *   Use the "Edit zone DNS" template.
+        *   Permissions: `Zone:DNS:Edit`.
+        *   Zone Resources: Select your specific domain.
+        *   **Copy the generated token securely.** You'll need it for the setup script.
+    *   **DNS A Record in Cloudflare:** Ensure an A record (e.g., for `pos.yourdomain.com` or `yourdomain.com`) points to your network's current **public IP address**. Caddy uses this information during its interaction with Cloudflare for the DNS challenge, even if the server itself isn't publicly exposed via port forwarding for this purpose.
 
-3.  **Start SagraFacile:**
-    *   **For Windows:**
-        *   Double-click `start.bat`.
-    *   **For macOS or Linux:**
-        *   Open a terminal in the SagraFacile directory.
-        *   Make the scripts executable (only needs to be done once):
-            ```bash
-            chmod +x start.sh
-            chmod +x update.sh
-            chmod +x stop.sh
-            ```
-        *   Run the start script: `./start.sh`
-    *   This command will pull the necessary Docker images (if not already present) and start all SagraFacile services in the background.
-    *   This process might take a few minutes on the first run as Docker downloads the images. Subsequent starts will be much faster.
-    *   The script will provide you with the URL to access the application.
+3.  **Run Interactive Setup Script:**
+    *   Navigate to the extracted SagraFacile folder.
+    *   **Windows:** Double-click `start.bat`.
+    *   **macOS/Linux:**
+        *   Open a terminal in the SagraFacile folder.
+        *   Make scripts executable (once): `chmod +x *.sh`
+        *   Run: `./start.sh`
+    *   **Follow Prompts:** The script will guide you to enter:
+        *   Your full domain name (e.g., `pos.yourdomain.com`). This becomes `MY_DOMAIN`.
+        *   Your Cloudflare API Token.
+        *   Database credentials (user, password, DB name).
+        *   A secure JWT Secret (option to auto-generate).
+        *   Choice: Seed demo data OR set up an initial organization/admin (prompts for org name, admin email/password).
+    *   The script saves settings to `sagrafacile_config.json` and creates the `.env` file.
+    *   Services start via `docker-compose up -d`. Caddy will then attempt to obtain the Let's Encrypt certificate using the Cloudflare DNS challenge. This may take a few moments. Check Caddy logs (`docker-compose logs -f caddy`) for progress.
 
-5.  **MANDATORY - Trust the Self-Signed HTTPS Certificate:**
-    SagraFacile uses the Caddy web server to automatically provide HTTPS for your local network using a self-signed certificate. For your browsers to trust this local HTTPS connection, you **must** install Caddy's root CA certificate on:
-    *   The computer running SagraFacile (the Docker host).
-    *   **ALL client devices** (cashier PCs, waiter phones, tablets, etc.) that will access SagraFacile.
-
-    The `start.bat` or `start.sh` script (or this README) provides platform-specific instructions. Here's a summary:
-
-    *   **General Steps:**
-        1.  **Copy the certificate from the Caddy container:**
-            ```bash
-            docker cp sagrafacile_caddy:/data/caddy/pki/authorities/local/root.crt .
-            ```
-            (This command should be run in a terminal/command prompt on the machine where Docker is running, from the SagraFacile directory).
-        2.  **Install `root.crt` into your system's trust store:**
-            *   **Windows (Administrator Command Prompt/PowerShell):**
-                ```powershell
-                certutil -addstore -f "ROOT" "root.crt"
-                ```
-            *   **macOS (Terminal):**
-                ```bash
-                sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain root.crt
-                ```
-            *   **Linux (Debian/Ubuntu based - Terminal):**
-                ```bash
-                sudo mkdir -p /usr/local/share/ca-certificates/extra
-                sudo cp root.crt /usr/local/share/ca-certificates/extra/sagrafacile-local-root.crt
-                sudo update-ca-certificates
-                ```
-                (For other Linux distributions, consult your system's documentation.)
-        3.  **(Optional) Delete the copied `root.crt` file** after successful installation.
-        4.  **Restart your web browser(s)** after installing the certificate.
-
-    *   **Connecting Other Devices:** For each additional device that needs to access SagraFacile:
-        1.  Transfer the `root.crt` file (that you copied from the Caddy container) to the device.
-        2.  Install it according to the device's operating system instructions (e.g., on Android or iOS, you typically open the certificate file and follow prompts to install it).
-
-### 4. Accessing SagraFacile
-
-*   Once the services are running and the CA certificate is trusted:
-    *   **On the server machine:** Open your web browser and go to `https://localhost`
-    *   **From other devices on the network:** Open your web browser and go to `https://<server-ip-address>` (e.g., `https://192.168.1.10`, using the static IP you assigned to the server).
-
-    You should see the SagraFacile login page or public interface.
+### 4. Accessing SagraFacile (Local Network):
+    *   Once services are running and Caddy has successfully obtained the certificate:
+        *   Ensure your **Local DNS Override** (Step 2, last bullet point under Network Configuration) is correctly configured on your router.
+        *   From any device on your local network, open a web browser and go to `https://your.domain.com` (using the `MY_DOMAIN` you configured).
+    *   You should see the SagraFacile login page or public interface. Because Caddy obtains a publicly trusted Let's Encrypt certificate, **no client-side certificate installation is needed.**
 
 ### 5. Managing SagraFacile Services
 
@@ -235,32 +202,39 @@ See `docs/PrinterArchitecture.md` for more details.
 
 ### 7. Services Overview (Docker Compose)
 
-The `docker-compose.yml` file defines and configures the following services:
+The `docker-compose.yml` file defines and configures these services. The interactive `start.sh`/`start.bat` script populates the necessary `.env` file from your choices stored in `sagrafacile_config.json`.
 
 *   **`db`**: The PostgreSQL database (version 15) where all SagraFacile data is stored. Data is persisted in a Docker volume.
-*   **`backend`**: The .NET API service (SagraFacile.NET.API). This image is pulled from a container registry (e.g., Docker Hub). It connects to the `db` service and exposes an internal HTTP port (8080), which Caddy proxies.
-*   **`frontend`**: The Next.js web application (sagrafacile-webapp). This image is pulled from a container registry. It communicates with the `backend` service (via Caddy) and exposes an internal HTTP port (3000), which Caddy proxies.
+*   **`api`** (formerly `backend`): The .NET API service (SagraFacile.NET.API). This image is pulled from a container registry. It connects to the `db` service and exposes an internal HTTP port (8080), which Caddy proxies.
+*   **`frontend`**: The Next.js web application (sagrafacile-webapp). This image is pulled from a container registry. It communicates with the `api` service (via Caddy) and exposes an internal HTTP port (3000), which Caddy proxies.
 *   **`caddy`**: The Caddy web server (version 2) acting as a reverse proxy. This image is pulled from Docker Hub.
     *   Exposes ports `80` (HTTP) and `443` (HTTPS) to your host network.
     *   Redirects all HTTP traffic to HTTPS.
-    *   Provides automatic HTTPS using self-signed certificates via its `local_certs` feature.
-    *   Routes requests to `/api/*` to the `backend:8080` service.
+    *   Provides automatic HTTPS using **Let's Encrypt** with the Cloudflare DNS challenge, configured via your `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN` from the `.env` file.
+    *   Routes requests to `/api/*` to the `api:8080` service.
     *   Routes all other requests to the `frontend:3000` service.
-    *   Caddy's data (including generated certificates) is persisted in Docker volumes.
+    *   Caddy's data (including obtained Let's Encrypt certificates) is persisted in Docker volumes.
 
 ### 8. Troubleshooting
 
-*   **Cannot access `https://localhost` or `https://<server-ip>`:**
-    *   Ensure Docker services are running: `docker-compose ps`
-    *   Verify the CA certificate is installed correctly on the machine you are testing from, and that your browser has been restarted.
-    *   Check firewall settings on the server machine; ensure incoming connections on port 443 are allowed.
-    *   Check Caddy logs: `docker-compose logs -f caddy`
+*   **Cannot access `https://your.domain.com`:**
+    *   **Docker Services:** Check `docker-compose ps`. Are all services (`api`, `frontend`, `caddy`, `db`) running?
+    *   **Caddy Logs (Crucial):** `docker-compose logs -f caddy`. Look for errors related to:
+        *   **Certificate Acquisition:** "obtaining certificate", "presenting DNS-01 challenge", "waiting for propagation", "failed to get certificate".
+            *   Verify `MY_DOMAIN` in `sagrafacile_config.json` (and thus `.env`) is your correct, Cloudflare-managed domain.
+            *   Verify `CLOUDFLARE_API_TOKEN` is correct and has `Zone:DNS:Edit` permissions for that domain in Cloudflare.
+            *   Verify your domain's A record in Cloudflare DNS points to your network's current **public IP address**. This is needed for the DNS-01 challenge mechanism.
+            *   If you intend **local network access only**, ensure **port forwarding is NOT active** for ports 80/443 on your router from the internet to your server. If it is active, and you only want local access, remove it.
+        *   **Proxying:** Errors like "no such host" if Caddy can't reach `api` or `frontend` services (internal Docker networking issue).
+    *   **Local DNS Override:** If accessing from *within* your local network, ensure your router's Local DNS setting correctly maps `your.domain.com` to the SagraFacile server's **local IP**. This is the primary way local devices will find your server.
+    *   **Firewall:** Ensure your server's firewall (if any) allows incoming connections to Docker/Caddy on the necessary ports if you *were* using port forwarding. For local-only access, this is less likely to be an issue for Caddy's internal operations but good to keep in mind.
 *   **API errors or frontend not loading data:**
-    *   Check backend logs: `docker-compose logs -f backend`
-    *   Check frontend logs: `docker-compose logs -f frontend`
-    *   Ensure the `NEXT_PUBLIC_API_BASE_URL=/api` is correctly set for the frontend service in `docker-compose.yml` and that the frontend is making calls to relative paths like `/api/orders`.
-*   **Database connection issues (from backend logs):**
-    *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in your `.env` file match what the backend expects for its connection string. The `docker-compose.yml` directly constructs the connection string for the backend using these.
+    *   API service logs: `docker-compose logs -f api`
+    *   Frontend logs: `docker-compose logs -f frontend`
+    *   Ensure the `NEXT_PUBLIC_API_BASE_URL=/api` is correctly set for the frontend service in `docker-compose.yml` (this should be handled by default) and that the frontend is making calls to relative paths like `/api/orders`.
+*   **Database connection issues (from `api` service logs):**
+    *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in your `.env` file (and `sagrafacile_config.json`) are correct. The `docker-compose.yml` directly constructs the connection string for the API service using these.
+
 
 ## Contributing
 
