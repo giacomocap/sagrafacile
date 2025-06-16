@@ -9,7 +9,27 @@ permissions:
   contents: write # Needed to create releases
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      printer_service: ${{ steps.filter.outputs.printer_service }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            printer_service:
+              - 'SagraFacile.NET/SagraFacile.WindowsPrinterService/**'
+
   build_and_release:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -29,6 +49,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Publish Windows Printer Service
+        if: ${{ needs.changes.outputs.printer_service == 'true' }}
         run: |
           dotnet publish "SagraFacile.NET/SagraFacile.WindowsPrinterService/SagraFacile.WindowsPrinterService.csproj" \
             -r win-x64 \
@@ -38,59 +59,81 @@ jobs:
             /p:AssemblyName=SagraFacilePrinter \
             -o "${{ github.workspace }}/publish/WindowsPrinterService"
 
-      - name: Create distribution directory
-        run: mkdir sagrafacile-dist
+      - name: Create distribution directory (with EXE)
+        run: mkdir sagrafacile-dist-with-exe
 
-      - name: Prepare files for ZIP
+      - name: Prepare files for ZIP (with EXE)
         run: |
-          echo "Packaging version ${{ env.VERSION }}"
-          # Copy the published Windows Printer Service executable
-          cp "${{ github.workspace }}/publish/WindowsPrinterService/SagraFacilePrinter.exe" sagrafacile-dist/SagraFacilePrinter.exe
+          echo "Packaging version ${{ env.VERSION }} (with EXE)"
+          # Conditionally copy the published Windows Printer Service executable
+          if [ "${{ needs.changes.outputs.printer_service }}" == "true" ]; then
+            cp "${{ github.workspace }}/publish/WindowsPrinterService/SagraFacilePrinter.exe" sagrafacile-dist-with-exe/SagraFacilePrinter.exe
+          fi
           
           # Copy other files and directories to the staging area
-          cp docker-compose.yml sagrafacile-dist/
-          cp Caddyfile sagrafacile-dist/
-          cp .env.example sagrafacile-dist/
-          cp start.bat sagrafacile-dist/
-          cp start.sh sagrafacile-dist/
-          cp stop.bat sagrafacile-dist/
-          cp stop.sh sagrafacile-dist/
-          cp update.bat sagrafacile-dist/
-          cp update.sh sagrafacile-dist/
-          cp README.md sagrafacile-dist/
-          cp LICENSE.txt sagrafacile-dist/
-          cp sagrafacile_config.json.example sagrafacile-dist/
-          
-          # Copy the docs directory
-          cp -r docs sagrafacile-dist/
+          cp docker-compose.yml sagrafacile-dist-with-exe/
+          cp Caddyfile sagrafacile-dist-with-exe/
+          cp .env.example sagrafacile-dist-with-exe/
+          cp start.bat sagrafacile-dist-with-exe/
+          cp start.sh sagrafacile-dist-with-exe/
+          cp stop.bat sagrafacile-dist-with-exe/
+          cp stop.sh sagrafacile-dist-with-exe/
+          cp update.bat sagrafacile-dist-with-exe/
+          cp update.sh sagrafacile-dist-with-exe/
+          cp README.md sagrafacile-dist-with-exe/
+          cp LICENSE.txt sagrafacile-dist-with-exe/
+          cp sagrafacile_config.json.example sagrafacile-dist-with-exe/
+          cp -r docs sagrafacile-dist-with-exe/
 
-          # Note: SagraFacile.WindowsPrinterService.Setup.exe is not built or included by this action.
-          # It should be built separately and potentially added as another asset to the release.
-          # If it were available in the repo (e.g., in a 'dist-assets' folder), you would copy it:
-          # cp dist-assets/SagraFacile.WindowsPrinterService.Setup.exe sagrafacile-dist/
-
-      - name: Create ZIP archive
+      - name: Create ZIP archive (with EXE)
         run: |
-          cd sagrafacile-dist
-          zip -r ../SagraFacile-${{ env.VERSION }}-dist.zip .
+          cd sagrafacile-dist-with-exe
+          zip -r ../SagraFacile-${{ env.VERSION }}-full.zip .
           cd ..
-        # The ZIP command will exclude hidden files by default.
-        # Explicit exclusions for source code are handled by not copying them in the first place.
+
+      - name: Create distribution directory (without EXE)
+        run: mkdir sagrafacile-dist-no-exe
+
+      - name: Prepare files for ZIP (without EXE)
+        run: |
+          echo "Packaging version ${{ env.VERSION }} (without EXE)"
+          # Copy other files and directories to the staging area, EXCLUDING the .exe
+          cp docker-compose.yml sagrafacile-dist-no-exe/
+          cp Caddyfile sagrafacile-dist-no-exe/
+          cp .env.example sagrafacile-dist-no-exe/
+          cp start.bat sagrafacile-dist-no-exe/
+          cp start.sh sagrafacile-dist-no-exe/
+          cp stop.bat sagrafacile-dist-no-exe/
+          cp stop.sh sagrafacile-dist-no-exe/
+          cp update.bat sagrafacile-dist-no-exe/
+          cp update.sh sagrafacile-dist-no-exe/
+          cp README.md sagrafacile-dist-no-exe/
+          cp LICENSE.txt sagrafacile-dist-no-exe/
+          cp sagrafacile_config.json.example sagrafacile-dist-no-exe/
+          cp -r docs sagrafacile-dist-no-exe/
+
+      - name: Create ZIP archive (without EXE)
+        run: |
+          cd sagrafacile-dist-no-exe
+          zip -r ../SagraFacile-${{ env.VERSION }}-no-printer.zip .
+          cd ..
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            SagraFacile-${{ env.VERSION }}-dist.zip
-            ${{ github.workspace }}/publish/WindowsPrinterService/SagraFacilePrinter.exe
+            SagraFacile-${{ env.VERSION }}-full.zip
+            SagraFacile-${{ env.VERSION }}-no-printer.zip
+            ${{ needs.changes.outputs.printer_service == 'true' && format('{0}/publish/WindowsPrinterService/SagraFacilePrinter.exe', github.workspace) || '' }}
           tag_name: ${{ env.VERSION }}
           name: Release ${{ env.VERSION }}
           body: |
             Release of SagraFacile version ${{ env.VERSION }}.
             
             **Downloads:**
-            *   `SagraFacile-${{ env.VERSION }}-dist.zip`: Full deployment package.
-            *   `SagraFacilePrinter.exe`: Standalone Windows Printer Service application.
+            *   `SagraFacile-${{ env.VERSION }}-full.zip`: Full deployment package including the Windows Printer Service executable.
+            *   `SagraFacile-${{ env.VERSION }}-no-printer.zip`: Deployment package *without* the Windows Printer Service executable.
+            *   `SagraFacilePrinter.exe`: Standalone Windows Printer Service application (also included in the full ZIP).
             
             **Windows Printer Service:**
             The `SagraFacilePrinter.exe` is a self-contained application for Windows that connects to your SagraFacile backend to handle printing.
@@ -101,6 +144,6 @@ jobs:
             3. Create a new profile or select an existing one.
             4. In the settings for a profile, you can configure the printer, backend URL, and enable "Launch this profile when Windows starts".
             
-            The main ZIP package also includes `SagraFacilePrinter.exe`.
+            For detailed installation and usage instructions, please refer to the `README.md` file included in the ZIP packages.
           draft: false
           prerelease: false # Set to true if this is a pre-release
