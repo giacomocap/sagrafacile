@@ -185,6 +185,9 @@ Once the API is running, you can test the endpoints using tools like:
 
 The solution includes a companion Windows Forms application, `SagraFacile.WindowsPrinterService`, designed to connect to the SagraFacile backend via SignalR and handle print jobs sent to physical printers connected to a Windows machine.
 
+To build it:
+dotnet publish "SagraFacile.NET/SagraFacile.WindowsPrinterService/SagraFacile.WindowsPrinterService.csproj" -r win-x64 -c Release --self-contained true /p:PublishSingleFile=true /p:AssemblyName=SagraFacilePrinter -o "publish/WindowsPrinterService"
+
 ### Features
 
 *   **Profile-Based Configuration:** Allows multiple instances of the printer service to run on the same machine, each configured with a different profile. Each profile specifies:

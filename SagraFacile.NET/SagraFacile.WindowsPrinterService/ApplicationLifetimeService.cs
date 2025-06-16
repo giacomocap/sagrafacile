@@ -265,8 +265,16 @@ namespace SagraFacile.WindowsPrinterService
                         // The status received here from SignalRService might already include the profile name.
                         // If SignalRService's OnConnectionStatusChanged sends "base status", then prepend profile here.
                         // If it sends "[Profile] base status", then use 'status' directly.
+                        // The status received here from SignalRService might already include the profile name.
+                        // If SignalRService's OnConnectionStatusChanged sends "base status", then prepend profile here.
+                        // If it sends "[Profile] base status", then use 'status' directly.
                         // Based on SignalRService change, it sends "[Profile] base status", so 'status' is fine.
-                        _notifyIcon.Text = $"SagraFacile Printer - {status}"; 
+                        string fullText = $"SagraFacile Printer - {status}";
+                        if (fullText.Length > 127) // NotifyIcon.Text has a max length of 127 characters (0-indexed)
+                        {
+                            fullText = fullText.Substring(0, 124) + "..."; // Truncate and add ellipsis
+                        }
+                        _notifyIcon.Text = fullText;
                         if (selectedIcon != null)
                         {
                             _notifyIcon.Icon = selectedIcon;
