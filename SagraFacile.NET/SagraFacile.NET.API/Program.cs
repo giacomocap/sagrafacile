@@ -79,6 +79,7 @@ builder.Services.AddScoped<ICashierStationService, CashierStationService>();
 builder.Services.AddScoped<IQueueService, QueueService>(); // Add QueueService registration
 builder.Services.AddScoped<IAdMediaItemService, AdMediaItemService>();
 builder.Services.AddScoped<IAdAreaAssignmentService, AdAreaAssignmentService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>(); // Register Analytics Service
 
 // Register the Background Service conditionally
 var enablePollingService = false; //builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");

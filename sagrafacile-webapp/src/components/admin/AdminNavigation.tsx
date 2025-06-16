@@ -81,6 +81,14 @@ export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationPr
             Ordini
           </Button>
         </Link>
+        <Link href={`/app/org/${currentOrgId}/admin/analytics`} onClick={handleLinkClick}>
+          <Button 
+            variant={pathname.includes('/admin/analytics') ? 'secondary' : 'ghost'} 
+            className="w-full justify-start h-9 px-3 text-sm font-normal"
+          >
+            Analytics
+          </Button>
+        </Link>
         <Link href={`/app/org/${currentOrgId}/admin/days`} onClick={handleLinkClick}>
           <Button 
             variant={pathname.includes('/admin/days') ? 'secondary' : 'ghost'} 

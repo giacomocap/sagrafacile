@@ -384,4 +384,45 @@ This document outlines the planned development phases for the SagraFacile system
     *   `[x]` **Admin UI:** Add input fields for "Guest Charge" and "Takeaway Charge" to the Area management form.
     *   `[x]` **Receipt Dialog:** Update the `ReceiptDialog` component to display the new charges, mirroring the final printed receipt.
 
+### Phase 9: Charts & Analytics Dashboard (See `docs/ChartsAnalyticsArchitecture.md`)
+
+*   **Goal:** Implement comprehensive analytics and charts for the admin interface to provide insights into sales, orders, and operational metrics.
+*   **Key Features:**
+    *   **Dashboard KPIs:** Mobile-friendly key performance indicators (sales, order count, average order value, top category)
+    *   **Dashboard Charts:** Desktop/tablet-only charts (sales trend, order status distribution, top menu items)
+    *   **Orders Analytics:** Detailed charts on orders admin page (orders by hour, payment methods, AOV trend, status timeline)
+    *   **Day-Based Analysis:** Leverage operational day (Giornata) system for accurate reporting
+    *   **Responsive Design:** KPIs on all devices, charts hidden on mobile
+    *   **Export Reports:** Generate PDF/Excel reports for administrative purposes
+*   **Backend Tasks (.NET API):**
+    *   `[x]` **New Controller:** Create `AnalyticsController` with endpoints for dashboard and orders analytics (`SagraFacile.NET.API/Controllers/AnalyticsController.cs`).
+    *   `[x]` **DTOs:** Create analytics DTOs (`DashboardKPIsDto`, `SalesTrendDataDto`, `OrderStatusDistributionDto`, `OrderStatusTimelineEventDto`, etc.) in `SagraFacile.NET.API/DTOs/Analytics/`.
+    *   `[x]` **Service Layer:** Define `IAnalyticsService` interface and implement `AnalyticsService.cs` with all data querying and business logic. Register in `Program.cs`.
+    *   `[x]` **Database Queries:** Implemented efficient queries leveraging the `Day` table for accurate day-based reporting (within `AnalyticsService.cs`).
+    *   `[x]` **Report Generation:** Implemented text-based report generation for daily summaries and area performance reports (within `AnalyticsService.cs`). (PDF/Excel export is a future enhancement).
+*   **Frontend Tasks (Next.js App):**
+    *   `[ ]` **Setup:** Install shadcn charts component (`npx shadcn-ui@latest add charts`)
+    *   `[ ]` **Component Structure:** Create organized chart components in `src/components/charts/`
+        *   `[ ]` Dashboard components (`DashboardKPIs`, `SalesTrendChart`, `OrderStatusChart`, `TopMenuItemsChart`)
+        *   `[ ]` Orders components (`OrdersByHourChart`, `PaymentMethodsChart`, `AverageOrderValueChart`, `OrderStatusTimelineChart`)
+        *   `[ ]` Shared components (`ChartContainer`, `LoadingChart`, `EmptyChart`, `ChartErrorBoundary`)
+    *   `[ ]` **Dashboard Integration:** Add KPIs and responsive charts to admin home page (`/admin/page.tsx`)
+    *   `[ ]` **Orders Page Integration:** Add analytics section to orders admin page (`/admin/orders/page.tsx`)
+    *   `[ ]` **Services:** Create `analyticsService.ts` for API calls with caching and error handling
+    *   `[ ]` **Responsive Behavior:** Implement `useMediaQuery` hook for chart visibility control
+    *   `[ ]` **Types:** Add analytics DTOs to `src/types/index.ts`
+*   **Technical Specifications:**
+    *   **Refresh Strategy:** Periodic API calls (5-minute intervals, configurable)
+    *   **Date Ranges:** Default 7 days with custom range capability
+    *   **Performance:** In-memory caching with 5-minute TTL
+    *   **Error Handling:** Comprehensive error boundaries and loading states
+    *   **Security:** Same role-based access as existing admin pages
+*   **Implementation Phases:**
+    *   `[x]` **Phase 9.1 (Backend):** Foundation setup (DTOs, Service Interface, Controller, DI Registration).
+    *   `[x]` **Phase 9.2 (Backend):** Full implementation of data querying and business logic in `AnalyticsService.cs` for all defined analytics endpoints and text-based report generation.
+    *   `[x]` **Phase 9.3 (Frontend):** Foundation setup (charts component installation, `analyticsService.ts`, TypeScript types).
+    *   `[x]` **Phase 9.4 (Frontend):** Dashboard KPIs and charts component implementation and integration.
+    *   `[ ]` **Phase 9.5 (Frontend):** Orders analytics charts component implementation and integration.
+    *   `[ ]` **Phase 9.6 (Frontend & Backend):** Polish, comprehensive testing, potential enhancement of report export (e.g., PDF/Excel), and user feedback integration.
+
 *(This roadmap is a living document and will be updated as the project progresses.)*
