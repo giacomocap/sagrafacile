@@ -51,7 +51,7 @@ namespace SagraFacile.NET.API.Data
 
                 if (seedDemoData)
                 {
-                    _logger.LogInformation("SAGRAFACILE_SEED_DEMO_DATA is true. Seeding Sagra di Tencarola demo data.");
+                    _logger.LogInformation("SAGRAFACILE_SEED_DEMO_DATA is true. Seeding Sagra Facile demo data.");
                     await SeedSagraDiTencarolaDataAsync(dbContext, userManager, roleManager);
                 }
                 else
@@ -257,11 +257,11 @@ namespace SagraFacile.NET.API.Data
                 {
                     _logger.LogWarning("Area 'Stand Gastronomico' not found or not created. Skipping menu seeding for it.");
                 }
-                _logger.LogInformation("Sagra di Tencarola data seeding completed successfully.");
+                _logger.LogInformation("Sagra Facile data seeding completed successfully.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred seeding the Sagra di Tencarola data.");
+                _logger.LogError(ex, "An error occurred seeding the Sagra Facile data.");
             }
         }
 
@@ -295,11 +295,11 @@ namespace SagraFacile.NET.API.Data
                 return;
             }
 
-            // Check if any organizations exist besides "System" and "Sagra di Tencarola" (if demo was not seeded)
-            var existingUserOrgsCount = await dbContext.Organizations.CountAsync(o => o.Name != "System" && o.Name != "Sagra di Tencarola");
+            // Check if any organizations exist besides "System" and "Sagra Facile" (if demo was not seeded)
+            var existingUserOrgsCount = await dbContext.Organizations.CountAsync(o => o.Name != "System" && o.Name != "Sagra Facile");
             if (existingUserOrgsCount > 0)
             {
-                _logger.LogInformation("User-defined organizations (other than 'System' or 'Sagra di Tencarola') already exist. Skipping initial organization and admin setup from environment variables.");
+                _logger.LogInformation("User-defined organizations (other than 'System' or 'Sagra Facile') already exist. Skipping initial organization and admin setup from environment variables.");
                 return;
             }
 

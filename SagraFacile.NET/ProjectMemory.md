@@ -3,6 +3,41 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-16) - Implemented Interactive Setup Script (`start.sh`) & Updated Documentation
+**Context:** To simplify the deployment process for SagraFacile and provide users with more control over the initial data seeding, an interactive setup script was needed. This aligns with the goal of creating a downloadable ZIP package with guided setup.
+**Accomplishments:**
+*   **Modified `start.sh` for Interactive Setup:**
+    *   The `start.sh` script (for macOS/Linux) was significantly updated to be interactive.
+    *   **Configuration Check:** On launch, it now checks for an existing `sagrafacile_config.json` file. If found, it prompts the user whether to use the existing configuration, re-configure, or exit.
+    *   **Interactive Prompts:** If no configuration exists or the user chooses to re-configure, the script interactively prompts for:
+        *   `MY_DOMAIN` (e.g., `pos.myrestaurant.com`)
+        *   `CLOUDFLARE_API_TOKEN`
+        *   Database credentials (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`)
+        *   `JWT_SECRET` (with an option to auto-generate a secure secret)
+    *   **Data Seeding Preference:** The script asks the user whether to seed demo data:
+        *   If "yes", `SAGRAFACILE_SEED_DEMO_DATA` is set to `true`.
+        *   If "no", `SAGRAFACILE_SEED_DEMO_DATA` is set to `false`, and the script then prompts for:
+            *   `INITIAL_ORGANIZATION_NAME`
+            *   `INITIAL_ADMIN_EMAIL`
+            *   `INITIAL_ADMIN_PASSWORD`
+    *   **Configuration Persistence:** All collected user choices are saved to `sagrafacile_config.json`.
+    *   **`.env` File Generation:** The script generates (or overwrites) the `.env` file using the values stored in `sagrafacile_config.json`. This `.env` file is then used by `docker-compose.yml`.
+*   **Backend Data Seeding (`InitialDataSeeder.cs`):**
+    *   The existing `InitialDataSeeder` service was already designed to read `SAGRAFACILE_SEED_DEMO_DATA`, `INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD`, and `DEMO_USER_PASSWORD` from environment variables. This means the backend seamlessly integrates with the configuration provided by the new `start.sh` script via the generated `.env` file.
+*   **Documentation Updates:**
+    *   `README.md`: Updated the installation instructions to reflect the new interactive `start.sh` process and the role of `sagrafacile_config.json`.
+    *   `DEPLOYMENT_ARCHITECTURE.md`: Updated to detail the interactive script flow, the `sagrafacile_config.json` file, and how it relates to the `.env` file and backend seeding.
+    *   `Roadmap.md`: Marked relevant tasks under "Phase 7: Deployment & Monitoring" as complete or in progress for `start.sh` and backend seeding.
+**Key Decisions:**
+*   The `start.sh` script is the primary method for guided setup on macOS and Linux.
+*   `sagrafacile_config.json` serves as the persistent store for user-defined configurations, making it easier to restart or re-configure the application without re-entering all information.
+*   The `.env` file is treated as a dynamically generated artifact based on `sagrafacile_config.json`.
+*   The backend's `InitialDataSeeder` required no changes as it was already prepared for these environment variables.
+**Outcome:** The setup process for SagraFacile on macOS/Linux is now significantly more user-friendly and flexible. Users can easily configure essential settings and control initial data seeding through an interactive command-line interface.
+**Next Steps:**
+*   Update `start.bat` to provide similar interactive setup functionality for Windows users.
+*   Continue with other pending tasks in "Phase 7: Deployment & Monitoring" of the `Roadmap.md`, such as defining the deployment ZIP package contents and creating the GitHub Actions workflow for release packaging.
+
 ## (2025-06-16) - Refactored Data Seeding Logic
 **Context:** The initial data seeding logic (System Defaults, Demo Data, Initial Org/Admin from env vars) was previously located directly in `Program.cs`. This made `Program.cs` verbose and mixed startup configuration with data initialization.
 **Accomplishments:**

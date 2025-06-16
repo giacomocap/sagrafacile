@@ -371,24 +371,27 @@ This document outlines the planned development phases for the SagraFacile system
     *   `[ ]` Deployment Strategy (Cloud vs. On-premise, CI/CD pipeline).
     *   `[ ]` Production Configuration (Environment variables, security hardening).
     *   `[ ]` Monitoring & Logging Setup (Error tracking, performance monitoring).
-    *   `[ ]` **Simplified Deployment Package & Process:**
-        *   `[ ]` **Interactive Setup Scripts (`start.sh`, `start.bat`):**
-            *   `[ ]` Implement logic to check for `sagrafacile_config.json`.
-            *   `[ ]` Add interactive prompts for `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database credentials, `JWT_SECRET`.
-            *   `[ ]` Add prompt for demo data seeding (`SAGRAFACILE_SEED_DEMO_DATA`) or initial admin/org setup (`INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`).
-            *   `[ ]` Save user choices to `sagrafacile_config.json`.
-            *   `[ ]` Generate `.env` file from `sagrafacile_config.json`.
-        *   `[ ]` **API Backend (`Program.cs`) Adjustments:**
-            *   `[ ]` Implement logic to check `SAGRAFACILE_SEED_DEMO_DATA`.
-            *   `[ ]` If `false`, use `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME` to create initial setup.
+    *   `[x]` **Simplified Deployment Package & Process:**
+        *   `[x]` **Interactive Setup Scripts (`start.sh`, `start.bat`):**
+            *   `[x]` (`start.sh`) Implement logic to check for `sagrafacile_config.json`.
+            *   `[x]` (`start.sh`) Add interactive prompts for `MY_DOMAIN`, `CLOUDFLARE_API_TOKEN`, database credentials, `JWT_SECRET`.
+            *   `[x]` (`start.sh`) Add prompt for demo data seeding (`SAGRAFACILE_SEED_DEMO_DATA`) or initial admin/org setup (`INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD`, `INITIAL_ORGANIZATION_NAME`).
+            *   `[x]` (`start.sh`) Save user choices to `sagrafacile_config.json`.
+            *   `[x]` (`start.sh`) Generate `.env` file from `sagrafacile_config.json`.
+            *   `[ ]` (`start.bat`) Needs to be updated with similar interactive functionality.
+        *   `[x]` **API Backend (`Program.cs` & `InitialDataSeeder.cs`) Adjustments:**
+            *   `[x]` Implement logic in `InitialDataSeeder.cs` to check `SAGRAFACILE_SEED_DEMO_DATA`.
+            *   `[x]` If `false` (or not set), `InitialDataSeeder.cs` uses `INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` to attempt initial setup (if no user-defined orgs exist).
+            *   `[x]` Passwords for SuperAdmin and DemoUser are configurable via `SUPERADMIN_PASSWORD` and `DEMO_USER_PASSWORD` environment variables.
         *   `[ ]` **Deployment ZIP Package:**
             *   `[ ]` Define contents for the distributable ZIP (excluding source code, including scripts, `docker-compose.yml`, `Caddyfile`, `docs/`, `sagrafacile_config.json.example`, printer service installer).
         *   `[ ]` **Automated GitHub Release Packaging:**
             *   `[ ]` Create GitHub Actions workflow (`.github/workflows/release-zip.yml`) to build the ZIP and create a release on new version tags.
-        *   `[ ]` **Documentation Updates:**
-            *   `[ ]` Update `README.md` installation instructions for the new interactive scripts and Cloudflare Let's Encrypt setup.
-            *   `[ ]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive scripts, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.
-            *   `[ ]` Ensure service name consistency (`api` for backend) across `docker-compose.yml`, `Caddyfile`, and docs.
+        *   `[x]` **Documentation Updates:**
+            *   `[x]` Update `README.md` installation instructions for the new interactive `start.sh` script and Cloudflare Let's Encrypt setup.
+            *   `[x]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive `start.sh` script, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.
+            *   `[x]` Ensure service name consistency (`api` for backend) across `docker-compose.yml`, `Caddyfile`, and docs.
+>>>>>>> REPLACE
 
 ### Phase 8: Guest & Takeaway Charges (Completed)
 

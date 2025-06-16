@@ -133,18 +133,20 @@ For detailed guidance on network planning, see **`docs/NetworkingArchitecture.md
 
 3.  **Run Interactive Setup Script:**
     *   Navigate to the extracted SagraFacile folder.
-    *   **Windows:** Double-click `start.bat`.
+    *   **Windows:** Double-click `start.bat`. (Note: `start.bat` will be updated to be interactive in a future step).
     *   **macOS/Linux:**
         *   Open a terminal in the SagraFacile folder.
-        *   Make scripts executable (once): `chmod +x *.sh`
+        *   Make scripts executable (if you haven't already): `chmod +x *.sh`
         *   Run: `./start.sh`
-    *   **Follow Prompts:** The script will guide you to enter:
-        *   Your full domain name (e.g., `pos.yourdomain.com`). This becomes `MY_DOMAIN`.
-        *   Your Cloudflare API Token.
-        *   Database credentials (user, password, DB name).
-        *   A secure JWT Secret (option to auto-generate).
-        *   Choice: Seed demo data OR set up an initial organization/admin (prompts for org name, admin email/password).
-    *   The script saves settings to `sagrafacile_config.json` and creates the `.env` file.
+    *   **Follow Prompts:** The `start.sh` script is now interactive:
+        *   It will check for an existing `sagrafacile_config.json`. If found, it will ask if you want to use it, re-configure, or exit.
+        *   If no config exists or you choose to re-configure, it will guide you to enter:
+            *   Your full domain name (e.g., `pos.yourdomain.com`). This becomes `MY_DOMAIN`.
+            *   Your Cloudflare API Token.
+            *   Database credentials (user, password, DB name).
+            *   A secure JWT Secret (with an option to auto-generate).
+            *   Your preference for initial data: Seed demo data OR set up an initial organization/admin (prompts for organization name, admin email, and admin password if this option is chosen).
+    *   The script saves your settings to `sagrafacile_config.json` and then generates the `.env` file based on this configuration.
     *   Services start via `docker-compose up -d`. Caddy will then attempt to obtain the Let's Encrypt certificate using the Cloudflare DNS challenge. This may take a few moments. Check Caddy logs (`docker-compose logs -f caddy`) for progress.
 
 ### 4. Accessing SagraFacile (Local Network):
@@ -202,7 +204,7 @@ See `docs/PrinterArchitecture.md` for more details.
 
 ### 7. Services Overview (Docker Compose)
 
-The `docker-compose.yml` file defines and configures these services. The interactive `start.sh`/`start.bat` script populates the necessary `.env` file from your choices stored in `sagrafacile_config.json`.
+The `docker-compose.yml` file defines and configures these services. The interactive `start.sh` script (and eventually `start.bat`) first collects your configuration choices into `sagrafacile_config.json`, and then uses this file to generate the necessary `.env` file that `docker-compose.yml` relies on.
 
 *   **`db`**: The PostgreSQL database (version 15) where all SagraFacile data is stored. Data is persisted in a Docker volume.
 *   **`api`** (formerly `backend`): The .NET API service (SagraFacile.NET.API). This image is pulled from a container registry. It connects to the `db` service and exposes an internal HTTP port (8080), which Caddy proxies.
@@ -221,19 +223,19 @@ The `docker-compose.yml` file defines and configures these services. The interac
     *   **Docker Services:** Check `docker-compose ps`. Are all services (`api`, `frontend`, `caddy`, `db`) running?
     *   **Caddy Logs (Crucial):** `docker-compose logs -f caddy`. Look for errors related to:
         *   **Certificate Acquisition:** "obtaining certificate", "presenting DNS-01 challenge", "waiting for propagation", "failed to get certificate".
-            *   Verify `MY_DOMAIN` in `sagrafacile_config.json` (and thus `.env`) is your correct, Cloudflare-managed domain.
-            *   Verify `CLOUDFLARE_API_TOKEN` is correct and has `Zone:DNS:Edit` permissions for that domain in Cloudflare.
+            *   Verify `MY_DOMAIN` and `CLOUDFLARE_API_TOKEN` in `sagrafacile_config.json` are correct. The `.env` file is generated from this, so ensure the source config is accurate.
+            *   Ensure the Cloudflare API Token has `Zone:DNS:Edit` permissions for your domain in Cloudflare.
             *   Verify your domain's A record in Cloudflare DNS points to your network's current **public IP address**. This is needed for the DNS-01 challenge mechanism.
             *   If you intend **local network access only**, ensure **port forwarding is NOT active** for ports 80/443 on your router from the internet to your server. If it is active, and you only want local access, remove it.
         *   **Proxying:** Errors like "no such host" if Caddy can't reach `api` or `frontend` services (internal Docker networking issue).
     *   **Local DNS Override:** If accessing from *within* your local network, ensure your router's Local DNS setting correctly maps `your.domain.com` to the SagraFacile server's **local IP**. This is the primary way local devices will find your server.
     *   **Firewall:** Ensure your server's firewall (if any) allows incoming connections to Docker/Caddy on the necessary ports if you *were* using port forwarding. For local-only access, this is less likely to be an issue for Caddy's internal operations but good to keep in mind.
-*   **API errors or frontend not loading data:**
+    *   **API errors or frontend not loading data:**
     *   API service logs: `docker-compose logs -f api`
     *   Frontend logs: `docker-compose logs -f frontend`
-    *   Ensure the `NEXT_PUBLIC_API_BASE_URL=/api` is correctly set for the frontend service in `docker-compose.yml` (this should be handled by default) and that the frontend is making calls to relative paths like `/api/orders`.
+    *   Ensure the `NEXT_PUBLIC_API_BASE_URL=/api` is correctly set in the generated `.env` file (sourced from `sagrafacile_config.json`).
 *   **Database connection issues (from `api` service logs):**
-    *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in your `.env` file (and `sagrafacile_config.json`) are correct. The `docker-compose.yml` directly constructs the connection string for the API service using these.
+    *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in `sagrafacile_config.json` are correct. The `.env` file, which the API service uses for its connection string, is generated from this configuration file.
 
 
 ## Contributing
