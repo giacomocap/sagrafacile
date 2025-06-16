@@ -81,8 +81,8 @@ namespace SagraFacile.NET.API.Services
                 OrganizationId = adMediaItem.OrganizationId,
                 Name = adMediaItem.Name,
                 MediaType = adMediaItem.MediaType.ToString(),
-                FilePath = adMediaItem.FilePath,
-                MimeType = adMediaItem.MimeType,
+                FilePath = adMediaItem?.FilePath!,
+                MimeType = adMediaItem?.MimeType!,
                 UploadedAt = adMediaItem.UploadedAt
             };
 

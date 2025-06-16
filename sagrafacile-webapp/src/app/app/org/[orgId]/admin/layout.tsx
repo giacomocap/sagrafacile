@@ -62,20 +62,32 @@ export default function AdminLayout({
   };
 
   // Ottiene il nome dell'organizzazione corrente per l'intestazione
-  const currentOrgName = organizations.find(o => o.id === currentOrgId)?.name ?? `ID ${currentOrgId}`;
+  const currentOrgName = organizations.find(o => o.id === currentOrgId)?.name;
+  const shouldShowHeader = currentOrgName || (isSuperAdminContext && organizations.length > 0);
 
   return (
     <div className="flex h-full">
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside className="hidden lg:flex w-64 bg-card text-card-foreground p-4 border-r border-border flex-col shrink-0">
-
-        <Link href={`/app/org/${currentOrgId}`}>
-          <h2 className="text-xl font-semibold mb-6">Sagrafacile Admin</h2>
-        </Link>
+        <div className="flex flex-col space-y-4 mb-6">
+          <Link href={`/app/org/${currentOrgId}`} className="hover:opacity-80 transition-opacity">
+            <h2 className="text-xl font-semibold">SagraFacile</h2>
+            <p className="text-sm text-muted-foreground">Admin Panel</p>
+          </Link>
+          {currentOrgName && (
+            <div className="px-3 py-2 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Organizzazione</p>
+              <p className="text-sm font-medium truncate">{currentOrgName}</p>
+            </div>
+          )}
+        </div>
         <AdminNavigation currentOrgId={currentOrgId} />
-        <div className="mt-auto space-y-2">
-          <div className="text-xs text-muted-foreground truncate px-1">
-            {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+        <div className="mt-auto space-y-3">
+          <div className="px-3 py-2 bg-muted/30 rounded-lg">
+            <p className="text-xs text-muted-foreground">Utente</p>
+            <p className="text-sm font-medium truncate">
+              {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+            </p>
           </div>
           <Button variant="outline" className="w-full" onClick={handleLogout}>
             Logout
@@ -89,7 +101,7 @@ export default function AdminLayout({
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm"
+            className="lg:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm shadow-md"
           >
             <Menu className="h-6 w-6" />
             <span className="sr-only">Apri menu</span>
@@ -97,9 +109,16 @@ export default function AdminLayout({
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0 flex flex-col">
           <div className="flex-shrink-0 p-4 border-b">
-             <Link href={`/app/org/${currentOrgId}`}>
-          <h2 className="text-xl font-semibold">Sagrafacile Admin</h2>
-        </Link>
+            <Link href={`/app/org/${currentOrgId}`} className="block">
+              <h2 className="text-xl font-semibold">SagraFacile</h2>
+              <p className="text-sm text-muted-foreground">Admin Panel</p>
+            </Link>
+            {currentOrgName && (
+              <div className="mt-3 px-3 py-2 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">Organizzazione</p>
+                <p className="text-sm font-medium truncate">{currentOrgName}</p>
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <AdminNavigation
@@ -108,9 +127,12 @@ export default function AdminLayout({
             />
           </div>
           <div className="flex-shrink-0 p-4 border-t bg-muted/30">
-            <div className="space-y-2">
-              <div className="text-xs text-muted-foreground truncate">
-                {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+            <div className="space-y-3">
+              <div className="px-3 py-2 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">Utente</p>
+                <p className="text-sm font-medium truncate">
+                  {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+                </p>
               </div>
               <Button variant="outline" className="w-full" onClick={handleLogout}>
                 Logout
@@ -122,41 +144,46 @@ export default function AdminLayout({
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-card border-b border-border p-4 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-4">
-            {/* Mobile menu button space */}
-            <div className="lg:hidden w-10"></div>
-            <div>
-              <h1 className="text-lg font-semibold truncate">
-                <span className="hidden sm:inline">Organizzazione: </span>
-                {currentOrgName}
-              </h1>
+        {/* Header - Only show if we have org name or SuperAdmin with orgs */}
+        {shouldShowHeader && (
+          <header className="bg-card border-b border-border p-4 flex justify-between items-center shrink-0">
+            <div className="flex items-center gap-4">
+              {/* Mobile menu button space */}
+              <div className="lg:hidden w-10"></div>
+              {currentOrgName && (
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div>
+                    <h1 className="text-lg font-semibold truncate">{currentOrgName}</h1>
+                    <p className="text-xs text-muted-foreground">Pannello Amministrazione</p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-          {isSuperAdminContext && organizations.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground hidden sm:inline">Cambia Organizzazione:</span>
-              <Select
-                value={selectedOrganizationId?.toString() ?? ''}
-                onValueChange={handleOrgChange}
-                disabled={isLoadingOrgs}
-              >
-                <SelectTrigger className="w-[120px] sm:w-[180px]">
-                  <SelectValue placeholder="Seleziona..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {organizations.map((org) => (
-                    <SelectItem key={org.id} value={org.id.toString()}>
-                      <span className="sm:hidden">{org.name}</span>
-                      <span className="hidden sm:inline">{org.name} (ID: {org.id})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </header>
+            {isSuperAdminContext && organizations.length > 0 && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground hidden sm:inline">Cambia Organizzazione:</span>
+                <Select
+                  value={selectedOrganizationId?.toString() ?? ''}
+                  onValueChange={handleOrgChange}
+                  disabled={isLoadingOrgs}
+                >
+                  <SelectTrigger className="w-[120px] sm:w-[180px]">
+                    <SelectValue placeholder="Seleziona..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id.toString()}>
+                        <span className="sm:hidden">{org.name}</span>
+                        <span className="hidden sm:inline">{org.name} (ID: {org.id})</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </header>
+        )}
 
         {/* Warning Banner for No Open Day */}
         {!isLoadingDay && !currentDay && !isSuperAdminContext && (
@@ -175,7 +202,7 @@ export default function AdminLayout({
         )}
 
         {/* Page Content */}
-        <main className={`flex-1 overflow-y-auto ${!isLoadingDay && !currentDay && !isSuperAdminContext ? 'p-3 sm:p-4' : 'p-4 sm:p-6'}`}>
+        <main className={`flex-1 overflow-y-auto ${shouldShowHeader ? 'p-4 sm:p-6' : 'p-6'} ${!isLoadingDay && !currentDay && !isSuperAdminContext ? 'pt-3' : ''}`}>
           {children}
         </main>
       </div>
