@@ -13,6 +13,62 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-16) - Completed Backend Implementation for Charts & Analytics
+**Context:** Completed Phase 9 (Backend) for the Charts & Analytics Dashboard feature as outlined in `docs/ChartsAnalyticsArchitecture.md` and `Roadmap.md`.
+**Accomplishments:**
+*   **DTOs Finalized:** All Data Transfer Objects for analytics are in place, including the new `OrderStatusTimelineEventDto.cs`. `SalesTrendDataDto.cs` and `AverageOrderValueTrendDto.cs` were updated to use nullable `DayId`.
+*   **Service Layer (`IAnalyticsService` and `AnalyticsService.cs`):**
+    *   The `IAnalyticsService.cs` interface was updated to include `GetOrderStatusTimelineAsync`.
+    *   The `AnalyticsService.cs` was fully implemented with data querying and business logic for all defined analytics methods:
+        *   `GetDashboardKPIsAsync`
+        *   `GetSalesTrendAsync`
+        *   `GetOrderStatusDistributionAsync`
+        *   `GetTopMenuItemsAsync`
+        *   `GetOrdersByHourAsync`
+        *   `GetPaymentMethodDistributionAsync`
+        *   `GetAverageOrderValueTrendAsync`
+        *   `GetOrderStatusTimelineAsync` (Note: This implementation is simplified due to the `Order` model lacking individual status transition timestamps. It currently provides one event per order based on `OrderDateTime`.)
+    *   Implemented a helper method `GetTargetDayAsync` for consistent operational day resolution.
+    *   Corrected minor bugs related to nullable types and string checks.
+*   **Report Generation:**
+    *   `GenerateDailySummaryReportAsync` and `GenerateAreaPerformanceReportAsync` now produce basic text-based reports. PDF/Excel generation remains a future enhancement.
+*   **Controller (`AnalyticsController.cs`):** Endpoints defined in the previous session now have corresponding service logic.
+**Key Decisions & Notes:**
+*   The `GetOrderStatusTimelineAsync` method's detail is limited by the current `Order` model. For a more granular timeline, the `Order` model would need to be augmented with specific timestamps for each status change, or a dedicated `OrderStatusHistory` table would be required.
+*   Report generation is currently text-based. Integration of a PDF/Excel library is a separate future task if richer report formats are needed.
+*   All queries consider relevant order statuses (e.g., excluding PreOrder, Pending, Cancelled for sales analytics).
+**Next Steps:**
+*   Proceed with Phase 9.3: Frontend foundation setup for charts and analytics.
+*   User to review and test the implemented backend analytics endpoints.
+
+## (2025-06-16) - Implemented Backend Foundation for Charts & Analytics
+**Context:** Initiated Phase 9: Charts & Analytics Dashboard, focusing on the backend foundational structure as per `docs/ChartsAnalyticsArchitecture.md`.
+**Accomplishments:**
+*   **DTOs Created:** All necessary Data Transfer Objects for analytics were created in `SagraFacile.NET.API/DTOs/Analytics/`:
+    *   `DashboardKPIsDto.cs`
+    *   `SalesTrendDataDto.cs`
+    *   `OrderStatusDistributionDto.cs`
+    *   `TopMenuItemDto.cs`
+    *   `OrdersByHourDto.cs`
+    *   `PaymentMethodDistributionDto.cs`
+    *   `AverageOrderValueTrendDto.cs`
+*   **Service Layer:**
+    *   Created `IAnalyticsService.cs` interface in `SagraFacile.NET.API/Services/` defining all required methods.
+    *   Created a skeleton implementation `AnalyticsService.cs` in `SagraFacile.NET.API/Services/`, adhering to the existing `BaseService` pattern (injecting `ApplicationDbContext`, `IHttpContextAccessor`, `ILogger`) and including authorization checks.
+*   **Controller:**
+    *   Created `AnalyticsController.cs` in `SagraFacile.NET.API/Controllers/` with all API endpoints as specified in the architecture.
+    *   Ensured controller patterns (error handling, response types) align with other controllers like `AreasController.cs`.
+    *   Applied `[Authorize(Roles = "Admin,SuperAdmin")]` to protect all analytics endpoints.
+*   **Dependency Injection:**
+    *   Registered `IAnalyticsService` and `AnalyticsService` in `SagraFacile.NET.API/Program.cs`.
+**Key Decisions:**
+*   Organized analytics DTOs into a dedicated `Analytics` subfolder.
+*   Ensured the new service and controller adhere to established project patterns for consistency, including how `BaseService` is utilized for user context and authorization.
+*   Controller-level logging was initially added then removed from `AnalyticsController` to maintain consistency with other controllers where logging is primarily handled in the service layer.
+**Next Steps:**
+*   Implement the actual data querying and business logic within each method of `AnalyticsService.cs`.
+*   Begin frontend implementation for Phase 9.
+
 ## (2025-06-15) - Fixed Printer Character Encoding for Euro & Accented Characters
 **Context:** Euro symbol (€) and accented characters (à, è, ì, ò, ù, etc.) were printing incorrectly on thermal receipts and comandas. The printer manual indicated support for an IBM code page at index 14.
 **Accomplishments:**
