@@ -22,7 +22,11 @@ jobs:
 
       - name: Get version from tag
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Remove 'v' prefix if it exists
+          VERSION=${VERSION#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Publish Windows Printer Service
         run: |
