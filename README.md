@@ -238,6 +238,14 @@ The `docker-compose.yml` file defines and configures these services. The interac
     *   Verify `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` in `sagrafacile_config.json` are correct. The `.env` file, which the API service uses for its connection string, is generated from this configuration file.
 
 
+## Release Management & Tagging Convention
+
+For official releases, we follow the **Semantic Versioning** (SemVer) standard and use Git tags with a `v` prefix.
+
+**Recommended Tag Format:** `vX.Y.Z` (e.g., `v0.2.0`, `v1.0.0`, `v1.2.3`)
+
+This ensures consistency and clear versioning for all releases.
+
 ## Contributing
 
 (Contribution guidelines to be added later).
