@@ -9,8 +9,7 @@ import {
     CalledNumberBroadcastDto,
     QueueResetBroadcastDto,
     QueueStateUpdateBroadcastDto,
-    CashierStationDto,
-    AdAreaAssignmentDto
+    CashierStationDto
 } from '@/types';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardDescription
@@ -20,9 +19,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import useSignalRHub from '@/hooks/useSignalRHub';
 import useAnnouncements from '@/hooks/useAnnouncements'; // Import useAnnouncements
 import { Button } from '@/components/ui/button';
-import AdCarousel, { AdMedia } from '@/components/public/AdCarousel'; // Import AdCarousel
-// import { apiBaseUrl } from '@/services/apiClient'; // No longer needed here if imageUtils.getMediaUrl is used
-import { getMediaUrl as getSharedMediaUrl } from '@/lib/imageUtils'; // Import shared getMediaUrl
+import AdCarousel from '@/components/public/AdCarousel'; // Import AdCarousel
+import { useAds } from '@/hooks/useAds'; // Import the new useAds hook
 
 // Default state if needed
 const defaultQueueState: QueueStateDto = {
@@ -55,7 +53,6 @@ export default function QueueDisplayPage() {
     const [stationCalls, setStationCalls] = useState<Record<string, StationCallInfo>>({});
     const [isLoadingStations, setIsLoadingStations] = useState(true);
     const [stationsError, setStationsError] = useState<string | null>(null);
-    const [adMediaItems, setAdMediaItems] = useState<AdMedia[]>([]);
 
     // const audioRef = useRef<HTMLAudioElement | null>(null); // Handled by useAnnouncements
     const connectionSucceededRef = useRef(false);
@@ -63,6 +60,9 @@ export default function QueueDisplayPage() {
     const hubUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/orderHub`;
     const { connection, connectionStatus, startConnection, stopConnection } = useSignalRHub(hubUrl);
     const { playNotificationSound, speakRawText, unlockAudio } = useAnnouncements({ soundUrl: NOTIFICATION_SOUND_URL, speechRate: 0.5 }); // Instantiate hook
+    
+    // Use the new useAds hook
+    const { adMediaItems } = useAds(areaId);
 
     const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
 
@@ -140,33 +140,10 @@ export default function QueueDisplayPage() {
         }
     }, [areaId]);
 
-    // Removed local getMediaUrl, will use getSharedMediaUrl from @/lib/imageUtils
-
-    const fetchAds = useCallback(async () => {
-        if (!areaId) return;
-        try {
-            const response = await apiClient.get<AdAreaAssignmentDto[]>(`/public/areas/${areaId}/ads`);
-            const transformedAds: AdMedia[] = response.data.map(ad => {
-                const mediaUrl = getSharedMediaUrl(ad.adMediaItem.filePath); // Use shared utility
-                return {
-                    type: ad.adMediaItem.mediaType.toLowerCase() as 'image' | 'video',
-                    // For AdCarousel, we just pass the direct URL. It will decide to render <img> or <video>
-                    src: mediaUrl, 
-                    durationSeconds: ad.durationSeconds ?? undefined, // Coalesce null to undefined
-                };
-            });
-            setAdMediaItems(transformedAds);
-        } catch (error) {
-            console.error("Failed to fetch ads:", error);
-            // Do not show an error to the public, just log it.
-        }
-    }, [areaId]);
-
     useEffect(() => {
         fetchInitialOverallState();
         fetchActiveStations();
-        fetchAds();
-    }, [fetchInitialOverallState, fetchActiveStations, fetchAds]);
+    }, [fetchInitialOverallState, fetchActiveStations]);
 
     // SignalR Connection Management
     useEffect(() => {

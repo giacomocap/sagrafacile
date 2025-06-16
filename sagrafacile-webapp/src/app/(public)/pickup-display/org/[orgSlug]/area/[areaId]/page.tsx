@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import apiClient, { getPublicReadyForPickupOrders } from '@/services/apiClient'; // Removed apiBaseUrl
-import { OrderDto, OrderStatus, OrderStatusBroadcastDto, AdAreaAssignmentDto } from '@/types';
+import { getPublicReadyForPickupOrders } from '@/services/apiClient'; // Removed apiBaseUrl
+import { OrderDto, OrderStatus, OrderStatusBroadcastDto } from '@/types';
 import useSignalRHub from '@/hooks/useSignalRHub';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertCircle, Loader2, ServerCrash, PackageSearch } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import useAnnouncements from '@/hooks/useAnnouncements'; // Import the new hook
-import AdCarousel, { AdMedia } from '@/components/public/AdCarousel';
+import AdCarousel from '@/components/public/AdCarousel';
+import { useAds } from '@/hooks/useAds';
 
 export default function PublicPickupDisplayPage() {
     const params = useParams();
@@ -20,7 +21,6 @@ export default function PublicPickupDisplayPage() {
     const [orders, setOrders] = useState<OrderDto[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [adMediaItems, setAdMediaItems] = useState<AdMedia[]>([]);
 
     // const audioRef = useRef<HTMLAudioElement | null>(null); // Removed, handled by hook
     const connectionSucceededRef = useRef(false);
@@ -33,6 +33,9 @@ export default function PublicPickupDisplayPage() {
         soundUrl: '/sounds/pickup-chime.mp3', // Default, can be customized
         speechRate: 0.8, // Slightly slower for public display
     });
+
+    // Use the new useAds hook
+    const { adMediaItems } = useAds(areaId);
 
     const fetchInitialOrders = useCallback(async () => {
         if (!areaId) {
@@ -77,62 +80,16 @@ export default function PublicPickupDisplayPage() {
         }
     }, [areaId]);
 
-    const getMediaUrl = (filePath: string) => {
-        if (!filePath) return "";
-        const configuredApiBase = process.env.NEXT_PUBLIC_API_BASE_URL;
-        if (!configuredApiBase) return "";
-
-        // filePath from backend is like "/media/promo/orgId/file.jpg" (always starts with /)
-
-        // In development, if NEXT_PUBLIC_API_BASE_URL is a full URL (e.g., http://localhost:xxxx/api),
-        // we assume the API serves static files from its root (e.g., http://localhost:xxxx/media/...).
-        // The original code stripped '/api' for this.
-        // In production, NEXT_PUBLIC_API_BASE_URL is typically a relative path like '/api',
-        // and Caddy handles routing, so we need '/api' + filePath.
-        
-        const isDevelopment = process.env.NODE_ENV === 'development';
-        // Check if configuredApiBase is a full URL like http://... or https://...
-        const isFullUrl = configuredApiBase.startsWith('http');
-
-        if (isDevelopment && isFullUrl && configuredApiBase.endsWith('/api')) {
-            // Local dev scenario with full URL like "http://localhost:5000/api"
-            // We want "http://localhost:5000" + filePath (e.g., "http://localhost:5000/media/promo/...")
-            const rootUrl = configuredApiBase.substring(0, configuredApiBase.length - '/api'.length);
-            return `${rootUrl}${filePath}`;
-        } else {
-            // Production (configuredApiBase="/api") -> "/api/media/promo/..."
-            // Or local dev with relative proxy path (configuredApiBase="/api") -> "/api/media/promo/..."
-            return `${configuredApiBase}${filePath}`;
-        }
-    };
-
-    const fetchAds = useCallback(async () => {
-        if (!areaId) return;
-        try {
-            const response = await apiClient.get<AdAreaAssignmentDto[]>(`/public/areas/${areaId}/ads`);
-            const transformedAds: AdMedia[] = response.data.map(ad => ({
-                type: ad.adMediaItem.mediaType.toLowerCase() as 'image' | 'video',
-                src: getMediaUrl(ad.adMediaItem.filePath),
-                durationSeconds: ad.durationSeconds ?? undefined, // Coalesce null to undefined
-            }));
-            setAdMediaItems(transformedAds);
-        } catch (error) {
-            console.error("Failed to fetch ads:", error);
-            // Do not show an error to the public, just log it.
-        }
-    }, [areaId]);
-
     useEffect(() => {
         console.log("PublicPickupDisplay: areaId changed or component mounted, calling fetchInitialOrders. AreaId:", areaId);
         if (areaId) { // Ensure areaId is present before fetching
             fetchInitialOrders();
-            fetchAds();
         } else {
             console.warn("PublicPickupDisplay: fetchInitialOrders not called because areaId is not yet available.");
             setIsLoading(false); // Stop loading if no areaId
             setError("ID Area non disponibile per caricare gli ordini.");
         }
-    }, [fetchInitialOrders, fetchAds, areaId]); // Added areaId to dependencies to re-fetch if it changes late
+    }, [fetchInitialOrders, areaId]); // Added areaId to dependencies to re-fetch if it changes late
 
     // SignalR Connection Management
     useEffect(() => {
