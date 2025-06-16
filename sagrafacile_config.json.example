@@ -1,0 +1,15 @@
+{
+  "MY_DOMAIN": "your.domain.com",
+  "CLOUDFLARE_API_TOKEN": "your_cloudflare_api_token",
+  "POSTGRES_USER": "sagrafacile_user",
+  "POSTGRES_PASSWORD": "your_strong_password_here",
+  "POSTGRES_DB": "sagrafacile_db",
+  "JWT_SECRET": "your_very_strong_and_long_jwt_secret_key_here_at_least_32_chars",
+  "SAGRAFACILE_SEED_DEMO_DATA": false,
+  "INITIAL_ORGANIZATION_NAME": "My Awesome Festival",
+  "INITIAL_ADMIN_EMAIL": "admin@example.com",
+  "INITIAL_ADMIN_PASSWORD": "initial_admin_strong_password",
+  "SUPERADMIN_EMAIL": "superadmin@sagrafacile.local",
+  "SUPERADMIN_PASSWORD": "superadmin_strong_password",
+  "DEMO_USER_PASSWORD": "demo_user_strong_password"
+}

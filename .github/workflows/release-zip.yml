@@ -1,0 +1,68 @@
+name: Create Release ZIP Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Trigger on tags like v1.0.0, v0.9.5, etc.
+
+permissions:
+  contents: write # Needed to create releases
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Create distribution directory
+        run: mkdir sagrafacile-dist
+
+      - name: Prepare files for ZIP
+        run: |
+          echo "Packaging version ${{ env.VERSION }}"
+          # Copy files and directories to the staging area
+          cp docker-compose.yml sagrafacile-dist/
+          cp Caddyfile sagrafacile-dist/
+          cp .env.example sagrafacile-dist/
+          cp start.bat sagrafacile-dist/
+          cp start.sh sagrafacile-dist/
+          cp stop.bat sagrafacile-dist/
+          cp stop.sh sagrafacile-dist/
+          cp update.bat sagrafacile-dist/
+          cp update.sh sagrafacile-dist/
+          cp README.md sagrafacile-dist/
+          cp LICENSE.txt sagrafacile-dist/
+          cp sagrafacile_config.json.example sagrafacile-dist/
+          
+          # Copy the docs directory
+          cp -r docs sagrafacile-dist/
+
+          # Note: SagraFacile.WindowsPrinterService.Setup.exe is not built or included by this action.
+          # It should be built separately and potentially added as another asset to the release.
+          # If it were available in the repo (e.g., in a 'dist-assets' folder), you would copy it:
+          # cp dist-assets/SagraFacile.WindowsPrinterService.Setup.exe sagrafacile-dist/
+
+      - name: Create ZIP archive
+        run: |
+          cd sagrafacile-dist
+          zip -r ../SagraFacile-${{ env.VERSION }}-dist.zip .
+          cd ..
+        # The ZIP command will exclude hidden files by default.
+        # Explicit exclusions for source code are handled by not copying them in the first place.
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: SagraFacile-${{ env.VERSION }}-dist.zip
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          body: |
+            Release of SagraFacile version ${{ env.VERSION }}.
+            Download the `SagraFacile-${{ env.VERSION }}-dist.zip` package below for deployment.
+          draft: false
+          prerelease: false # Set to true if this is a pre-release

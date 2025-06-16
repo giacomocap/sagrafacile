@@ -387,10 +387,10 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[x]` Implement logic in `InitialDataSeeder.cs` to check `SAGRAFACILE_SEED_DEMO_DATA`.
             *   `[x]` If `false` (or not set), `InitialDataSeeder.cs` uses `INITIAL_ORGANIZATION_NAME`, `INITIAL_ADMIN_EMAIL`, `INITIAL_ADMIN_PASSWORD` to attempt initial setup (if no user-defined orgs exist).
             *   `[x]` Passwords for SuperAdmin and DemoUser are configurable via `SUPERADMIN_PASSWORD` and `DEMO_USER_PASSWORD` environment variables.
-        *   `[ ]` **Deployment ZIP Package:**
-            *   `[ ]` Define contents for the distributable ZIP (excluding source code, including scripts, `docker-compose.yml`, `Caddyfile`, `docs/`, `sagrafacile_config.json.example`, printer service installer).
-        *   `[ ]` **Automated GitHub Release Packaging:**
-            *   `[ ]` Create GitHub Actions workflow (`.github/workflows/release-zip.yml`) to build the ZIP and create a release on new version tags.
+        *   `[x]` **Deployment ZIP Package:**
+            *   `[x]` Define contents for the distributable ZIP (excluding source code, including scripts, `docker-compose.yml`, `Caddyfile`, `docs/`, `sagrafacile_config.json.example`, printer service installer).
+        *   `[x]` **Automated GitHub Release Packaging:**
+            *   `[x]` Create GitHub Actions workflow (`.github/workflows/release-zip.yml`) to build the ZIP and create a release on new version tags.
         *   `[x]` **Documentation Updates:**
             *   `[x]` Update `README.md` installation instructions for the new interactive `start.sh` and `start.bat` scripts and Cloudflare Let's Encrypt setup.
             *   `[x]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive `start.sh` and `start.bat` scripts, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.

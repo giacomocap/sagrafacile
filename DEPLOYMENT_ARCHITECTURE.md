@@ -256,11 +256,11 @@ This phase is now primarily a developer/CI-CD responsibility, not part of the en
     *   `update.bat`, `update.sh`
     *   `README.md` (the updated installation guide)
     *   `docs/` directory (containing all architecture and supplementary documents)
-    *   `sagrafacile_config.json.example` (An example of the configuration file structure that `start.sh`/`start.bat` will create and use)
+    *   `sagrafacile_config.json.example` (An example of the configuration file structure that `start.sh`/`start.bat` will create and use. This file is now included in the automated ZIP packaging.)
     *   Installer for Windows Printer Service (from Phase 5, or a note if built separately).
     *   **Exclusions:** The ZIP will no longer need to include the `SagraFacile.NET/` or `sagrafacile-webapp/` source code directories for the user. It should still exclude version control directories (e.g., `.git`), IDE-specific folders, etc., from the root package if any are present during packaging.
 
-**Task 4.4: Create GitHub Actions Workflow for ZIP Packaging & Release (e.g., `.github/workflows/release-zip.yml`)**
+**Task 4.4: Create GitHub Actions Workflow for ZIP Packaging & Release (e.g., `.github/workflows/release-zip.yml`) (Implemented)**
 *   **Trigger:** On push to tags matching `v*.*.*`.
 *   **Job:**
     1.  Checkout code.
