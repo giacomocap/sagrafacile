@@ -1,6 +1,58 @@
-# SagraFacile - Open-Source Festival & Food Event Management System
+# SagraFacile: Simplify Your Festival Management
 
-SagraFacile is an open-source, self-hosted system designed for managing food festivals, sagre, and similar gastronomic events. It provides a flexible and comprehensive solution for organizations like pro loco associations to handle everything from menu management and ordering to kitchen displays and reporting.
+SagraFacile is an open-source, self-hosted system designed to streamline the management of food festivals, "sagre" (traditional Italian food fairs), and similar gastronomic events. It offers a comprehensive, flexible, and easy-to-use solution for organizers.
+
+## What is SagraFacile?
+
+At its core, SagraFacile is a Point of Sale (POS) and event management platform that you can run on your own local hardware. This gives you full control over your data and operations, without relying on third-party cloud services or requiring constant internet connectivity during your event (once set up).
+
+## Who is it For?
+
+SagraFacile is ideal for:
+
+*   **Pro Loco Associations:** Manage local town festivals and sagre efficiently.
+*   **Event Organizers:** Handle food and beverage sales for various types of events.
+*   **Clubs and Non-profits:** Organize fundraising events involving food sales.
+*   **Small to Medium Food Businesses:** Run temporary food stalls or pop-up restaurants.
+
+Essentially, if you're organizing an event that involves selling food and drinks and need a robust system to manage orders, payments, and kitchen operations, SagraFacile is for you.
+
+## What Does it Do?
+
+SagraFacile provides a suite of tools to cover the entire lifecycle of a food event:
+
+*   **Menu Management:** Easily create and update digital menus with categories, items, variants, and prices.
+*   **Order Taking:**
+    *   **Cashier Interface:** Fast and intuitive order entry for cashiers.
+    *   **Customer Pre-orders:** Allow customers to order and pay in advance via a public-facing interface.
+    *   **(Planned) Mobile Table Ordering:** Waiters or customers can place orders directly from tables.
+*   **Payment Processing:** Handle payments and track order statuses.
+*   **Kitchen Display System (KDS):** Real-time display of orders for kitchen and bar staff, ensuring accurate preparation.
+*   **Printing:**
+    *   **Receipts:** Print customer receipts.
+    *   **Comandas (Order Tickets):** Print order tickets for different preparation stations (e.g., kitchen, bar, grill).
+*   **Stock Management:** Keep track of item availability and manage stock levels.
+*   **Customer Queue Display:** Show calling numbers for customers waiting to order or pick up.
+*   **Order Pickup Display:** Display orders that are ready for customer pickup.
+*   **Reporting & Analytics:** Gain insights into sales, popular items, and event performance.
+*   **Multi-Area/Stand Support:** Manage multiple food stands or areas within a single event.
+
+For more information, live demos (if available), and contact details, please visit [sagrafacile.it](https://sagrafacile.it).
+
+## Screenshots
+
+Here's a glimpse of SagraFacile in action:
+
+**Point of Sale (POS) Interface:**
+![SagraFacile POS Interface](images/pos-interface.png)
+
+**Kitchen Display System (KDS):**
+![SagraFacile KDS Interface](images/kds-interface.png)
+
+**Admin Dashboard (Analytics):**
+![SagraFacile Admin Dashboard](images/dashboard-screenshot.png)
+
+---
 
 ## Project Goal
 

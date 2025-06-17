@@ -42,6 +42,19 @@ const KdsInterfacePage = () => {
     // Destructure startConnection and stopConnection from the hook
     const { connection, connectionStatus, startConnection, stopConnection } = useSignalRHub(hubUrl);
 
+    // Callback to join the SignalR group for the current area
+    const joinAreaGroup = useCallback(async () => {
+        if (connection && connectionStatus === 'Connected' && areaId) {
+            try {
+                await connection.invoke("JoinAreaQueueGroup", areaId);
+                console.log(`Successfully joined SignalR group: Area-${areaId}`);
+            } catch (err) {
+                console.error(`Failed to join SignalR group Area-${areaId}:`, err);
+                toast.error(`Errore nella sottoscrizione agli aggiornamenti per l'area ${areaId}.`);
+            }
+        }
+    }, [connection, connectionStatus, areaId]);
+
     const fetchOrders = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -87,8 +100,9 @@ const KdsInterfacePage = () => {
         if (connectionStatus === 'Connected') {
             connectionSucceededRef.current = true;
             console.log("KDS Page Effect: Connection status is Connected, setting ref.");
+            joinAreaGroup(); // Join the area group once connected
         }
-    }, [connectionStatus]);
+    }, [connectionStatus, joinAreaGroup]); // Add joinAreaGroup to dependencies
 
      // --- SignalR Event Handlers ---
      useEffect(() => {
@@ -99,43 +113,75 @@ const KdsInterfacePage = () => {
          }
 
          console.log(`[SignalR Handlers Effect] Setting up listeners for connection ID: ${connection.connectionId}`);
-         // Listen for new orders/items relevant to this KDS
-        const handleOrderPreparing = (orderId: string, receivedAreaId: string) => {
-            console.log(`SignalR: OrderPreparing received for order ${orderId} in area ${receivedAreaId}`);
-            // Refetch orders if the area matches, converting received ID to string for comparison
-            // More sophisticated logic could involve adding/updating specific orders
-            if (String(receivedAreaId) === areaId) { // Convert receivedAreaId to string
-                toast.info(`Nuovo ordine (${orderId.substring(0, 8)}...) in preparazione.`);
-                fetchOrders();
+
+        // Listen for status updates from the backend
+        // The backend sends OrderStatusBroadcastDto
+        const handleReceiveOrderStatusUpdate = (broadcastDto: {
+            orderId: string;
+            displayOrderNumber: string;
+            newStatus: string; // This will be OrderStatus enum as string e.g., "Preparing"
+            organizationId: number;
+            areaId: number; // This is number from backend
+            customerName: string;
+            tableNumber: string;
+            statusChangeTime: string;
+        }) => {
+            console.log(`SignalR: ReceiveOrderStatusUpdate received:`, broadcastDto);
+
+            // Check if the update is for the current area
+            if (String(broadcastDto.areaId) === areaId) {
+                // Check if the new status is 'Preparing' or another status that KDS should react to
+                // For KDS, new orders typically arrive in 'Preparing' status.
+                // Or, if an order is updated (e.g. items confirmed by another KDS, then overall status changes),
+                // KDS might need to refresh.
+                if (broadcastDto.newStatus === "Preparing") {
+                    toast.info(`Nuovo ordine (${broadcastDto.displayOrderNumber || broadcastDto.orderId.substring(0, 8)}...) in preparazione.`);
+                    fetchOrders(); // Refetch all orders to get the new one
+                } else {
+                    // If an existing order's status changes (e.g., to ReadyForPickup, Completed by other means),
+                    // we might want to remove it or update it. Fetching orders will handle this.
+                    const orderExists = orders.some(o => o.orderId === broadcastDto.orderId);
+                    if (orderExists) {
+                        console.log(`Order ${broadcastDto.orderId} status changed to ${broadcastDto.newStatus}. Refetching orders.`);
+                        fetchOrders();
+                    } else {
+                        // If it's a new order in a status other than 'Preparing' that KDS should see, fetch.
+                        // This logic might need refinement based on exact workflow needs.
+                        // For now, if it's for this area and not 'Preparing', but KDS might still be interested, fetch.
+                        // Example: If an order somehow skips 'Preparing' but KDS needs to see it.
+                        // This is less common for new orders for KDS.
+                        console.log(`Order ${broadcastDto.orderId} appeared with status ${broadcastDto.newStatus}. Refetching orders.`);
+                        fetchOrders();
+                    }
+                }
             } else {
-                 console.log(`[handleOrderPreparing] Area mismatch. Skipping fetchOrders.`); // Add log for mismatch case
+                 console.log(`[ReceiveOrderStatusUpdate] Area mismatch (expected ${areaId}, got ${broadcastDto.areaId}). Skipping fetchOrders.`);
             }
         };
 
-        // Listen for status updates (e.g., when an order becomes ReadyForPickup elsewhere)
-        const handleOrderStatusUpdate = (orderId: string, status: string) => {
-            console.log(`SignalR: OrderStatusUpdate received for order ${orderId}, status: ${status}`);
-            // Potentially remove order from list if status changes significantly,
-            // but KDSArchitecture suggests removal happens when *this* KDS confirms its items.
-            // For now, maybe just refetch to be safe or update specific order status if needed.
-            // Let's refetch for simplicity for now.
-             const orderExists = orders.some(o => o.orderId === orderId); // Use orderId
-             if (orderExists) {
-                 fetchOrders();
-             }
-        };
+        // The 'orderpreparing' listener might be redundant if 'ReceiveOrderStatusUpdate'
+        // correctly handles new orders entering the 'Preparing' state.
+        // For now, let's comment it out and rely on the more generic status update.
+        // const handleOrderPreparing = (orderId: string, receivedAreaId: string) => {
+        //     console.log(`SignalR: OrderPreparing received for order ${orderId} in area ${receivedAreaId}`);
+        //     if (String(receivedAreaId) === areaId) {
+        //         toast.info(`Nuovo ordine (${orderId.substring(0, 8)}...) in preparazione.`);
+        //         fetchOrders();
+        //     } else {
+        //          console.log(`[handleOrderPreparing] Area mismatch. Skipping fetchOrders.`);
+        //     }
+        // };
+        // connection.on('orderpreparing', handleOrderPreparing);
 
-        connection.on('orderpreparing', handleOrderPreparing); // Match lowercase name from warning
-        connection.on('OrderStatusUpdate', handleOrderStatusUpdate);
+        connection.on('ReceiveOrderStatusUpdate', handleReceiveOrderStatusUpdate);
 
         // Cleanup listeners on component unmount or connection change
         return () => {
             console.log(`[SignalR Handlers Effect Cleanup] Removing listeners for connection ID: ${connection?.connectionId}`);
-            // Check connection exists before calling off, though it should if we entered the effect setup
-            connection?.off('orderpreparing', handleOrderPreparing); // Match lowercase name
-            connection?.off('OrderStatusUpdate', handleOrderStatusUpdate);
+            connection?.off('ReceiveOrderStatusUpdate', handleReceiveOrderStatusUpdate);
+            // connection?.off('orderpreparing', handleOrderPreparing);
          };
-     }, [connection, connectionStatus, areaId, fetchOrders, orders]); // Added orders dependency for handleOrderStatusUpdate
+     }, [connection, connectionStatus, areaId, fetchOrders, orders]); // Added orders dependency
 
      const handleOrderSelect = (order: KdsOrderDto) => {
         setSelectedOrder(order);
@@ -219,19 +265,21 @@ const KdsInterfacePage = () => {
                         orders.map((order) => (
                             <Card key={order.orderId} className="cursor-pointer hover:shadow-lg transition-shadow flex flex-col" onClick={() => handleOrderSelect(order)}>
                                 <CardHeader className="pb-2"> {/* Reduced bottom padding */}
-                                    <CardTitle className="text-lg"> {/* Slightly smaller title */}
-                                        Ordine: {order.displayOrderNumber ?? order.orderId.substring(0, 6)}
+                                    <CardTitle className="text-xl font-bold"> {/* Increased font size and weight */}
+                                        Ordine: {order.displayOrderNumber ?? order.orderId.substring(0, 8)}
                                     </CardTitle>
-                                    {order.customerName && (
-                                        <p className="text-sm text-muted-foreground">{order.customerName}</p>
+                                    {order.tableNumber && (
+                                        <p className="text-lg font-semibold mt-1"> {/* Increased font size and weight, added margin top */}
+                                            Tavolo: {order.tableNumber}
+                                        </p>
                                     )}
-                                    <p className="text-base font-semibold"> {/* Larger font for table */}
-                                        Tavolo: {order.tableNumber || 'N/A'}
-                                    </p>
+                                    {order.customerName && (
+                                        <p className="text-base text-muted-foreground mt-1">{order.customerName}</p> // Increased font size from text-sm to text-base
+                                    )}
                                     <p className="text-xs text-muted-foreground pt-1"> {/* Smaller time */}
-                                        {new Date(order.orderDateTime).toLocaleTimeString()}
+                                        {new Date(order.orderDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         {/* Optionally, show original ID if displayOrderNumber is present and different, for reference */}
-                                        {order.displayOrderNumber && <span className="ml-2">(ID: {order.orderId.substring(0, 6)}...)</span>}
+                                        {/* {order.displayOrderNumber && <span className="ml-2">(ID: {order.orderId.substring(0, 6)}...)</span>} */}
                                     </p>
                                 </CardHeader>
                                 <CardContent className="pt-2 flex-grow flex flex-col justify-between"> {/* Reduced top padding, allow content to grow, flex col */}

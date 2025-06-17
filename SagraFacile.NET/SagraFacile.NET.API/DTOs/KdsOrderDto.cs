@@ -10,6 +10,7 @@ namespace SagraFacile.NET.API.DTOs
     public class KdsOrderDto
     {
         public string OrderId { get; set; } = null!;
+        public string? DisplayOrderNumber { get; set; } // Added DisplayOrderNumber
         public int? DayId { get; set; } // Added DayId (nullable)
         public DateTime OrderDateTime { get; set; }
         public string? TableNumber { get; set; } // Added TableNumber

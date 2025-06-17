@@ -374,6 +374,13 @@ namespace SagraFacile.NET.API.Services
                 }
                 // --- End Deferred Comanda Printing ---
 
+                // --- SignalR Broadcast for Order Status Update ---
+                // This ensures that if an order goes directly to Preparing (or other states KDS might care about),
+                // a notification is sent.
+                // This is crucial for KDS to pick up new orders created by cashiers that don't go through waiter confirmation.
+                await SendOrderStatusUpdateAsync(order.Id, order.Status, order.OrganizationId, order.AreaId);
+                // --- End SignalR Broadcast for Order Status Update ---
+
                 // Map the created Order entity to OrderDto
                 // Use null-coalescing for potentially null names
                 string cashierFullName = $"{cashier?.FirstName ?? ""} {cashier?.LastName ?? ""}".Trim();
@@ -1151,6 +1158,7 @@ namespace SagraFacile.NET.API.Services
             var kdsOrderDtos = relevantOrders.Select(order => new KdsOrderDto
             {
                 OrderId = order.Id,
+                DisplayOrderNumber = order.DisplayOrderNumber, // Ensure DisplayOrderNumber is mapped
                 DayId = order.DayId,
                 OrderDateTime = order.OrderDateTime,
                 TableNumber = order.TableNumber,

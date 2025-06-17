@@ -12,6 +12,30 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-17) - Enhanced README.md with New Introduction and Screenshots
+*   **Context:** The main project `README.md` needed a more user-friendly introduction, including what SagraFacile is, who it's for, and its main features, along with visual aids.
+*   **Accomplishments:**
+    *   **README.md (`README.md`):**
+        *   Added a new introductory section titled "SagraFacile: Simplify Your Festival Management".
+        *   Included subsections: "What is SagraFacile?", "Who is it For?", and "What Does it Do?".
+        *   Embedded three screenshots: `images/pos-interface.png`, `images/kds-interface.png`, and `images/dashboard-screenshot.png` under a "Screenshots" H2 heading.
+        *   Added a link to the project website: `[sagrafacile.it](https://sagrafacile.it)`.
+        *   Reorganized the README to present this new introductory content before the more technical sections like "Project Goal" and "Architecture Overview".
+*   **Outcome:** The `README.md` is now more welcoming and informative for new users and potential contributors, providing a clear overview of the project's purpose and capabilities, supplemented by visuals.
+
+
+## (2025-06-16) - Fixed KDS Real-time Order Updates & UI Enhancements
+*   **Context:** Addressed an issue where the KDS (Kitchen Display System) was not receiving real-time updates for new orders. Enhanced the KDS order card UI for better readability.
+*   **Accomplishments:**
+    *   **Backend (`SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs`):**
+        *   Ensured `SendOrderStatusUpdateAsync` is called in `CreateOrderAsync` after an order is successfully created and its transaction is committed. This guarantees that orders entering KDS-relevant states (e.g., `Preparing`) directly from cashier actions trigger a SignalR broadcast.
+    *   **Frontend (`sagrafacile-webapp/src/app/app/org/[orgId]/area/[areaId]/kds/[kdsId]/page.tsx`):**
+        *   **SignalR Group Subscription:** Implemented logic to invoke `connection.invoke("JoinAreaQueueGroup", areaId)` after a successful SignalR connection, ensuring the KDS client subscribes to messages for its specific area.
+        *   **Corrected Event Listener:** Changed the SignalR event listener to `"ReceiveOrderStatusUpdate"` to match the event name broadcast by the backend.
+        *   **Refined Event Handler:** Updated the `handleReceiveOrderStatusUpdate` function to correctly process the `broadcastDto`, check `broadcastDto.areaId` for relevance, and `broadcastDto.newStatus` (especially `"Preparing"`) to trigger `fetchOrders()`.
+        *   **UI Enhancement:** Modified the KDS order card to display the `displayOrderNumber` (or a fallback to `orderId` substring) more prominently (larger font, bold). The table number is now also displayed with a larger font and is conditionally rendered only if available. Customer name and order time are slightly de-emphasized for better visual hierarchy.
+*   **Outcome:** KDS stations should now reliably receive real-time updates for new and updated orders. The KDS order card UI is clearer and prioritizes key information.
+
 ## (2025-06-15) - Translated Admin UI
 Translated client-facing strings to Italian in Admin UI components (`sagrafacile-webapp/src/app/app/org/[orgId]/admin` and `sagrafacile-webapp/src/components/admin`) to improve user experience for Italian-speaking operators.
 
