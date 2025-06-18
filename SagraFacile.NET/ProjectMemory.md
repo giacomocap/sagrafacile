@@ -377,6 +377,31 @@
 ## (2025-06-06) - Resolved .NET Build Error on macOS
 *   **Summary:** Resolved `NETSDK1100` build error for `SagraFacile.WindowsPrinterService` on macOS. Added `<EnableWindowsTargeting>true</EnableWindowsTargeting>` to `SagraFacile.WindowsPrinterService.csproj` to allow building Windows-targeted project on non-Windows OS. Next step: Confirm fix by rebuilding.
 
+## (2025-06-18) - Implemented Serilog Logging
+**Context:** Implemented comprehensive logging for the .NET API using Serilog, as detailed in `docs/LoggingStrategy.md`. This enhances debugging, troubleshooting, and operational insight.
+**Accomplishments:**
+*   **NuGet Packages Added:** Installed `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Enrichers.Environment`, `Serilog.Enrichers.Thread`, and `Serilog.Settings.Configuration` to `SagraFacile.NET.API.csproj`.
+*   **`Program.cs` Configuration:**
+    *   Set up a bootstrap logger for early application startup logging.
+    *   Configured `builder.Host.UseSerilog` to integrate Serilog with the ASP.NET Core logging pipeline, reading configuration from `appsettings.json` and enriching logs with machine name and thread ID.
+    *   Added `app.UseSerilogRequestLogging()` to enable automatic logging of HTTP requests and responses.
+*   **`appsettings.json` Configuration:**
+    *   Added a `Serilog` section to define minimum log levels for various namespaces (e.g., `Default`, `Microsoft`, `Microsoft.EntityFrameworkCore.Database.Command`).
+    *   Configured log enrichers (`FromLogContext`, `WithMachineName`, `WithThreadId`) and set an `ApplicationName` property.
+*   **Logging Statements in Code:**
+    *   **`SagraFacile.NET.API/Services/OrderService.cs`:** Injected `ILogger<OrderService>` and added `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` statements to critical methods like `CreateOrderAsync`, `CreatePreOrderAsync`, `ConfirmOrderPreparationAsync`, `ConfirmPreOrderPaymentAsync`, `ConfirmOrderPickupAsync`, `GetOrderByIdAsync`, `GetOrdersByAreaAsync`, `GetOrdersAsync`, `GetActiveOrdersForKdsStationAsync`, `UpdateOrderItemKdsStatusAsync`, `ConfirmKdsOrderCompletionAsync`, `GetOrdersByStatusAsync`, `GetPublicOrdersByStatusAsync`, and `SendOrderStatusUpdateAsync`. Focused on logging entry/exit, validation failures, stock changes, transaction outcomes, printing attempts, and SignalR broadcasts.
+    *   **`SagraFacile.NET.API/Controllers/AccountsController.cs`:** Injected `ILogger<AccountsController>` and added `LogInformation` for request reception and success, and `LogWarning`/`LogError` for validation failures and exceptions in methods like `Register`, `Login`, `AssignRole`, `UnassignRole`, `GetUsers`, `GetUserById`, `UpdateUser`, `DeleteUser`, `GetRoles`, `CreateRole`, and `RefreshToken`.
+    *   **`SagraFacile.NET.API/Controllers/AreasController.cs`:** Injected `ILogger<AreasController>` and added `LogInformation` for request reception and success, and `LogWarning`/`LogError` for validation failures and exceptions in methods like `GetAreas`, `GetArea`, `PostArea`, `PutArea`, and `DeleteArea`.
+**Key Decisions:**
+*   Adopted Serilog for its structured logging capabilities and ASP.NET Core integration.
+*   Implemented a consistent pattern for `ILogger<T>` injection and structured logging across controllers and services.
+*   Utilized various log levels (`Information`, `Warning`, `Error`, `Debug`) to categorize messages appropriately.
+*   Prioritized logging of critical business events, validation failures, and exceptions with contextual information.
+**Outcome:** The SagraFacile.NET API now has a robust and configurable logging infrastructure, significantly improving observability and making future debugging and monitoring more efficient.
+**Next Steps:**
+*   Continue adding logging statements to other controllers and services following the established pattern.
+*   Monitor log output during development and testing to fine-tune log levels and ensure clarity.
+
 ## (Next Session) - Planned Work
 *   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 

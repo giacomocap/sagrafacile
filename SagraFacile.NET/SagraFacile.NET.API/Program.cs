@@ -11,11 +11,39 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Data; // Added for InitialDataSeeder
+using Serilog; // Added for Serilog
+using Serilog.Events; // Added for Serilog LogEventLevel
 
 // Ensure extended encodings are available
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-var builder = WebApplication.CreateBuilder(args);
+// --- Serilog Bootstrap Logger ---
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .WriteTo.Console(outputTemplate: // Structured console output for Docker
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
+    .CreateBootstrapLogger();
+// --- End Serilog Bootstrap Logger ---
+
+try // Added for Serilog try-finally block
+{
+    Log.Information("Starting SagraFacile.NET.API host"); // Added for Serilog
+
+    var builder = WebApplication.CreateBuilder(args);
+
+    // --- Configure Serilog for WebApplicationBuilder ---
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId());
+    // --- End Configure Serilog for WebApplicationBuilder ---
 
 // Define CORS policy name
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -206,7 +234,22 @@ using (var scope = app.Services.CreateScope())
 await app.SeedDatabaseAsync();
 // --- End Seed Database ---
 
-app.Run();
+
+    // --- Serilog Request Logging ---
+    app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
+    // --- End Serilog Request Logging ---
+
+    app.Run();
+} // Added for Serilog try-finally block
+catch (Exception ex) // Added for Serilog try-finally block
+{
+    Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
+}
+finally // Added for Serilog try-finally block
+{
+    Log.CloseAndFlush();
+}
+
 
 // Add this partial declaration to make the implicit Program class public
 // so it can be used by WebApplicationFactory in the integration test project.

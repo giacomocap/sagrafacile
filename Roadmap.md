@@ -370,7 +370,19 @@ This document outlines the planned development phases for the SagraFacile system
     *   `[ ]` Containerization (Dockerfile for frontend).
     *   `[ ]` Deployment Strategy (Cloud vs. On-premise, CI/CD pipeline).
     *   `[ ]` Production Configuration (Environment variables, security hardening).
-    *   `[ ]` Monitoring & Logging Setup (Error tracking, performance monitoring).
+    *   `[ ]` **Enhanced Observability & Logging Setup:**
+        *   `[ ]` **Implement Comprehensive Backend Logging with Serilog (See `docs/LoggingStrategy.md`)**
+            *   **Status:** Planned
+            *   **Description:** Integrate Serilog into the .NET API for structured, configurable, and extensible logging. This will improve debugging capabilities, allow for better performance monitoring, and provide insights into application behavior during production.
+            *   **Key Sub-Tasks:**
+                *   Install and configure Serilog with console output (JSON formatted for easier parsing).
+                *   Implement request/response logging middleware (e.g., `UseSerilogRequestLogging()`).
+                *   Add contextual logging (with structured properties) to critical services (e.g., `OrderService`, `PrinterService`, `AnalyticsService`) and controllers.
+                *   Establish conventions for log levels and ensure important business events and errors are logged effectively.
+                *   Create `docs/LoggingStrategy.md` detailing the logging approach, configuration, and best practices.
+            *   **Benefit:** Improved troubleshooting, performance analysis, and system stability, laying groundwork for future log management solutions.
+        *   `[ ]` **Frontend Error Tracking:** Implement a client-side error tracking solution (e.g., Sentry free tier) for the Next.js application to capture and report JavaScript errors.
+        *   `[ ]` **Basic Infrastructure Monitoring:** Document procedures for using `docker stats` and host OS tools to monitor container and system resource usage.
     *   `[x]` **Simplified Deployment Package & Process:**
         *   `[x]` **Interactive Setup Scripts (`start.sh`, `start.bat`):**
             *   `[x]` (`start.sh`) Implement logic to check for `sagrafacile_config.json`.

@@ -47,6 +47,8 @@ namespace SagraFacile.NET.API.Services
         // [RequiresUnreferencedCode("Calls Microsoft.EntityFrameworkCore.RelationalQueryableExtensions.Include")]
         public async Task<OrderDto?> CreateOrderAsync(CreateOrderDto orderDto, string cashierId)
         {
+            _logger.LogInformation("Attempting to create order for AreaId: {AreaId}, CashierId: {CashierId}", orderDto.AreaId, cashierId);
+
             // --- Validation ---
             // 1. Validate Area FIRST
             var area = await _context.Areas
@@ -54,7 +56,7 @@ namespace SagraFacile.NET.API.Services
 
             if (area == null)
             {
-                // If area doesn't exist, throw KeyNotFoundException immediately.
+                _logger.LogWarning("CreateOrderAsync failed: Area with ID {AreaId} not found.", orderDto.AreaId);
                 throw new KeyNotFoundException($"Area with ID {orderDto.AreaId} not found.");
             }
 
@@ -98,7 +100,7 @@ namespace SagraFacile.NET.API.Services
             var cashier = await _context.Users.FindAsync(cashierId);
             if (cashier == null)
             {
-                // This shouldn't happen if cashierId comes from authenticated user, but good practice to check
+                _logger.LogError("CreateOrderAsync failed: Cashier with ID {CashierId} not found. This indicates a serious issue with authentication or user data.", cashierId);
                 throw new KeyNotFoundException($"Cashier with ID {cashierId} not found.");
             }
 
@@ -109,7 +111,7 @@ namespace SagraFacile.NET.API.Services
 
                 if (!menuItems.TryGetValue(itemDto.MenuItemId, out var menuItem))
                 {
-                    // Item validation happens BEFORE day check now
+                    _logger.LogWarning("CreateOrderAsync failed: MenuItem with ID {MenuItemId} not found for order in Area {AreaId}.", itemDto.MenuItemId, orderDto.AreaId);
                     throw new KeyNotFoundException($"MenuItem with ID {itemDto.MenuItemId} not found.");
                 }
 
@@ -135,8 +137,10 @@ namespace SagraFacile.NET.API.Services
                 {
                     if (menuItem.Scorta.Value < itemDto.Quantity)
                     {
+                        _logger.LogError("CreateOrderAsync failed: Insufficient stock for MenuItem '{MenuItemName}' (ID: {MenuItemId}). Requested: {RequestedQuantity}, Available: {AvailableQuantity}.", menuItem.Name, menuItem.Id, itemDto.Quantity, menuItem.Scorta.Value);
                         throw new InvalidOperationException($"Item '{menuItem.Name}' (ID: {menuItem.Id}) is out of stock or insufficient quantity available. Requested: {itemDto.Quantity}, Available: {menuItem.Scorta.Value}.");
                     }
+                    _logger.LogDebug("Stock check passed for MenuItem '{MenuItemName}' (ID: {MenuItemId}). Available: {AvailableQuantity}, Requested: {RequestedQuantity}.", menuItem.Name, menuItem.Id, menuItem.Scorta.Value, itemDto.Quantity);
                 }
                 // --- End Stock Check ---
 
@@ -153,6 +157,7 @@ namespace SagraFacile.NET.API.Services
 
             if (!orderItems.Any())
             {
+                _logger.LogError("CreateOrderAsync failed: No valid items provided in orderDto for AreaId {AreaId}.", orderDto.AreaId);
                 throw new InvalidOperationException("Cannot create an order with no valid items.");
             }
 
@@ -170,9 +175,10 @@ namespace SagraFacile.NET.API.Services
             var currentOpenDay = await _dayService.GetCurrentOpenDayAsync(area.OrganizationId);
             if (currentOpenDay == null)
             {
-                _logger.LogWarning("Attempted to create order in organization {OrganizationId} but no Day is open.", area.OrganizationId);
+                _logger.LogError("CreateOrderAsync failed: No operational day (Giornata) is currently open for Organization {OrganizationId}.", area.OrganizationId);
                 throw new InvalidOperationException("Cannot create order: No operational day (Giornata) is currently open.");
             }
+            _logger.LogInformation("Current open Day {DayId} found for Organization {OrganizationId}.", currentOpenDay.Id, area.OrganizationId);
 
             var cashierStation = await _context.CashierStations.FirstOrDefaultAsync(e => e.Id == orderDto.CashierStationId);
 
@@ -250,6 +256,7 @@ namespace SagraFacile.NET.API.Services
             if (useTransaction)
             {
                 transaction = await _context.Database.BeginTransactionAsync();
+                _logger.LogDebug("Database transaction started for order creation.");
             }
 
             try // Corrected structure
@@ -264,7 +271,9 @@ namespace SagraFacile.NET.API.Services
                 else if (string.IsNullOrEmpty(displayOrderNumberPrefix))
                 {
                     displayOrderNumberPrefix = "ORD"; // Fallback prefix
+                    _logger.LogWarning("Area slug for Area {AreaId} is empty or contains no alphanumeric characters. Using default prefix 'ORD' for DisplayOrderNumber.", area.Id);
                 }
+                _logger.LogDebug("Generated DisplayOrderNumber prefix: {Prefix} for Area {AreaId}.", displayOrderNumberPrefix, area.Id);
 
                 var sequence = await _context.AreaDayOrderSequences
                     .FirstOrDefaultAsync(s => s.AreaId == area.Id && s.DayId == currentOpenDay.Id);
@@ -283,6 +292,7 @@ namespace SagraFacile.NET.API.Services
 
                 sequence.LastSequenceNumber++;
                 order.DisplayOrderNumber = $"{displayOrderNumberPrefix}-{sequence.LastSequenceNumber:D3}";
+                _logger.LogInformation("Generated DisplayOrderNumber: {DisplayOrderNumber} for new Order ID {OrderId}.", order.DisplayOrderNumber, order.Id);
                 // --- End Generate DisplayOrderNumber ---
 
                 // --- Stock Decrement (Scorta) ---
@@ -290,6 +300,7 @@ namespace SagraFacile.NET.API.Services
                 {
                     if (menuItems.TryGetValue(oi.MenuItemId, out var mi) && mi.Scorta.HasValue)
                     {
+                        _logger.LogInformation("Decreasing stock for MenuItem '{MenuItemName}' (ID: {MenuItemId}) by {Quantity}. Old Scorta: {OldScorta}, New Scorta: {NewScorta}.", mi.Name, mi.Id, oi.Quantity, mi.Scorta.Value, mi.Scorta.Value - oi.Quantity);
                         mi.Scorta -= oi.Quantity;
                         // EF Core will track changes to mi if it's tracked from the menuItems dictionary load
                         _context.MenuItems.Update(mi);
@@ -299,10 +310,12 @@ namespace SagraFacile.NET.API.Services
 
                 _context.Orders.Add(order);
                 await _context.SaveChangesAsync(); // This will save the order, sequence, and stock updates
+                _logger.LogInformation("Order {OrderId} and related data saved to database.", order.Id);
 
                 if (useTransaction && transaction != null)
                 {
                     await transaction.CommitAsync();
+                    _logger.LogInformation("Database transaction committed for order {OrderId}.", order.Id);
                 }
 
                 // --- SignalR Broadcast for Stock Updates ---
@@ -393,16 +406,17 @@ namespace SagraFacile.NET.API.Services
                 if (useTransaction && transaction != null)
                 {
                     await transaction.RollbackAsync();
+                    _logger.LogWarning("Database transaction rolled back for order creation due to an exception for Area {AreaId}.", orderDto.AreaId);
                 }
-                _logger.LogError(ex, "Exception during CreateOrderAsync for Area {AreaId}", orderDto.AreaId); // Use logger
-                // Consider re-throwing or returning a specific error result instead of null
-                return null;
+                _logger.LogError(ex, "An error occurred during CreateOrderAsync for Area {AreaId}. Order creation failed.", orderDto.AreaId);
+                throw; // Re-throw the exception to be handled by the controller/middleware
             }
             finally // Ensure transaction is disposed even if commit/rollback fails
             {
                 if (transaction != null)
                 {
                     await transaction.DisposeAsync();
+                    _logger.LogDebug("Database transaction disposed.");
                 }
             }
         }
@@ -418,8 +432,10 @@ namespace SagraFacile.NET.API.Services
 
             if (area == null)
             {
+                _logger.LogError("CreatePreOrderAsync failed: Area with ID {AreaId} not found.", preOrderDto.AreaId);
                 throw new KeyNotFoundException($"Area with ID {preOrderDto.AreaId} not found.");
             }
+            _logger.LogInformation("Attempting to create pre-order for AreaId: {AreaId}, CustomerEmail: {CustomerEmail}", preOrderDto.AreaId, preOrderDto.CustomerEmail);
             // Removed invalid OrganizationId check against PreOrderDto
             // if (area.OrganizationId != preOrderDto.OrganizationId || area.Organization == null)
             // {
@@ -443,6 +459,7 @@ namespace SagraFacile.NET.API.Services
 
                 if (!menuItems.TryGetValue(itemDto.MenuItemId, out var menuItem))
                 {
+                    _logger.LogWarning("CreatePreOrderAsync failed: MenuItem with ID {MenuItemId} not found for pre-order in Area {AreaId}.", itemDto.MenuItemId, preOrderDto.AreaId);
                     throw new KeyNotFoundException($"MenuItem with ID {itemDto.MenuItemId} not found.");
                 }
 
@@ -517,16 +534,18 @@ namespace SagraFacile.NET.API.Services
 
             _context.Orders.Add(order);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Pre-order {OrderId} saved to database with status {Status}.", order.Id, order.Status);
 
             // Send confirmation email
             try
             {
                 //await _emailService.SendPreOrderConfirmationEmailAsync(order, area.Name, qrCodeForEmail);
+                _logger.LogInformation("Pre-order confirmation email sent for Order ID {OrderId}.", order.Id);
             }
             catch (Exception ex)
             {
                 // Log the email sending failure but don't let it fail the order creation
-                _logger.LogError(ex, "Failed to send pre-order confirmation email for Order ID {OrderId}", order.Id);
+                _logger.LogError(ex, "Failed to send pre-order confirmation email for Order ID {OrderId}. Error: {ErrorMessage}", order.Id, ex.Message);
             }
 
             // Map to OrderDto for the response
@@ -567,8 +586,10 @@ namespace SagraFacile.NET.API.Services
 
             if (order == null)
             {
+                _logger.LogInformation("GetOrderByIdAsync: Order with ID {OrderId} not found.", id);
                 return null; // Not found
             }
+            _logger.LogInformation("GetOrderByIdAsync: Retrieved order {OrderId} (Display: {DisplayOrderNumber}).", order.Id, order.DisplayOrderNumber);
 
             // Check organization access via the included Area
             if (order.Area == null) // Should not happen if FK is enforced, but check defensively
@@ -620,12 +641,15 @@ namespace SagraFacile.NET.API.Services
             var area = await _context.Areas.FindAsync(areaId);
             if (area == null)
             {
+                _logger.LogWarning("GetOrdersByAreaAsync failed: Area with ID {AreaId} not found.", areaId);
                 throw new KeyNotFoundException($"Area with ID {areaId} not found.");
             }
             if (!isSuperAdmin && area.OrganizationId != userOrganizationId)
             {
+                _logger.LogWarning("GetOrdersByAreaAsync failed: User {UserId} denied access to orders for Area ID {AreaId} in Organization {OrganizationId}.", GetUserId(), areaId, area.OrganizationId);
                 throw new UnauthorizedAccessException($"Access denied to orders for Area ID {areaId}.");
             }
+            _logger.LogInformation("Fetching orders for Area {AreaId} in Organization {OrganizationId}.", areaId, area.OrganizationId);
 
             // --- Day Filtering ---
             var currentOpenDay = await _dayService.GetCurrentOpenDayAsync(area.OrganizationId);
@@ -718,9 +742,10 @@ namespace SagraFacile.NET.API.Services
                 bool isAdminOrSuperAdmin = user.IsInRole("Admin") || user.IsInRole("SuperAdmin");
                 if (!isAdminOrSuperAdmin)
                 {
-                    _logger.LogWarning("User {UserId} without Admin/SuperAdmin role attempted to access historical orders for Day {DayId}.", GetUserId(), dayId.Value);
+                    _logger.LogError("GetOrdersAsync failed: User {UserId} without Admin/SuperAdmin role attempted to access historical orders for Day {DayId}.", GetUserId(), dayId.Value);
                     throw new UnauthorizedAccessException("Access denied to view historical orders. Admin or SuperAdmin role required.");
                 }
+                _logger.LogDebug("User {UserId} is Admin/SuperAdmin, allowing access to historical Day {DayId}.", GetUserId(), dayId.Value);
 
                 var dayExists = await _context.Days.AnyAsync(d => d.Id == dayId.Value && d.OrganizationId == targetOrganizationId);
                 if (!dayExists)
@@ -964,11 +989,17 @@ namespace SagraFacile.NET.API.Services
                                         .ThenInclude(oi => oi.MenuItem)
                                     .FirstOrDefaultAsync(o => o.Id == orderId);
 
-            if (order == null) throw new KeyNotFoundException($"Order with ID {orderId} not found.");
+            if (order == null)
+            {
+                _logger.LogError("ConfirmOrderPreparationAsync failed: Order with ID {OrderId} not found.", orderId);
+                throw new KeyNotFoundException($"Order with ID {orderId} not found.");
+            }
+            _logger.LogInformation("Attempting to confirm preparation for Order ID {OrderId} by Waiter {WaiterId}.", orderId, waiterId);
 
             // Authorization check: Ensure the order belongs to the user's organization OR user is SuperAdmin
             if (!isSuperAdmin && order.OrganizationId != userOrganizationId)
             {
+                _logger.LogWarning("ConfirmOrderPreparationAsync failed: User {UserId} denied access to confirm preparation for Order {OrderId} in Organization {OrganizationId}.", GetUserId(), orderId, order.OrganizationId);
                 throw new UnauthorizedAccessException("Access denied to confirm preparation for this order.");
             }
 
@@ -1500,11 +1531,12 @@ namespace SagraFacile.NET.API.Services
                                      .Include(o => o.OrderItems) // To compare and update items
                                      .FirstOrDefaultAsync(o => o.Id == orderId);
 
-                if (order == null)
-                {
-                    _logger.LogWarning("Pre-order {OrderId} not found for payment confirmation.", orderId);
-                    throw new KeyNotFoundException($"Order with ID {orderId} not found.");
-                }
+            _logger.LogInformation("Attempting to confirm pre-order payment for Order ID {OrderId} by Cashier {CashierId}.", orderId, authenticatedUserId);
+            if (order == null)
+            {
+                _logger.LogError("ConfirmPreOrderPaymentAsync failed: Pre-order {OrderId} not found for payment confirmation.", orderId);
+                throw new KeyNotFoundException($"Order with ID {orderId} not found.");
+            }
 
                 // 2. Validation
                 if (order.Status != OrderStatus.PreOrder)
@@ -1734,6 +1766,7 @@ namespace SagraFacile.NET.API.Services
                 if (useTransaction && transaction != null)
                 {
                     await transaction.CommitAsync();
+                    _logger.LogInformation("Database transaction committed for pre-order {OrderId} payment confirmation.", orderId);
                 }
 
                 _logger.LogInformation("Pre-order {OrderId} (Display: {DisplayOrderNumber}) successfully confirmed and paid by Cashier {CashierId}.", order.Id, order.DisplayOrderNumber, authenticatedUserId);
@@ -1779,13 +1812,12 @@ namespace SagraFacile.NET.API.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception during ConfirmPreOrderPaymentAsync for Order {OrderId}", orderId);
+                _logger.LogError(ex, "An error occurred during ConfirmPreOrderPaymentAsync for Order {OrderId}. Transaction will be rolled back.", orderId);
                 if (useTransaction && transaction != null)
                 {
                     await transaction.RollbackAsync();
+                    _logger.LogWarning("Database transaction rolled back for pre-order {OrderId} payment confirmation due to an exception.", orderId);
                 }
-                // Re-throw the exception to be handled by the controller/middleware
-                // Or return null / specific error DTO
                 throw; // Rethrowing preserves stack trace and allows centralized error handling
             }
             finally
@@ -1793,6 +1825,7 @@ namespace SagraFacile.NET.API.Services
                 if (transaction != null)
                 {
                     await transaction.DisposeAsync();
+                    _logger.LogDebug("Database transaction disposed for pre-order {OrderId} payment confirmation.", orderId);
                 }
             }
         }
@@ -1815,11 +1848,17 @@ namespace SagraFacile.NET.API.Services
                                         .ThenInclude(oi => oi.MenuItem) // For mapping
                                     .FirstOrDefaultAsync(o => o.Id == orderId);
 
-            if (order == null) throw new KeyNotFoundException($"Order with ID {orderId} not found.");
+            _logger.LogInformation("Attempting to confirm pickup for Order ID {OrderId} by User {UserId}.", orderId, userId);
+            if (order == null)
+            {
+                _logger.LogError("ConfirmOrderPickupAsync failed: Order with ID {OrderId} not found.", orderId);
+                throw new KeyNotFoundException($"Order with ID {orderId} not found.");
+            }
 
             // Authorization Check
             if (!isSuperAdmin && order.OrganizationId != userOrganizationId)
             {
+                _logger.LogError("ConfirmOrderPickupAsync failed: User {UserId} denied access to confirm pickup for Order {OrderId} in Organization {OrganizationId}.", userId, orderId, order.OrganizationId);
                 throw new UnauthorizedAccessException("Access denied to confirm pickup for this order.");
             }
 

@@ -29,8 +29,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register(RegisterDto registerDto)
     {
+        _logger.LogInformation("Received registration request for user: {Email}", registerDto.Email);
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Registration request for {Email} failed due to invalid model state.", registerDto.Email);
             return BadRequest(ModelState);
         }
 
@@ -59,8 +61,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(LoginDto loginDto)
     {
+        _logger.LogInformation("Received login request for user: {Email}", loginDto.Email);
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Login request for {Email} failed due to invalid model state.", loginDto.Email);
             return BadRequest(ModelState);
         }
 
@@ -96,8 +100,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)] // If user or role not found
     public async Task<IActionResult> AssignRole(AssignRoleDto assignRoleDto)
     {
+        _logger.LogInformation("Received request to assign role '{RoleName}' to user '{UserId}'.", assignRoleDto.RoleName, assignRoleDto.UserId);
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Assign role request for user {UserId} failed due to invalid model state.", assignRoleDto.UserId);
             return BadRequest(ModelState);
         }
 
@@ -134,8 +140,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UnassignRole([FromBody] UnassignRoleDto unassignRoleDto)
     {
+        _logger.LogInformation("Received request to unassign role '{RoleName}' from user '{UserId}'.", unassignRoleDto.RoleName, unassignRoleDto.UserId);
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Unassign role request for user {UserId} failed due to invalid model state.", unassignRoleDto.UserId);
             return BadRequest(ModelState);
         }
 
@@ -190,9 +198,11 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
     {
+        _logger.LogInformation("Received request to get all users.");
         try
         {
             var users = await _accountService.GetUsersAsync();
+            _logger.LogInformation("Successfully retrieved {UserCount} users.", users.Count());
             return Ok(users);
         }
         catch (UnauthorizedAccessException ex) // Catch potential exceptions from BaseService
@@ -223,8 +233,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<ActionResult<UserDto>> GetUserById(string userId)
     {
+        _logger.LogInformation("Received request to get user by ID: {UserId}.", userId);
         if (string.IsNullOrEmpty(userId))
         {
+            _logger.LogWarning("GetUserById failed: User ID cannot be empty.");
             return BadRequest(new { Message = "User ID cannot be empty." });
         }
 
@@ -268,13 +280,16 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> UpdateUser(string userId, [FromBody] UpdateUserDto updateUserDto)
     {
+        _logger.LogInformation("Received request to update user {UserId}.", userId);
         if (string.IsNullOrEmpty(userId))
         {
+            _logger.LogWarning("UpdateUser failed: User ID cannot be empty.");
             return BadRequest(new { Message = "User ID cannot be empty." });
         }
 
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Update user request for {UserId} failed due to invalid model state.", userId);
             return BadRequest(ModelState);
         }
 
@@ -335,8 +350,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteUser(string userId)
     {
+        _logger.LogInformation("Received request to delete user {UserId}.", userId);
         if (string.IsNullOrEmpty(userId))
         {
+            _logger.LogWarning("DeleteUser failed: User ID cannot be empty.");
             return BadRequest(new { Message = "User ID cannot be empty." });
         }
 
@@ -407,9 +424,11 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<IEnumerable<string>>> GetRoles()
     {
+        _logger.LogInformation("Received request to get all roles.");
         try
         {
             var roles = await _accountService.GetRolesAsync();
+            _logger.LogInformation("Successfully retrieved {RoleCount} roles.", roles.Count());
             return Ok(roles);
         }
         catch (Exception ex)
@@ -427,8 +446,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto createRoleDto)
     {
+        _logger.LogInformation("Received request to create role: {RoleName}.", createRoleDto.RoleName);
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Create role request for {RoleName} failed due to invalid model state.", createRoleDto.RoleName);
             return BadRequest(ModelState);
         }
 
@@ -470,8 +491,10 @@ public class AccountsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request)
     {
+        _logger.LogInformation("Received refresh token request.");
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("Refresh token request failed due to invalid model state.");
             return BadRequest(ModelState);
         }
 
