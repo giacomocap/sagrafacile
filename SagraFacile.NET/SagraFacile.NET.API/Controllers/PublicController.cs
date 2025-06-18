@@ -46,14 +46,25 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<OrganizationDto>> GetOrganizationBySlug(string orgSlug)
         {
-            var organization = await _organizationService.GetOrganizationBySlugAsync(orgSlug);
-
-            if (organization == null)
+            _logger.LogInformation("Public request to get organization by slug: {OrgSlug}", orgSlug);
+            try
             {
-                return NotFound($"Organization with slug '{orgSlug}' not found.");
-            }
+                var organization = await _organizationService.GetOrganizationBySlugAsync(orgSlug);
 
-            return Ok(organization);
+                if (organization == null)
+                {
+                    _logger.LogInformation("Organization with slug '{OrgSlug}' not found.", orgSlug);
+                    return NotFound($"Organization with slug '{orgSlug}' not found.");
+                }
+
+                _logger.LogInformation("Successfully retrieved organization with slug: {OrgSlug}", orgSlug);
+                return Ok(organization);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while getting organization by slug: {OrgSlug}", orgSlug);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
         }
 
         // GET /api/public/organizations/{orgSlug}/areas/{areaSlug}
@@ -62,14 +73,25 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<AreaDto>> GetAreaBySlugs(string orgSlug, string areaSlug)
         {
-            var area = await _areaService.GetAreaBySlugsAsync(orgSlug, areaSlug);
-
-            if (area == null)
+            _logger.LogInformation("Public request to get area by slugs: OrgSlug: {OrgSlug}, AreaSlug: {AreaSlug}", orgSlug, areaSlug);
+            try
             {
-                return NotFound($"Area with slug '{areaSlug}' not found within organization '{orgSlug}'.");
-            }
+                var area = await _areaService.GetAreaBySlugsAsync(orgSlug, areaSlug);
 
-            return Ok(area);
+                if (area == null)
+                {
+                    _logger.LogInformation("Area with slug '{AreaSlug}' not found within organization '{OrgSlug}'.", areaSlug, orgSlug);
+                    return NotFound($"Area with slug '{areaSlug}' not found within organization '{orgSlug}'.");
+                }
+
+                _logger.LogInformation("Successfully retrieved area by slugs: OrgSlug: {OrgSlug}, AreaSlug: {AreaSlug}", orgSlug, areaSlug);
+                return Ok(area);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while getting area by slugs: OrgSlug: {OrgSlug}, AreaSlug: {AreaSlug}", orgSlug, areaSlug);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
         }
 
         // GET /api/public/areas/{areaId}/menucategories
@@ -78,19 +100,23 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)] // If area doesn't exist? Service might handle this.
         public async Task<ActionResult<IEnumerable<MenuCategoryDto>>> GetMenuCategoriesForArea(int areaId)
         {
-            // Optional: Add a check to see if the Area ID exists publicly first?
-            // var areaExists = await _areaService.AreaExistsAsync(areaId); // AreaExistsAsync might need adjustment for public access or a new public check method
-            // if (!areaExists)
-            // {
-            //     return NotFound($"Area with ID {areaId} not found.");
-            // }
-
-            var categories = await _menuCategoryService.GetCategoriesByAreaAsync(areaId);
-            if (categories == null)
+            _logger.LogInformation("Public request to get menu categories for AreaId: {AreaId}", areaId);
+            try
             {
-                return NotFound($"Area with ID {areaId} not found.");
+                var categories = await _menuCategoryService.GetCategoriesByAreaAsync(areaId);
+                if (categories == null)
+                {
+                    _logger.LogInformation("Area with ID {AreaId} not found when getting menu categories.", areaId);
+                    return NotFound($"Area with ID {areaId} not found.");
+                }
+                _logger.LogInformation("Successfully retrieved {Count} menu categories for AreaId: {AreaId}", ((List<MenuCategoryDto>)categories).Count, areaId);
+                return Ok(categories);
             }
-            return Ok(categories);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while retrieving menu categories for AreaId: {AreaId}", areaId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
         }
 
         // GET /api/public/menucategories/{categoryId}/menuitems
@@ -99,19 +125,23 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)] // If category doesn't exist? Service might handle this.
         public async Task<ActionResult<IEnumerable<MenuItemDto>>> GetMenuItemsForCategory(int categoryId)
         {
-            // Optional: Add a check to see if the Category ID exists publicly first?
-            // var categoryExists = await _menuCategoryService.CategoryExistsAsync(categoryId); // CategoryExistsAsync might need adjustment
-            // if (!categoryExists)
-            // {
-            //     return NotFound($"Menu category with ID {categoryId} not found.");
-            // }
-
-            var items = await _menuItemService.GetItemsByCategoryAsync(categoryId);
-            if (items == null)
+            _logger.LogInformation("Public request to get menu items for CategoryId: {CategoryId}", categoryId);
+            try
             {
-                return NotFound($"Menu category with ID {categoryId} not found.");
+                var items = await _menuItemService.GetItemsByCategoryAsync(categoryId);
+                if (items == null)
+                {
+                    _logger.LogInformation("Menu category with ID {CategoryId} not found when getting menu items.", categoryId);
+                    return NotFound($"Menu category with ID {categoryId} not found.");
+                }
+                _logger.LogInformation("Successfully retrieved {Count} menu items for CategoryId: {CategoryId}", ((List<MenuItemDto>)items).Count, categoryId);
+                return Ok(items);
             }
-            return Ok(items);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while retrieving menu items for CategoryId: {CategoryId}", categoryId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
         }
 
         // POST /api/public/preorders
@@ -121,8 +151,10 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)] // If Org/Area/Item not found
         public async Task<ActionResult<OrderDto>> CreatePreOrder([FromBody] PreOrderDto preOrderDto)
         {
+            _logger.LogInformation("Public request to create pre-order for AreaId: {AreaId}, CustomerName: {CustomerName}", preOrderDto.AreaId, preOrderDto.CustomerName);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for creating public pre-order for AreaId: {AreaId}. Errors: {@Errors}", preOrderDto.AreaId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -132,10 +164,12 @@ namespace SagraFacile.NET.API.Controllers
 
                 if (createdOrderDto == null)
                 {
+                    _logger.LogError("CreatePreOrderAsync returned null unexpectedly for AreaId: {AreaId}, CustomerName: {CustomerName}", preOrderDto.AreaId, preOrderDto.CustomerName);
                     // This might indicate an internal server error or a handled exception during creation
                     return BadRequest("Could not create pre-order."); // Or return 500? Depends on service impl.
                 }
 
+                _logger.LogInformation("Successfully created public pre-order with ID: {OrderId} for AreaId: {AreaId}", createdOrderDto.Id, createdOrderDto.AreaId);
                 // Return 201 Created with the location header pointing to the standard GET order endpoint (if one exists)
                 // For now, just return the created DTO with 201 status.
                 // A GET endpoint for public orders might be needed later.
@@ -144,18 +178,19 @@ namespace SagraFacile.NET.API.Controllers
             }
             catch (KeyNotFoundException ex)
             {
+                _logger.LogWarning(ex, "Resource not found during public pre-order creation for AreaId: {AreaId}. Error: {Error}", preOrderDto.AreaId, ex.Message);
                 // Handle cases where Area, Organization, or MenuItem ID was not found
                 return NotFound(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
+                _logger.LogWarning(ex, "Invalid operation during public pre-order creation for AreaId: {AreaId}. Error: {Error}", preOrderDto.AreaId, ex.Message);
                 // Handle validation errors like missing required notes or item not belonging to area
                 return BadRequest(ex.Message);
             }
             catch (Exception ex) // Catch unexpected errors
             {
-                // Log the exception (replace Console.WriteLine with proper logging)
-                Console.WriteLine($"Unexpected error creating pre-order: {ex}");
+                _logger.LogError(ex, "An unexpected error occurred while creating public pre-order for AreaId: {AreaId}", preOrderDto.AreaId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred while creating the pre-order.");
             }
         }
@@ -169,31 +204,39 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetPublicActiveCashierStations(int areaId)
         {
-            _logger.LogInformation("Attempting to fetch public active cashier stations for AreaId: {AreaId}", areaId);
+            _logger.LogInformation("Public request for active cashier stations for AreaId: {AreaId}", areaId);
             // Assuming _queueService has GetActiveCashierStationsForAreaAsync
             // If this method was specific to QueueService's internal logic and not just data retrieval,
             // it might need to be exposed via IQueueService or a more general service.
-            var result = await _queueService.GetActiveCashierStationsForAreaAsync(areaId);
-
-            if (!result.Success)
+            try
             {
-                if (result.Errors != null && result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
+                var result = await _queueService.GetActiveCashierStationsForAreaAsync(areaId);
+
+                if (!result.Success)
                 {
-                    _logger.LogWarning("Public request for cashier stations failed for AreaId {AreaId}: Area not found.", areaId);
-                    return NotFound(string.Join("; ", result.Errors));
+                    if (result.Errors != null && result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _logger.LogWarning("Public request for cashier stations failed for AreaId {AreaId}: Area not found. Error: {Error}", areaId, string.Join("; ", result.Errors));
+                        return NotFound(string.Join("; ", result.Errors));
+                    }
+                    _logger.LogError("Public request for cashier stations failed for AreaId {AreaId}: {Error}", areaId, string.Join("; ", result.Errors));
+                    return StatusCode(StatusCodes.Status500InternalServerError, string.Join("; ", result.Errors));
                 }
-                _logger.LogError("Public request for cashier stations failed for AreaId {AreaId}: {Error}", areaId, string.Join("; ", result.Errors));
-                return StatusCode(StatusCodes.Status500InternalServerError, string.Join("; ", result.Errors));
-            }
 
-            if (result.Value == null)
+                if (result.Value == null)
+                {
+                    _logger.LogWarning("GetActiveCashierStationsForAreaAsync succeeded for AreaId {AreaId} but returned null list.", areaId);
+                    return Ok(new List<CashierStationDto>());
+                }
+
+                _logger.LogInformation("Successfully fetched {Count} public active cashier stations for AreaId: {AreaId}", result.Value.Count, areaId);
+                return Ok(result.Value);
+            }
+            catch (Exception ex)
             {
-                _logger.LogWarning("GetActiveCashierStationsForAreaAsync succeeded for AreaId {AreaId} but returned null list.", areaId);
-                return Ok(new List<CashierStationDto>());
+                _logger.LogError(ex, "An unexpected error occurred while fetching public active cashier stations for AreaId: {AreaId}", areaId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
-
-            _logger.LogInformation("Successfully fetched {Count} public active cashier stations for AreaId: {AreaId}", result.Value.Count, areaId);
-            return Ok(result.Value);
         }
 
         // GET /api/public/areas/{areaId}/orders/ready-for-pickup
@@ -207,16 +250,17 @@ namespace SagraFacile.NET.API.Controllers
             try
             {
                 var orders = await _orderService.GetPublicOrdersByStatusAsync(areaId, OrderStatus.ReadyForPickup);
+                _logger.LogInformation("Successfully retrieved {Count} ready-for-pickup orders for AreaId: {AreaId}", ((List<OrderDto>)orders).Count, areaId);
                 return Ok(orders);
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Error fetching ready-for-pickup orders for AreaId {AreaId}: {ErrorMessage}", areaId, ex.Message);
+                _logger.LogWarning(ex, "Resource not found during fetching ready-for-pickup orders for AreaId {AreaId}. Error: {ErrorMessage}", areaId, ex.Message);
                 return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error fetching ready-for-pickup orders for AreaId {AreaId}", areaId);
+                _logger.LogError(ex, "An unexpected error occurred while fetching ready-for-pickup orders for AreaId {AreaId}", areaId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
         }
@@ -227,19 +271,21 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<IEnumerable<AdAreaAssignmentDto>>> GetActiveAdsForArea(int areaId)
         {
+            _logger.LogInformation("Public request to get active ads for AreaId: {AreaId}", areaId);
             try
             {
                 var assignments = await _adAreaAssignmentService.GetAssignmentsForAreaAsync(areaId);
+                _logger.LogInformation("Successfully retrieved {Count} active ads for AreaId: {AreaId}", ((List<AdAreaAssignmentDto>)assignments).Count, areaId);
                 return Ok(assignments);
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Error fetching active ads for AreaId {AreaId}: {ErrorMessage}", areaId, ex.Message);
+                _logger.LogWarning(ex, "Resource not found during fetching active ads for AreaId {AreaId}. Error: {ErrorMessage}", areaId, ex.Message);
                 return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error fetching active ads for AreaId {AreaId}", areaId);
+                _logger.LogError(ex, "An unexpected error occurred while fetching active ads for AreaId {AreaId}", areaId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
         }
@@ -259,17 +305,18 @@ namespace SagraFacile.NET.API.Controllers
                 {
                     if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                     {
-                        _logger.LogWarning("Public request for queue state failed for AreaId {AreaId}: Area not found.", areaId);
+                        _logger.LogWarning("Public request for queue state failed for AreaId {AreaId}: Area not found. Error: {Error}", areaId, string.Join("; ", result.Errors));
                         return NotFound(string.Join("; ", result.Errors));
                     }
                     _logger.LogError("Public request for queue state failed for AreaId {AreaId}: {Error}", areaId, string.Join("; ", result.Errors));
                     return StatusCode(StatusCodes.Status500InternalServerError, string.Join("; ", result.Errors));
                 }
+                _logger.LogInformation("Successfully retrieved queue state for AreaId: {AreaId}", areaId);
                 return Ok(result.Value);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error fetching queue state for AreaId {AreaId}", areaId);
+                _logger.LogError(ex, "An unexpected error occurred while fetching queue state for AreaId: {AreaId}", areaId);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
             }
         }

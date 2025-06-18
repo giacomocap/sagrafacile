@@ -30,6 +30,7 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Define roles allowed to list stations
         public async Task<ActionResult<IEnumerable<KdsStationDto>>> GetKdsStations(int organizationId, int areaId)
         {
+            _logger.LogInformation("Received request to get KDS stations for OrganizationId: {OrganizationId}, AreaId: {AreaId}", organizationId, areaId);
             try
             {
                 var stations = await _kdsStationService.GetKdsStationsByAreaAsync(organizationId, areaId, User);
@@ -40,6 +41,7 @@ namespace SagraFacile.NET.API.Controllers
                     AreaId = s.AreaId,
                     OrganizationId = s.OrganizationId
                 });
+                _logger.LogInformation("Successfully retrieved {Count} KDS stations for OrganizationId: {OrganizationId}, AreaId: {AreaId}", stationDtos.Count(), organizationId, areaId);
                 return Ok(stationDtos);
             }
             catch (UnauthorizedAccessException ex)
@@ -64,11 +66,13 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Define roles allowed to get a specific station
         public async Task<ActionResult<KdsStationDto>> GetKdsStation(int organizationId, int areaId, int kdsStationId)
         {
+            _logger.LogInformation("Received request to get KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
             try
             {
                 var station = await _kdsStationService.GetKdsStationByIdAsync(organizationId, areaId, kdsStationId, User);
                 if (station == null)
                 {
+                    _logger.LogWarning("KDS Station with ID {KdsStationId} not found in Area {AreaId} for OrganizationId {OrganizationId}.", kdsStationId, areaId, organizationId);
                     return NotFound($"KDS Station with ID {kdsStationId} not found in Area {areaId}.");
                 }
                 var stationDto = new KdsStationDto
@@ -78,6 +82,7 @@ namespace SagraFacile.NET.API.Controllers
                     AreaId = station.AreaId,
                     OrganizationId = station.OrganizationId
                 };
+                _logger.LogInformation("Successfully retrieved KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
                 return Ok(stationDto);
             }
             catch (UnauthorizedAccessException ex)
@@ -102,8 +107,10 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can create
         public async Task<ActionResult<KdsStationDto>> CreateKdsStation(int organizationId, int areaId, [FromBody] KdsStationUpsertDto kdsStationDto)
         {
+            _logger.LogInformation("Received request to create KDS station '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationDto.Name, organizationId, areaId);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for creating KDS station '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}. Errors: {@Errors}", kdsStationDto.Name, organizationId, areaId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -120,6 +127,7 @@ namespace SagraFacile.NET.API.Controllers
                     OrganizationId = createdStation.OrganizationId
                 };
 
+                _logger.LogInformation("Successfully created KDS station with Id: {KdsStationId}, Name: '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}", createdStation.Id, createdStation.Name, organizationId, areaId);
                 // Return 201 Created with the location of the new resource and the resource itself
                 return CreatedAtAction(nameof(GetKdsStation), new { organizationId, areaId, kdsStationId = createdStation.Id }, createdStationDto);
             }
@@ -145,8 +153,10 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can update
         public async Task<IActionResult> UpdateKdsStation(int organizationId, int areaId, int kdsStationId, [FromBody] KdsStationUpsertDto kdsStationDto)
         {
+            _logger.LogInformation("Received request to update KDS station {KdsStationId} with Name: '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, kdsStationDto.Name, organizationId, areaId);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for updating KDS station {KdsStationId}. Errors: {@Errors}", kdsStationId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -157,9 +167,11 @@ namespace SagraFacile.NET.API.Controllers
 
                 if (!success)
                 {
+                    _logger.LogWarning("KDS Station with ID {KdsStationId} not found in Area {AreaId} for OrganizationId {OrganizationId} during update.", kdsStationId, areaId, organizationId);
                     return NotFound($"KDS Station with ID {kdsStationId} not found in Area {areaId}.");
                 }
 
+                _logger.LogInformation("Successfully updated KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
                 return NoContent(); // Standard response for successful PUT
             }
             catch (UnauthorizedAccessException ex)
@@ -184,15 +196,18 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can delete
         public async Task<IActionResult> DeleteKdsStation(int organizationId, int areaId, int kdsStationId)
         {
+            _logger.LogInformation("Received request to delete KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
             try
             {
                 var success = await _kdsStationService.DeleteKdsStationAsync(organizationId, areaId, kdsStationId, User);
 
                 if (!success)
                 {
+                    _logger.LogWarning("KDS Station with ID {KdsStationId} not found in Area {AreaId} for OrganizationId {OrganizationId} during deletion.", kdsStationId, areaId, organizationId);
                     return NotFound($"KDS Station with ID {kdsStationId} not found in Area {areaId}.");
                 }
 
+                _logger.LogInformation("Successfully deleted KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
                 return NoContent(); // Standard response for successful DELETE
             }
             catch (UnauthorizedAccessException ex)
@@ -219,6 +234,7 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Roles allowed to view assignments
         public async Task<ActionResult<IEnumerable<MenuCategoryDto>>> GetAssignedCategories(int organizationId, int areaId, int kdsStationId)
         {
+            _logger.LogInformation("Received request to get assigned categories for KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
              try
             {
                 var categories = await _kdsStationService.GetAssignedCategoriesAsync(organizationId, areaId, kdsStationId, User);
@@ -229,6 +245,7 @@ namespace SagraFacile.NET.API.Controllers
                     AreaId = c.AreaId
                     // Add other relevant fields if needed
                 });
+                _logger.LogInformation("Successfully retrieved {Count} assigned categories for KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", categoryDtos.Count(), kdsStationId, organizationId, areaId);
                 return Ok(categoryDtos);
             }
             catch (UnauthorizedAccessException ex)
@@ -253,6 +270,7 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can assign
         public async Task<IActionResult> AssignCategoryToKdsStation(int organizationId, int areaId, int kdsStationId, int menuCategoryId)
         {
+            _logger.LogInformation("Received request to assign category {MenuCategoryId} to KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
             try
             {
                 var success = await _kdsStationService.AssignCategoryAsync(organizationId, areaId, kdsStationId, menuCategoryId, User);
@@ -263,6 +281,7 @@ namespace SagraFacile.NET.API.Controllers
                      _logger.LogInformation("Assign category {MenuCategoryId} to KDS {KdsStationId} resulted in no change (likely already assigned).", menuCategoryId, kdsStationId);
                      return Ok($"Category {menuCategoryId} already assigned or assignment failed."); // Or NoContent()
                 }
+                _logger.LogInformation("Successfully assigned category {MenuCategoryId} to KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
                 return Ok($"Category {menuCategoryId} assigned successfully to KDS Station {kdsStationId}."); // Or return NoContent()
             }
             catch (UnauthorizedAccessException ex)
@@ -287,14 +306,17 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can unassign
         public async Task<IActionResult> UnassignCategoryFromKdsStation(int organizationId, int areaId, int kdsStationId, int menuCategoryId)
         {
+            _logger.LogInformation("Received request to unassign category {MenuCategoryId} from KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
              try
             {
                 var success = await _kdsStationService.UnassignCategoryAsync(organizationId, areaId, kdsStationId, menuCategoryId, User);
                 if (!success)
                 {
+                    _logger.LogWarning("Assignment for Category {MenuCategoryId} and KDS Station {KdsStationId} not found during unassignment.", menuCategoryId, kdsStationId);
                     // Assignment didn't exist
                     return NotFound($"Assignment for Category {menuCategoryId} and KDS Station {kdsStationId} not found.");
                 }
+                _logger.LogInformation("Successfully unassigned category {MenuCategoryId} from KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
                 return NoContent(); // Standard response for successful DELETE
             }
             catch (UnauthorizedAccessException ex)

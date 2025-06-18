@@ -30,6 +30,7 @@ namespace SagraFacile.NET.API.Services
 
         private async Task<Day> GetTargetDayAsync(int organizationId, int? dayId, bool throwIfNotFound = false)
         {
+            _logger.LogDebug("Attempting to get target day for organization {OrganizationId}, requested DayId: {DayId}, ThrowIfNotFound: {ThrowIfNotFound}", organizationId, dayId, throwIfNotFound);
             Day targetDayEntity = null;
             if (dayId.HasValue)
             {
@@ -37,8 +38,12 @@ namespace SagraFacile.NET.API.Services
                     .FirstOrDefaultAsync(d => d.Id == dayId.Value && d.OrganizationId == organizationId);
                 if (targetDayEntity == null && throwIfNotFound)
                 {
-                    _logger.LogWarning($"Day with ID {dayId.Value} not found for organization {organizationId}.");
+                    _logger.LogWarning("Day with ID {DayId} not found for organization {OrganizationId}.", dayId.Value, organizationId);
                     throw new KeyNotFoundException($"Giorno operativo con ID {dayId.Value} non trovato per l'organizzazione specificata.");
+                }
+                else if (targetDayEntity == null)
+                {
+                    _logger.LogDebug("Day with ID {DayId} not found for organization {OrganizationId}. (Not throwing exception as throwIfNotFound is false)", dayId.Value, organizationId);
                 }
             }
             else
@@ -50,6 +55,7 @@ namespace SagraFacile.NET.API.Services
 
                 if (targetDayEntity == null) // If no open day, try the most recently closed one
                 {
+                    _logger.LogDebug("No open day found for organization {OrganizationId}. Attempting to find most recently closed day.", organizationId);
                     targetDayEntity = await _context.Days
                         .Where(d => d.OrganizationId == organizationId && d.Status == DayStatus.Closed)
                         .OrderByDescending(d => d.EndTime)
@@ -59,9 +65,10 @@ namespace SagraFacile.NET.API.Services
 
             if (targetDayEntity == null && throwIfNotFound && !dayId.HasValue) // if dayId was null and still no day found
             {
-                _logger.LogWarning($"Nessun giorno operativo (aperto o chiuso di recente) trovato per l'organizzazione {organizationId}.");
+                _logger.LogWarning("No operational day (open or recently closed) found for organization {OrganizationId}.", organizationId);
                 throw new KeyNotFoundException($"Nessun giorno operativo (aperto o chiuso di recente) trovato per l'organizzazione {organizationId}.");
             }
+            _logger.LogDebug("Target day found for organization {OrganizationId}: {DayId} ({DayDate})", organizationId, targetDayEntity?.Id, targetDayEntity?.StartTime.ToString("yyyy-MM-dd"));
             return targetDayEntity;
         }
 
@@ -71,17 +78,17 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
-                _logger.LogWarning($"User {GetUserId()} from org {userOrgId} attempted to access KPIs for org {organizationId} without SuperAdmin rights.");
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access KPIs for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access KPIs for this organization.");
             }
 
-            _logger.LogInformation($"Fetching dashboard KPIs for organization {organizationId}, dayId: {dayId}");
+            _logger.LogInformation("Fetching dashboard KPIs for organization {OrganizationId}, dayId: {DayId}", organizationId, dayId);
 
             Day targetDay = await GetTargetDayAsync(organizationId, dayId);
 
             if (targetDay == null)
             {
-                _logger.LogInformation($"No relevant operational day found for organization {organizationId} (dayId: {dayId}). Returning default KPIs.");
+                _logger.LogInformation("No relevant operational day found for organization {OrganizationId} (dayId: {DayId}). Returning default KPIs.", organizationId, dayId);
                 return new DashboardKPIsDto
                 {
                     DayId = dayId ?? 0, // If dayId was provided but not found, reflect it. Otherwise 0.
@@ -117,9 +124,15 @@ namespace SagraFacile.NET.API.Services
                 if (categoryPopularity != null)
                 {
                     mostPopularCategory = categoryPopularity.CategoryName;
+                    _logger.LogDebug("Most popular category for day {DayId} is {CategoryName} with {TotalQuantity} units.", targetDay.Id, categoryPopularity.CategoryName, categoryPopularity.TotalQuantity);
+                }
+                else
+                {
+                    _logger.LogDebug("No popular category found for day {DayId}.", targetDay.Id);
                 }
             }
 
+            _logger.LogInformation("Successfully fetched dashboard KPIs for organization {OrganizationId}, dayId: {DayId}. Total Sales: {TotalSales}, Order Count: {OrderCount}", organizationId, dayId, todayTotalSales, todayOrderCount);
             return new DashboardKPIsDto
             {
                 TodayTotalSales = todayTotalSales,
@@ -137,9 +150,10 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access sales trend for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access sales trend for this organization.");
             }
-            _logger.LogInformation($"Fetching sales trend for organization {organizationId} for the last {days} days");
+            _logger.LogInformation("Fetching sales trend for organization {OrganizationId} for the last {Days} days.", organizationId, days);
 
             var endDate = DateTime.UtcNow.Date;
             var startDate = endDate.AddDays(-days + 1);
@@ -172,6 +186,7 @@ namespace SagraFacile.NET.API.Services
                         Sales = salesData.Sales,
                         OrderCount = salesData.OrderCount
                     });
+                    _logger.LogDebug("Sales data found for {CurrentDate}: Sales={Sales}, Orders={OrderCount}", currentDate.ToString("yyyy-MM-dd"), salesData.Sales, salesData.OrderCount);
                 }
                 else
                 {
@@ -184,8 +199,10 @@ namespace SagraFacile.NET.API.Services
                         Sales = 0,
                         OrderCount = 0
                     });
+                    _logger.LogDebug("No sales data for {CurrentDate}. Added zero values.", currentDate.ToString("yyyy-MM-dd"));
                 }
             }
+            _logger.LogInformation("Successfully fetched sales trend for organization {OrganizationId}.", organizationId);
             return result.OrderBy(r => r.Date).ToList();
         }
 
@@ -194,17 +211,26 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access order status distribution for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access order status distribution for this organization.");
             }
-            _logger.LogInformation($"Fetching order status distribution for organization {organizationId}, dayId: {dayId}");
+            _logger.LogInformation("Fetching order status distribution for organization {OrganizationId}, dayId: {DayId}", organizationId, dayId);
 
             Day targetDay = await GetTargetDayAsync(organizationId, dayId);
-            if (targetDay == null) return new List<OrderStatusDistributionDto>();
+            if (targetDay == null)
+            {
+                _logger.LogInformation("No relevant operational day found for organization {OrganizationId} (dayId: {DayId}). Returning empty order status distribution.", organizationId, dayId);
+                return new List<OrderStatusDistributionDto>();
+            }
 
             var ordersQuery = _context.Orders.Where(o => o.DayId == targetDay.Id && o.OrganizationId == organizationId);
             var totalOrdersInDay = await ordersQuery.CountAsync();
 
-            if (totalOrdersInDay == 0) return new List<OrderStatusDistributionDto>();
+            if (totalOrdersInDay == 0)
+            {
+                _logger.LogInformation("No orders found for day {DayId} in organization {OrganizationId}. Returning empty order status distribution.", targetDay.Id, organizationId);
+                return new List<OrderStatusDistributionDto>();
+            }
 
             var distribution = await ordersQuery
                 .GroupBy(o => o.Status)
@@ -216,6 +242,7 @@ namespace SagraFacile.NET.API.Services
                 })
                 .ToListAsync();
 
+            _logger.LogInformation("Successfully fetched order status distribution for organization {OrganizationId}, dayId: {DayId}. Total orders: {TotalOrders}", organizationId, dayId, totalOrdersInDay);
             return distribution;
         }
 
@@ -224,9 +251,10 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access top menu items for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access top menu items for this organization.");
             }
-            _logger.LogInformation($"Fetching top {limit} menu items for organization {organizationId} for the last {days} days");
+            _logger.LogInformation("Fetching top {Limit} menu items for organization {OrganizationId} for the last {Days} days.", limit, organizationId, days);
 
             var endDate = DateTime.UtcNow.Date;
             var startDate = endDate.AddDays(-days + 1);
@@ -248,6 +276,7 @@ namespace SagraFacile.NET.API.Services
                 .Take(limit)
                 .ToListAsync();
 
+            _logger.LogInformation("Successfully fetched {Count} top menu items for organization {OrganizationId}.", topItems.Count, organizationId);
             return topItems;
         }
 
@@ -257,11 +286,16 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access orders by hour for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access orders by hour for this organization.");
             }
 
             Day targetDay = await GetTargetDayAsync(organizationId, dayId);
-            if (targetDay == null) return new List<OrdersByHourDto>();
+            if (targetDay == null)
+            {
+                _logger.LogInformation("No relevant operational day found for organization {OrganizationId} (dayId: {DayId}). Returning empty orders by hour distribution.", organizationId, dayId);
+                return new List<OrdersByHourDto>();
+            }
 
             var ordersQuery = _context.Orders
                 .Where(o => o.OrganizationId == organizationId && o.DayId == targetDay.Id &&
@@ -272,11 +306,12 @@ namespace SagraFacile.NET.API.Services
                 var area = await _context.Areas.FirstOrDefaultAsync(a => a.Id == areaId.Value && a.OrganizationId == organizationId);
                 if (area == null)
                 {
+                    _logger.LogWarning("Area with ID {AreaId} not found or does not belong to organization {OrganizationId} for GetOrdersByHour.", areaId.Value, organizationId);
                     throw new KeyNotFoundException($"Area with ID {areaId.Value} not found or does not belong to organization {organizationId}.");
                 }
                 ordersQuery = ordersQuery.Where(o => o.AreaId == areaId.Value);
             }
-            _logger.LogInformation($"Fetching orders by hour for organization {organizationId}, area {areaId}, dayId: {targetDay.Id}");
+            _logger.LogInformation("Fetching orders by hour for organization {OrganizationId}, area {AreaId}, dayId: {DayId}", organizationId, areaId, targetDay.Id);
 
             var ordersByHour = await ordersQuery
                 .GroupBy(o => o.OrderDateTime.Hour)
@@ -295,6 +330,7 @@ namespace SagraFacile.NET.API.Services
                 var data = ordersByHour.FirstOrDefault(obh => obh.Hour == h);
                 result.Add(data ?? new OrdersByHourDto { Hour = h, OrderCount = 0, Revenue = 0 });
             }
+            _logger.LogInformation("Successfully fetched orders by hour for organization {OrganizationId}, area {AreaId}, dayId: {DayId}.", organizationId, areaId, targetDay.Id);
             return result;
         }
 
@@ -303,11 +339,16 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access payment method distribution for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access payment method distribution for this organization.");
             }
 
             Day targetDay = await GetTargetDayAsync(organizationId, dayId);
-            if (targetDay == null) return new List<PaymentMethodDistributionDto>();
+            if (targetDay == null)
+            {
+                _logger.LogInformation("No relevant operational day found for organization {OrganizationId} (dayId: {DayId}). Returning empty payment method distribution.", organizationId, dayId);
+                return new List<PaymentMethodDistributionDto>();
+            }
 
             var ordersQuery = _context.Orders
                 .Where(o => o.OrganizationId == organizationId && o.DayId == targetDay.Id &&
@@ -318,16 +359,21 @@ namespace SagraFacile.NET.API.Services
                 var area = await _context.Areas.FirstOrDefaultAsync(a => a.Id == areaId.Value && a.OrganizationId == organizationId);
                 if (area == null)
                 {
+                    _logger.LogWarning("Area with ID {AreaId} not found or does not belong to organization {OrganizationId} for GetPaymentMethodDistribution.", areaId.Value, organizationId);
                     throw new KeyNotFoundException($"Area with ID {areaId.Value} not found or does not belong to organization {organizationId}.");
                 }
                 ordersQuery = ordersQuery.Where(o => o.AreaId == areaId.Value);
             }
-            _logger.LogInformation($"Fetching payment method distribution for organization {organizationId}, area {areaId}, dayId: {targetDay.Id}");
+            _logger.LogInformation("Fetching payment method distribution for organization {OrganizationId}, area {AreaId}, dayId: {DayId}", organizationId, areaId, targetDay.Id);
 
             var totalPaidAmountInDay = await ordersQuery.SumAsync(o => o.TotalAmount);
             var totalPaidOrdersInDay = await ordersQuery.CountAsync();
 
-            if (totalPaidOrdersInDay == 0) return new List<PaymentMethodDistributionDto>();
+            if (totalPaidOrdersInDay == 0)
+            {
+                _logger.LogInformation("No paid orders found for day {DayId} in organization {OrganizationId}. Returning empty payment method distribution.", targetDay.Id, organizationId);
+                return new List<PaymentMethodDistributionDto>();
+            }
 
             var distribution = await ordersQuery
                 .GroupBy(o => o.PaymentMethod)
@@ -340,6 +386,7 @@ namespace SagraFacile.NET.API.Services
                 })
                 .ToListAsync();
 
+            _logger.LogInformation("Successfully fetched payment method distribution for organization {OrganizationId}, dayId: {DayId}. Total paid orders: {TotalPaidOrders}", organizationId, dayId, totalPaidOrdersInDay);
             return distribution;
         }
 
@@ -348,12 +395,13 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access average order value trend for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access average order value trend for this organization.");
             }
 
             var endDate = DateTime.UtcNow.Date;
             var startDate = endDate.AddDays(-days + 1);
-            _logger.LogInformation($"Fetching average order value trend for organization {organizationId}, area {areaId} from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
+            _logger.LogInformation("Fetching average order value trend for organization {OrganizationId}, area {AreaId} from {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}", organizationId, areaId, startDate, endDate);
 
             var ordersQueryBase = _context.Orders
                 .Where(o => o.OrganizationId == organizationId &&
@@ -365,6 +413,7 @@ namespace SagraFacile.NET.API.Services
                 var area = await _context.Areas.FirstOrDefaultAsync(a => a.Id == areaId.Value && a.OrganizationId == organizationId);
                 if (area == null)
                 {
+                    _logger.LogWarning("Area with ID {AreaId} not found or does not belong to organization {OrganizationId} for GetAverageOrderValueTrend.", areaId.Value, organizationId);
                     throw new KeyNotFoundException($"Area with ID {areaId.Value} not found or does not belong to organization {organizationId}.");
                 }
                 ordersQueryBase = ordersQueryBase.Where(o => o.AreaId == areaId.Value);
@@ -395,6 +444,7 @@ namespace SagraFacile.NET.API.Services
                         AverageValue = Math.Round(aovData.TotalSales / aovData.OrderCount, 2),
                         OrderCount = aovData.OrderCount
                     });
+                    _logger.LogDebug("AOV data found for {CurrentDate}: AverageValue={AverageValue}, Orders={OrderCount}", currentDate.ToString("yyyy-MM-dd"), Math.Round(aovData.TotalSales / aovData.OrderCount, 2), aovData.OrderCount);
                 }
                 else
                 {
@@ -407,8 +457,10 @@ namespace SagraFacile.NET.API.Services
                         AverageValue = 0,
                         OrderCount = aovData?.OrderCount ?? 0
                     });
+                    _logger.LogDebug("No AOV data for {CurrentDate}. Added zero values.", currentDate.ToString("yyyy-MM-dd"));
                 }
             }
+            _logger.LogInformation("Successfully fetched average order value trend for organization {OrganizationId}.", organizationId);
             return result.OrderBy(r => r.Date).ToList();
         }
 
@@ -417,11 +469,16 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to access order status timeline for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to access order status timeline for this organization.");
             }
 
             Day targetDay = await GetTargetDayAsync(organizationId, dayId);
-            if (targetDay == null) return new List<OrderStatusTimelineEventDto>();
+            if (targetDay == null)
+            {
+                _logger.LogInformation("No relevant operational day found for organization {OrganizationId} (dayId: {DayId}). Returning empty order status timeline.", organizationId, dayId);
+                return new List<OrderStatusTimelineEventDto>();
+            }
 
             var ordersQuery = _context.Orders
                 .Where(o => o.OrganizationId == organizationId && o.DayId == targetDay.Id);
@@ -431,11 +488,12 @@ namespace SagraFacile.NET.API.Services
                 var area = await _context.Areas.FirstOrDefaultAsync(a => a.Id == areaId.Value && a.OrganizationId == organizationId);
                 if (area == null)
                 {
+                    _logger.LogWarning("Area with ID {AreaId} not found or does not belong to organization {OrganizationId} for GetOrderStatusTimeline.", areaId.Value, organizationId);
                     throw new KeyNotFoundException($"Area with ID {areaId.Value} not found or does not belong to organization {organizationId}.");
                 }
                 ordersQuery = ordersQuery.Where(o => o.AreaId == areaId.Value);
             }
-            _logger.LogInformation($"Fetching order status timeline for organization {organizationId}, area {areaId}, dayId: {targetDay.Id}");
+            _logger.LogInformation("Fetching order status timeline for organization {OrganizationId}, area {AreaId}, dayId: {DayId}", organizationId, areaId, targetDay.Id);
 
             var orders = await ordersQuery.OrderBy(o => o.OrderDateTime).ToListAsync();
             var timelineEvents = new List<OrderStatusTimelineEventDto>();
@@ -456,6 +514,7 @@ namespace SagraFacile.NET.API.Services
                     DurationInPreviousStatusMinutes = null
                 });
             }
+            _logger.LogInformation("Successfully fetched order status timeline for organization {OrganizationId}, dayId: {DayId}. Total events: {EventCount}", organizationId, dayId, timelineEvents.Count);
             return timelineEvents.OrderBy(e => e.Timestamp).ThenBy(e => e.DisplayOrderNumber).ToList();
         }
 
@@ -466,14 +525,15 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to generate daily summary report for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to generate daily summary report for this organization.");
             }
-            _logger.LogInformation($"Generating daily summary report for organization {organizationId}, day {dayId}");
+            _logger.LogInformation("Generating daily summary report for organization {OrganizationId}, day {DayId}", organizationId, dayId);
 
             var day = await _context.Days.FirstOrDefaultAsync(d => d.Id == dayId && d.OrganizationId == organizationId);
             if (day == null)
             {
-                _logger.LogWarning($"Day {dayId} not found for organization {organizationId}.");
+                _logger.LogWarning("Day {DayId} not found for organization {OrganizationId} when generating daily summary report.", dayId, organizationId);
                 throw new KeyNotFoundException($"Giorno operativo {dayId} non trovato.");
             }
 
@@ -494,6 +554,7 @@ namespace SagraFacile.NET.API.Services
 
             if (!orders.Any())
             {
+                _logger.LogInformation("No orders found for day {DayId} in organization {OrganizationId}. Generating empty report.", dayId, organizationId);
                 reportContent.AppendLine("No orders found for this day.");
                 return Encoding.UTF8.GetBytes(reportContent.ToString());
             }
@@ -535,7 +596,7 @@ namespace SagraFacile.NET.API.Services
                 reportContent.AppendLine($"- {pm.Method}: {pm.Count} orders, Total: {pm.Amount.ToString("C", CultureInfo.GetCultureInfo("it-IT"))}");
             }
 
-            _logger.LogInformation("Placeholder: Report generation logic implemented as simple text. For PDF/Excel, integrate a library.");
+            _logger.LogInformation("Successfully generated daily summary report for organization {OrganizationId}, day {DayId}.", organizationId, dayId);
             return Encoding.UTF8.GetBytes(reportContent.ToString());
         }
 
@@ -544,9 +605,10 @@ namespace SagraFacile.NET.API.Services
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
             {
+                _logger.LogWarning("User {UserId} from organization {UserOrgId} attempted to generate area performance report for organization {OrganizationId} without SuperAdmin rights.", GetUserId(), userOrgId, organizationId);
                 throw new UnauthorizedAccessException("User is not authorized to generate area performance report for this organization.");
             }
-            _logger.LogInformation($"Generating area performance report for organization {organizationId} from {startDate:yyyy-MM-dd} to {endDate:yyyy-MM-dd}");
+            _logger.LogInformation("Generating area performance report for organization {OrganizationId} from {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}", organizationId, startDate, endDate);
 
             var ordersInDateRange = await _context.Orders
                 .Where(o => o.OrganizationId == organizationId &&
@@ -564,6 +626,7 @@ namespace SagraFacile.NET.API.Services
 
             if (!ordersInDateRange.Any())
             {
+                _logger.LogInformation("No orders found for the period {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd} in organization {OrganizationId}. Generating empty report.", startDate, endDate, organizationId);
                 reportContent.AppendLine("No orders found for this period.");
                 return Encoding.UTF8.GetBytes(reportContent.ToString());
             }
@@ -590,7 +653,7 @@ namespace SagraFacile.NET.API.Services
                 reportContent.AppendLine();
             }
 
-            _logger.LogInformation("Placeholder: Report generation logic implemented as simple text. For PDF/Excel, integrate a library.");
+            _logger.LogInformation("Successfully generated area performance report for organization {OrganizationId} from {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}.", organizationId, startDate, endDate);
             return Encoding.UTF8.GetBytes(reportContent.ToString());
         }
     }

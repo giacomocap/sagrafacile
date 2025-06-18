@@ -377,8 +377,8 @@
 ## (2025-06-06) - Resolved .NET Build Error on macOS
 *   **Summary:** Resolved `NETSDK1100` build error for `SagraFacile.WindowsPrinterService` on macOS. Added `<EnableWindowsTargeting>true</EnableWindowsTargeting>` to `SagraFacile.WindowsPrinterService.csproj` to allow building Windows-targeted project on non-Windows OS. Next step: Confirm fix by rebuilding.
 
-## (2025-06-18) - Implemented Serilog Logging
-**Context:** Implemented comprehensive logging for the .NET API using Serilog, as detailed in `docs/LoggingStrategy.md`. This enhances debugging, troubleshooting, and operational insight.
+## (2025-06-18) - Implemented Serilog Logging in All Controllers and Services
+**Context:** Completed the implementation of comprehensive logging in all controllers and services of the SagraFacile.NET API using Serilog, as detailed in `docs/LoggingStrategy.md`. This significantly enhances debugging, troubleshooting, and operational insight for the backend.
 **Accomplishments:**
 *   **NuGet Packages Added:** Installed `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Enrichers.Environment`, `Serilog.Enrichers.Thread`, and `Serilog.Settings.Configuration` to `SagraFacile.NET.API.csproj`.
 *   **`Program.cs` Configuration:**
@@ -389,18 +389,60 @@
     *   Added a `Serilog` section to define minimum log levels for various namespaces (e.g., `Default`, `Microsoft`, `Microsoft.EntityFrameworkCore.Database.Command`).
     *   Configured log enrichers (`FromLogContext`, `WithMachineName`, `WithThreadId`) and set an `ApplicationName` property.
 *   **Logging Statements in Code:**
-    *   **`SagraFacile.NET.API/Services/OrderService.cs`:** Injected `ILogger<OrderService>` and added `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` statements to critical methods like `CreateOrderAsync`, `CreatePreOrderAsync`, `ConfirmOrderPreparationAsync`, `ConfirmPreOrderPaymentAsync`, `ConfirmOrderPickupAsync`, `GetOrderByIdAsync`, `GetOrdersByAreaAsync`, `GetOrdersAsync`, `GetActiveOrdersForKdsStationAsync`, `UpdateOrderItemKdsStatusAsync`, `ConfirmKdsOrderCompletionAsync`, `GetOrdersByStatusAsync`, `GetPublicOrdersByStatusAsync`, and `SendOrderStatusUpdateAsync`. Focused on logging entry/exit, validation failures, stock changes, transaction outcomes, printing attempts, and SignalR broadcasts.
-    *   **`SagraFacile.NET.API/Controllers/AccountsController.cs`:** Injected `ILogger<AccountsController>` and added `LogInformation` for request reception and success, and `LogWarning`/`LogError` for validation failures and exceptions in methods like `Register`, `Login`, `AssignRole`, `UnassignRole`, `GetUsers`, `GetUserById`, `UpdateUser`, `DeleteUser`, `GetRoles`, `CreateRole`, and `RefreshToken`.
-    *   **`SagraFacile.NET.API/Controllers/AreasController.cs`:** Injected `ILogger<AreasController>` and added `LogInformation` for request reception and success, and `LogWarning`/`LogError` for validation failures and exceptions in methods like `GetAreas`, `GetArea`, `PostArea`, `PutArea`, and `DeleteArea`.
-**Key Decisions:**
-*   Adopted Serilog for its structured logging capabilities and ASP.NET Core integration.
-*   Implemented a consistent pattern for `ILogger<T>` injection and structured logging across controllers and services.
-*   Utilized various log levels (`Information`, `Warning`, `Error`, `Debug`) to categorize messages appropriately.
-*   Prioritized logging of critical business events, validation failures, and exceptions with contextual information.
-**Outcome:** The SagraFacile.NET API now has a robust and configurable logging infrastructure, significantly improving observability and making future debugging and monitoring more efficient.
+    *   **All Controllers Covered:** Injected `ILogger<T>` and added detailed logging statements to all public-facing and admin controllers, including:
+        *   `SagraFacile.NET.API/Controllers/AccountsController.cs`
+        *   `SagraFacile.NET.API/Controllers/AdAreaAssignmentsController.cs`
+        *   `SagraFacile.NET.API/Controllers/AdMediaItemsController.cs`
+        *   `SagraFacile.NET.API/Controllers/AnalyticsController.cs`
+        *   `SagraFacile.NET.API/Controllers/AreasController.cs`
+        *   `SagraFacile.NET.API/Controllers/CashierStationsController.cs`
+        *   `SagraFacile.NET.API/Controllers/DaysController.cs`
+        *   `SagraFacile.NET.API/Controllers/KdsStationsController.cs`
+        *   `SagraFacile.NET.API/Controllers/MenuCategoriesController.cs`
+        *   `SagraFacile.NET.API/Controllers/MenuItemsController.cs`
+        *   `SagraFacile.NET.API/Controllers/OrdersController.cs`
+        *   `SagraFacile.NET.API/Controllers/OrganizationsController.cs`
+        *   `SagraFacile.NET.API/Controllers/PrinterAssignmentsController.cs`
+        *   `SagraFacile.NET.API/Controllers/PrintersController.cs`
+        *   `SagraFacile.NET.API/Controllers/PublicController.cs`
+        *   `SagraFacile.NET.API/Controllers/QueueController.cs`
+        *   `SagraFacile.NET.API/Controllers/SyncController.cs`
+    *   **All Services Covered:** Injected `ILogger<T>` and added detailed logging statements to all services, including:
+        *   `SagraFacile.NET.API/Services/AccountService.cs`
+        *   `SagraFacile.NET.API/Services/AdAreaAssignmentService.cs`
+        *   `SagraFacile.NET.API/Services/AdMediaItemService.cs`
+        *   `SagraFacile.NET.API/Services/AnalyticsService.cs`
+        *   `SagraFacile.NET.API/Services/AreaService.cs`
+        *   `SagraFacile.NET.API/Services/CashierStationService.cs`
+        *   `SagraFacile.NET.API/Services/DayService.cs`
+        *   `SagraFacile.NET.API/Services/KdsStationService.cs`
+        *   `SagraFacile.NET.API/Services/MenuCategoryService.cs`
+        *   `SagraFacile.NET.API/Services/MenuItemService.cs`
+        *   `SagraFacile.NET.API/Services/OrderService.cs`
+        *   `SagraFacile.NET.API/Services/OrganizationService.cs`
+        *   `SagraFacile.NET.API/Services/PrinterAssignmentService.cs`
+        *   `SagraFacile.NET.API/Services/PrinterService.cs`
+        *   `SagraFacile.NET.API/Services/QueueService.cs`
+        *   `SagraFacile.NET.API/Services/SyncConfigurationService.cs`
+        *   (Note: `BaseService.cs`, `EmailService.cs`, `EmailSettings.cs`, `IAnalyticsService.cs`, `MenuSyncService.cs`, `PreOrderPollingService.cs` are either base classes, DTOs, interfaces, or background services that do not require direct `ILogger<T>` injection in the same manner as business logic services.)
+*   **Consistent Pattern:** Applied a consistent pattern for `ILogger<T>` injection and structured logging across all controllers and services.
+*   **Log Levels:** Utilized `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` to categorize messages appropriately, focusing on critical business events, validation failures, and exceptions.
+**Outcome:** The SagraFacile.NET API now has a robust and configurable logging infrastructure across all its controllers and services, significantly improving observability and making future debugging and monitoring more efficient.
 **Next Steps:**
-*   Continue adding logging statements to other controllers and services following the established pattern.
 *   Monitor log output during development and testing to fine-tune log levels and ensure clarity.
+*   Consider implementing correlation IDs for tracing requests across the application.
+*   Explore advanced Serilog sinks for production environments (e.g., file, Seq, cloud logging).
+
+## (2025-06-18) - Verified and Enhanced Serilog Logging in Services
+**Context:** Following up on the comprehensive Serilog logging implementation, a re-verification of logging in specific service files was performed as per user instruction, focusing on those not recently modified in `git status`.
+**Accomplishments:**
+*   **Verified Existing Logging:** Confirmed that `AccountsController.cs`, `AreasController.cs`, `DayService.cs`, `KdsStationService.cs`, `OrderService.cs`, and `PrinterAssignmentService.cs` already had `ILogger<T>` injected and appropriate logging statements.
+*   **Added/Enhanced Logging:** Injected `ILogger<T>` and added detailed logging statements to the following services where it was missing or insufficient:
+    *   `SagraFacile.NET.API/Services/MenuCategoryService.cs`
+    *   `SagraFacile.NET.API/Services/MenuItemService.cs`
+    *   `SagraFacile.NET.API/Services/SyncConfigurationService.cs`
+*   **Consistent Pattern:** Ensured a consistent pattern for `ILogger<T>` injection and structured logging across all updated services.
+**Outcome:** All identified controllers and services now have robust and consistent logging, further improving the observability and debuggability of the SagraFacile.NET API.
 
 ## (Next Session) - Planned Work
 *   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.

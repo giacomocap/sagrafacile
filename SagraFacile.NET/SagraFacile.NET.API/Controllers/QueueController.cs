@@ -28,6 +28,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(400)] // Bad request (e.g., context issue)
         public async Task<IActionResult> GetState(int areaId)
         {
+            _logger.LogInformation("Received request to get queue state for Area {AreaId}.", areaId);
             var result = await _queueService.GetQueueStateAsync(areaId);
             if (!result.Success)
             {
@@ -35,10 +36,13 @@ namespace SagraFacile.NET.API.Controllers
                  // Assuming Fail messages indicate the type
                  if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase) || e.Contains("not authorized", StringComparison.OrdinalIgnoreCase)))
                  {
+                      _logger.LogWarning("Queue state for Area {AreaId} not found or not authorized: {Errors}", areaId, string.Join("; ", result.Errors));
                       return NotFound(string.Join("; ", result.Errors));
                  }
+                 _logger.LogError("Failed to get queue state for Area {AreaId}: {Errors}", areaId, string.Join("; ", result.Errors));
                  return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully retrieved queue state for Area {AreaId}.", areaId);
             return Ok(result.Value);
         }
 
@@ -50,8 +54,10 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(404)] // Area or Station not found
         public async Task<IActionResult> CallNext(int areaId, [FromBody] CallNextRequest request)
         {
+            _logger.LogInformation("Received request to call next queue number for Area {AreaId} from CashierStation {CashierStationId}.", areaId, request.CashierStationId);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for CallNext request for Area {AreaId}: {@ModelState}", areaId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -61,10 +67,13 @@ namespace SagraFacile.NET.API.Controllers
             {
                  if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                  {
+                      _logger.LogWarning("Area {AreaId} or CashierStation {CashierStationId} not found for CallNext: {Errors}", areaId, request.CashierStationId, string.Join("; ", result.Errors));
                       return NotFound(string.Join("; ", result.Errors));
                  }
+                _logger.LogError("Failed to call next queue number for Area {AreaId} from CashierStation {CashierStationId}: {Errors}", areaId, request.CashierStationId, string.Join("; ", result.Errors));
                 return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully called next queue number {TicketNumber} for Area {AreaId} from CashierStation {CashierStationId}.", result.Value.TicketNumber, areaId, request.CashierStationId);
             return Ok(result.Value);
         }
 
@@ -76,8 +85,10 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(404)]
         public async Task<IActionResult> CallSpecific(int areaId, [FromBody] CallSpecificRequest request)
         {
+            _logger.LogInformation("Received request to call specific queue number {TicketNumber} for Area {AreaId} from CashierStation {CashierStationId}.", request.TicketNumber, areaId, request.CashierStationId);
              if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for CallSpecific request for Area {AreaId}: {@ModelState}", areaId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -86,10 +97,13 @@ namespace SagraFacile.NET.API.Controllers
             {
                   if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                  {
+                      _logger.LogWarning("Area {AreaId} or CashierStation {CashierStationId} not found for CallSpecific: {Errors}", areaId, request.CashierStationId, string.Join("; ", result.Errors));
                       return NotFound(string.Join("; ", result.Errors));
                  }
+                _logger.LogError("Failed to call specific queue number {TicketNumber} for Area {AreaId} from CashierStation {CashierStationId}: {Errors}", request.TicketNumber, areaId, request.CashierStationId, string.Join("; ", result.Errors));
                 return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully called specific queue number {TicketNumber} for Area {AreaId} from CashierStation {CashierStationId}.", result.Value.TicketNumber, areaId, request.CashierStationId);
             return Ok(result.Value);
         }
 
@@ -102,15 +116,19 @@ namespace SagraFacile.NET.API.Controllers
         public async Task<IActionResult> ResetQueue(int areaId, [FromBody] ResetQueueRequest? request)
         {
             int startingNumber = request?.StartingNumber ?? 1;
+            _logger.LogInformation("Received request to reset queue for Area {AreaId} with starting number {StartingNumber}.", areaId, startingNumber);
             var result = await _queueService.ResetQueueAsync(areaId, startingNumber);
             if (!result.Success)
             {
                  if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                  {
+                      _logger.LogWarning("Area {AreaId} not found for ResetQueue: {Errors}", areaId, string.Join("; ", result.Errors));
                       return NotFound(string.Join("; ", result.Errors));
                  }
+                _logger.LogError("Failed to reset queue for Area {AreaId}: {Errors}", areaId, string.Join("; ", result.Errors));
                 return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully reset queue for Area {AreaId} to starting number {StartingNumber}.", areaId, startingNumber);
             return NoContent(); // Success
         }
 
@@ -122,8 +140,10 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(404)]
         public async Task<IActionResult> UpdateNextSequential(int areaId, [FromBody] UpdateNextSequentialRequest request)
         {
+            _logger.LogInformation("Received request to update next sequential queue number for Area {AreaId} to {NewNextNumber}.", areaId, request.NewNextNumber);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for UpdateNextSequential request for Area {AreaId}: {@ModelState}", areaId, ModelState);
                 return BadRequest(ModelState);
             }
             var result = await _queueService.UpdateNextSequentialNumberAsync(areaId, request.NewNextNumber);
@@ -131,10 +151,13 @@ namespace SagraFacile.NET.API.Controllers
             {
                  if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                  {
+                      _logger.LogWarning("Area {AreaId} not found for UpdateNextSequential: {Errors}", areaId, string.Join("; ", result.Errors));
                       return NotFound(string.Join("; ", result.Errors));
                  }
+                _logger.LogError("Failed to update next sequential queue number for Area {AreaId} to {NewNextNumber}: {Errors}", areaId, request.NewNextNumber, string.Join("; ", result.Errors));
                 return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully updated next sequential queue number for Area {AreaId} to {NewNextNumber}.", areaId, request.NewNextNumber);
             return NoContent(); // Success
         }
 
@@ -146,8 +169,14 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(404)]
         public async Task<IActionResult> ToggleQueueSystem(int areaId, [FromBody] bool enable)
         {
+            _logger.LogInformation("Received request to toggle queue system for Area {AreaId} to {Enable}.", areaId, enable);
             var result = await _queueService.ToggleQueueSystemAsync(areaId, enable);
-            if (!result.Success) return BadRequest(result.Errors);
+            if (!result.Success)
+            {
+                _logger.LogError("Failed to toggle queue system for Area {AreaId} to {Enable}: {Errors}", areaId, enable, string.Join("; ", result.Errors));
+                return BadRequest(result.Errors);
+            }
+            _logger.LogInformation("Successfully toggled queue system for Area {AreaId} to {Enable}.", areaId, enable);
             return Ok();
         }
 
@@ -159,8 +188,10 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(404)] // Area or Station not found
         public async Task<IActionResult> RespeakLastCalled(int areaId, [FromBody] RespeakRequest request)
         {
+            _logger.LogInformation("Received request to respeak last called number for Area {AreaId} from CashierStation {CashierStationId}.", areaId, request.CashierStationId);
             if (!ModelState.IsValid)
             {
+                _logger.LogWarning("Invalid model state for RespeakLastCalled request for Area {AreaId}: {@ModelState}", areaId, ModelState);
                 return BadRequest(ModelState);
             }
 
@@ -170,17 +201,19 @@ namespace SagraFacile.NET.API.Controllers
             {
                 if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
                 {
+                    _logger.LogWarning("Area {AreaId} or CashierStation {CashierStationId} not found for RespeakLastCalled: {Errors}", areaId, request.CashierStationId, string.Join("; ", result.Errors));
                     return NotFound(string.Join("; ", result.Errors));
                 }
                 // Specific check for "No number has been called yet"
                 if (result.Errors.Any(e => e.Contains("No number has been called yet", StringComparison.OrdinalIgnoreCase)))
                 {
-                    // Return a 200 OK with a specific message or a custom DTO, 
-                    // or a 400 with a clear error. For now, let's use 400.
+                    _logger.LogInformation("No number has been called yet for Area {AreaId} from CashierStation {CashierStationId}.", areaId, request.CashierStationId);
                     return BadRequest(string.Join("; ", result.Errors));
                 }
+                _logger.LogError("Failed to respeak last called number for Area {AreaId} from CashierStation {CashierStationId}: {Errors}", areaId, request.CashierStationId, string.Join("; ", result.Errors));
                 return BadRequest(string.Join("; ", result.Errors));
             }
+            _logger.LogInformation("Successfully re-spoke last called number {TicketNumber} for Area {AreaId} from CashierStation {CashierStationId}.", result.Value.TicketNumber, areaId, request.CashierStationId);
             return Ok(result.Value);
         }
 

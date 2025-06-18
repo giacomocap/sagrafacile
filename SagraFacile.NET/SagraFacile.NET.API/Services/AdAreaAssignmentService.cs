@@ -4,10 +4,6 @@ using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
 using SagraFacile.NET.API.Services.Interfaces;
 using SagraFacile.NET.API.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SagraFacile.NET.API.Services
 {
@@ -24,7 +20,8 @@ namespace SagraFacile.NET.API.Services
 
         public async Task<IEnumerable<AdAreaAssignmentDto>> GetAssignmentsForAreaAsync(int areaId)
         {
-            return await _context.AdAreaAssignments
+            _logger.LogInformation("Fetching ad area assignments for AreaId: {AreaId}.", areaId);
+            var assignments = await _context.AdAreaAssignments
                 .Include(a => a.AdMediaItem)
                 .Where(a => a.AreaId == areaId)
                 .OrderBy(a => a.DisplayOrder)
@@ -48,19 +45,25 @@ namespace SagraFacile.NET.API.Services
                     }
                 })
                 .ToListAsync();
+            _logger.LogInformation("Found {Count} ad area assignments for AreaId: {AreaId}.", assignments.Count(), areaId);
+            return assignments;
         }
 
         public async Task<ServiceResult<AdAreaAssignmentDto>> CreateAssignmentAsync(AdAreaAssignmentUpsertDto dto)
         {
+            _logger.LogInformation("Attempting to create ad area assignment for AdMediaItemId: {AdMediaItemId}, AreaId: {AreaId}.", dto.AdMediaItemId, dto.AreaId);
+
             var adExists = await _context.AdMediaItems.AnyAsync(ad => ad.Id == dto.AdMediaItemId);
             if (!adExists)
             {
+                _logger.LogWarning("Create assignment failed: AdMediaItem with ID {AdMediaItemId} not found.", dto.AdMediaItemId);
                 return ServiceResult<AdAreaAssignmentDto>.Fail("AdMediaItem not found.");
             }
 
             var areaExists = await _context.Areas.AnyAsync(a => a.Id == dto.AreaId);
             if (!areaExists)
             {
+                _logger.LogWarning("Create assignment failed: Area with ID {AreaId} not found.", dto.AreaId);
                 return ServiceResult<AdAreaAssignmentDto>.Fail("Area not found.");
             }
 
@@ -76,6 +79,7 @@ namespace SagraFacile.NET.API.Services
 
             _context.AdAreaAssignments.Add(assignment);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Ad area assignment created successfully with ID {AssignmentId}.", assignment.Id);
 
             var createdDto = await _context.AdAreaAssignments
                 .Include(a => a.AdMediaItem)
@@ -106,9 +110,11 @@ namespace SagraFacile.NET.API.Services
 
         public async Task<ServiceResult> UpdateAssignmentAsync(Guid assignmentId, AdAreaAssignmentUpsertDto dto)
         {
+            _logger.LogInformation("Attempting to update ad area assignment with ID: {AssignmentId}.", assignmentId);
             var assignment = await _context.AdAreaAssignments.FindAsync(assignmentId);
             if (assignment == null)
             {
+                _logger.LogWarning("Update assignment failed: Assignment with ID {AssignmentId} not found.", assignmentId);
                 return ServiceResult.Fail("Assignment not found.");
             }
 
@@ -116,24 +122,27 @@ namespace SagraFacile.NET.API.Services
             assignment.DurationSeconds = dto.DurationSeconds;
             assignment.IsActive = dto.IsActive;
             // Note: Changing AdMediaItemId or AreaId is not supported to keep it simple.
-            // Users should delete and recreate if they need to change the core link.
 
             _context.Entry(assignment).State = EntityState.Modified;
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Ad area assignment {AssignmentId} updated successfully.", assignmentId);
 
             return ServiceResult.Ok();
         }
 
         public async Task<ServiceResult> DeleteAssignmentAsync(Guid assignmentId)
         {
+            _logger.LogInformation("Attempting to delete ad area assignment with ID: {AssignmentId}.", assignmentId);
             var assignment = await _context.AdAreaAssignments.FindAsync(assignmentId);
             if (assignment == null)
             {
+                _logger.LogWarning("Delete assignment failed: Assignment with ID {AssignmentId} not found.", assignmentId);
                 return ServiceResult.Fail("Assignment not found.");
             }
 
             _context.AdAreaAssignments.Remove(assignment);
             await _context.SaveChangesAsync();
+            _logger.LogInformation("Ad area assignment {AssignmentId} deleted successfully.", assignmentId);
 
             return ServiceResult.Ok();
         }

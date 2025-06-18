@@ -158,6 +158,22 @@ Adjusted styling in `CashierOrderPanel.tsx` to reduce horizontal and vertical sp
 *   Phase 9.5: Implement orders analytics charts for the orders admin page
 *   Phase 9.6: Polish, testing, and potential PDF/Excel report generation enhancement
 
+## (2025-06-18) - Implemented Serilog Logging in .NET Backend
+*   **Context:** Completed the implementation of comprehensive logging in the SagraFacile.NET API using Serilog, as detailed in `docs/LoggingStrategy.md`. This significantly enhances debugging, troubleshooting, and operational insight for the backend.
+*   **Accomplishments:**
+    *   **Serilog Setup:** Configured Serilog in `SagraFacile.NET/SagraFacile.NET.API/Program.cs` and `SagraFacile.NET/SagraFacile.NET.API/appsettings.json` for structured logging, including request logging and enrichment with machine/thread info.
+    *   **Logging in Controllers:** Injected `ILogger<T>` and added detailed logging statements to the following controllers:
+        *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/AccountsController.cs`
+        *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/AreasController.cs`
+        *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/OrganizationsController.cs`
+        *   `SagraFacile.NET/SagraFacile.NET.API/Controllers/PrintersController.cs`
+    *   **Logging in Services:** Injected `ILogger<T>` and added detailed logging statements to the following services:
+        *   `SagraFacile.NET/SagraFacile.NET.API/Services/OrderService.cs`
+        *   `SagraFacile.NET/SagraFacile.NET.API/Services/OrganizationService.cs`
+        *   `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs`
+    *   **Log Levels:** Utilized `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` to categorize messages appropriately, focusing on critical business events, validation failures, and exceptions.
+*   **Outcome:** The .NET API now has a robust and configurable logging infrastructure, improving observability and making future debugging and monitoring more efficient. This provides better insights into backend operations from the frontend perspective.
+
 ## (Next Session) - Planned Work
 Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub. This impacts both backend and frontend testing of the printing feature.
 

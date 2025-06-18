@@ -34,11 +34,13 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can access
         public async Task<ActionResult<SyncConfigurationDto>> GetSyncConfiguration(int organizationId)
         {
+            _logger.LogInformation("Received request to get sync configuration for organization {OrganizationId}.", organizationId);
             try
             {
                 var config = await _syncConfigurationService.GetSyncConfigurationAsync(organizationId);
                 if (config == null)
                 {
+                    _logger.LogWarning("Sync configuration for organization {OrganizationId} not found.", organizationId);
                     return NotFound();
                 }
                 
@@ -52,11 +54,12 @@ namespace SagraFacile.NET.API.Controllers
                     IsEnabled = config.IsEnabled
                 };
                 
+                _logger.LogInformation("Successfully retrieved sync configuration for organization {OrganizationId}.", organizationId);
                 return Ok(configDto);
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "Unauthorized access attempt to sync configuration for organization {OrganizationId}", organizationId);
+                _logger.LogWarning(ex, "Unauthorized access attempt to get sync configuration for organization {OrganizationId}", organizationId);
                 return Forbid();
             }
             catch (Exception ex)
@@ -76,6 +79,7 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can modify
         public async Task<ActionResult<SyncConfigurationDto>> SaveSyncConfiguration(int organizationId, [FromBody] SyncConfigurationUpsertDto configDto)
         {
+            _logger.LogInformation("Received request to save sync configuration for organization {OrganizationId}. IsEnabled: {IsEnabled}", organizationId, configDto.IsEnabled);
             try
             {
                 // Map the DTO to model
@@ -99,6 +103,7 @@ namespace SagraFacile.NET.API.Controllers
                     IsEnabled = savedConfig.IsEnabled
                 };
                 
+                _logger.LogInformation("Successfully saved sync configuration for organization {OrganizationId}.", organizationId);
                 return Ok(savedConfigDto);
             }
             catch (UnauthorizedAccessException ex)
@@ -108,7 +113,7 @@ namespace SagraFacile.NET.API.Controllers
             }
             catch (ArgumentException ex)
             {
-                _logger.LogWarning(ex, "Invalid argument when saving sync configuration for organization {OrganizationId}", organizationId);
+                _logger.LogWarning(ex, "Invalid argument when saving sync configuration for organization {OrganizationId}: {Message}", organizationId, ex.Message);
                 return BadRequest(ex.Message);
             }
             catch (Exception ex)
@@ -127,13 +132,16 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can delete
         public async Task<ActionResult> DeleteSyncConfiguration(int organizationId)
         {
+            _logger.LogInformation("Received request to delete sync configuration for organization {OrganizationId}.", organizationId);
             try
             {
                 var result = await _syncConfigurationService.DeleteSyncConfigurationAsync(organizationId);
                 if (!result)
                 {
+                    _logger.LogWarning("Sync configuration for organization {OrganizationId} not found for deletion.", organizationId);
                     return NotFound();
                 }
+                _logger.LogInformation("Successfully deleted sync configuration for organization {OrganizationId}.", organizationId);
                 return NoContent();
             }
             catch (UnauthorizedAccessException ex)
@@ -157,15 +165,18 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can trigger sync
         public async Task<ActionResult<MenuSyncResult>> SyncMenu(int organizationId)
         {
+            _logger.LogInformation("Received request to synchronize menu for organization {OrganizationId}.", organizationId);
             try
             {
                 var result = await _menuSyncService.SyncMenuAsync(organizationId);
                 if (result.Success)
                 {
+                    _logger.LogInformation("Successfully synchronized menu for organization {OrganizationId}.", organizationId);
                     return Ok(result);
                 }
                 else
                 {
+                    _logger.LogWarning("Menu synchronization failed for organization {OrganizationId}: {Errors}", organizationId, result.ErrorMessage);
                     // Return appropriate status code based on the error
                     if (result.StatusCode.HasValue)
                     {
