@@ -10,42 +10,42 @@ using Microsoft.IdentityModel.Tokens; // Added for Token Validation Parameters
 using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
-using Serilog; // Added for Serilog
-using Serilog.Events; // Added for Serilog LogEventLevel
+// using Serilog; // Added for Serilog
+// using Serilog.Events; // Added for Serilog LogEventLevel
 
 // Ensure extended encodings are available
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-// --- Serilog Bootstrap Logger ---
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug() // More verbose for bootstrap
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components during bootstrap
-    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName()
-    .Enrich.WithThreadId()
-    .WriteTo.Console(outputTemplate: // Structured console output for Docker
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
-    .CreateBootstrapLogger();
-// --- End Serilog Bootstrap Logger ---
+// // --- Serilog Bootstrap Logger ---
+// Log.Logger = new LoggerConfiguration()
+//     .MinimumLevel.Debug() // More verbose for bootstrap
+//     .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components during bootstrap
+//     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+//     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Information)
+//     .Enrich.FromLogContext()
+//     .Enrich.WithMachineName()
+//     .Enrich.WithThreadId()
+//     .WriteTo.Console(outputTemplate: // Structured console output for Docker
+//         "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
+//     .CreateBootstrapLogger();
+// // --- End Serilog Bootstrap Logger ---
 
-try // Added for Serilog try-finally block
-{
-    Log.Information("Starting SagraFacile.NET.API host"); // Added for Serilog
+// try // Added for Serilog try-finally block
+// {
+    Console.WriteLine("Starting SagraFacile.NET.API host"); // Replaced Log.Information
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // --- Configure Serilog for WebApplicationBuilder ---
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .MinimumLevel.Debug() // More verbose for general logging
-        .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components
-        .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .Enrich.WithMachineName()
-        .Enrich.WithThreadId());
-    // --- End Configure Serilog for WebApplicationBuilder ---
+    // // --- Configure Serilog for WebApplicationBuilder ---
+    // builder.Host.UseSerilog((context, services, configuration) => configuration
+    //     .MinimumLevel.Debug() // More verbose for general logging
+    //     .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components
+    //     .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
+    //     .ReadFrom.Services(services)
+    //     .Enrich.FromLogContext()
+    //     .Enrich.WithMachineName()
+    //     .Enrich.WithThreadId());
+    // // --- End Configure Serilog for WebApplicationBuilder ---
 
     // Define CORS policy name
     var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -59,10 +59,10 @@ try // Added for Serilog try-finally block
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrEmpty(connectionString))
         {
-            Log.Error("Connection string 'DefaultConnection' not found or is empty. Please check configuration (environment variables or appsettings.json).");
+            Console.WriteLine("ERROR: Connection string 'DefaultConnection' not found or is empty. Please check configuration (environment variables or appsettings.json)."); // Replaced Log.Error
             throw new InvalidOperationException("Connection string 'DefaultConnection' not found or is empty.");
         }
-        Log.Information("Using ConnectionString: {ConnectionString}", connectionString); // Log the actual connection string
+        Console.WriteLine($"Using ConnectionString: {connectionString}"); // Replaced Log.Information
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString)); // Use PostgreSQL provider
     }
@@ -181,12 +181,12 @@ try // Added for Serilog try-finally block
                                                          // policy.WithOrigins("https://your-production-domain.com")
                                                          //       .AllowAnyHeader()
                                                          //       .AllowAnyMethod();
-                          });
+                           });
     });
 
-    Log.Information("All services configured. Attempting to build the application...");
+    Console.WriteLine("All services configured. Attempting to build the application..."); // Replaced Log.Information
     var app = builder.Build();
-    Log.Information("Application built successfully. Configuring HTTP request pipeline...");
+    Console.WriteLine("Application built successfully. Configuring HTTP request pipeline..."); // Replaced Log.Information
 
     // Configure the HTTP request pipeline.
     // Map OpenAPI/Swagger also in Testing environment for integration tests
@@ -220,7 +220,8 @@ try // Added for Serilog try-finally block
     using (var scope = app.Services.CreateScope())
     {
         var services = scope.ServiceProvider;
-        var logger = services.GetRequiredService<ILogger<Program>>();
+        // var logger = services.GetRequiredService<ILogger<Program>>(); // Serilog logger
+        var appLogger = services.GetRequiredService<ILoggerFactory>().CreateLogger<Program>(); // Standard logger
         // Avoid applying migrations during integration tests if using a separate test DB strategy
         if (!app.Environment.IsEnvironment("Testing"))
         {
@@ -228,13 +229,13 @@ try // Added for Serilog try-finally block
             {
                 var context = services.GetRequiredService<ApplicationDbContext>();
                 await context.Database.MigrateAsync(); // Apply pending migrations
-                logger.LogInformation("Database migrations applied successfully.");
+                appLogger.LogInformation("Database migrations applied successfully."); // Replaced logger.LogInformation
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "An error occurred while applying database migrations.");
+                appLogger.LogError(ex, "An error occurred while applying database migrations. Re-throwing exception."); // Replaced logger.LogError
                 // Consider stopping the application if migrations fail critically
-                // throw;
+                throw; // Re-throw the exception to be caught by the main try-catch
             }
         }
     }
@@ -245,20 +246,21 @@ try // Added for Serilog try-finally block
     // --- End Seed Database ---
 
 
-    // --- Serilog Request Logging ---
-    app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
-    // --- End Serilog Request Logging ---
+    // // --- Serilog Request Logging ---
+    // app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
+    // // --- End Serilog Request Logging ---
 
     app.Run();
-} // Added for Serilog try-finally block
-catch (Exception ex) // Added for Serilog try-finally block
-{
-    Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
-}
-finally // Added for Serilog try-finally block
-{
-    Log.CloseAndFlush();
-}
+// } // Added for Serilog try-finally block
+// catch (Exception ex) // Added for Serilog try-finally block
+// {
+//     // Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
+//     Console.WriteLine($"FATAL ERROR: SagraFacile.NET.API host terminated unexpectedly. Exception: {ex}"); // Replaced Log.Fatal
+// }
+// finally // Added for Serilog try-finally block
+// {
+//     // Log.CloseAndFlush();
+// }
 
 
 // Add this partial declaration to make the implicit Program class public

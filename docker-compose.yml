@@ -34,9 +34,14 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:-SagraFacile} # Preserved from existing
       JWT_AUDIENCE: ${JWT_AUDIENCE:-SagraFacileApp} # Preserved from existing
       ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true} # Preserved from existing
+      SAGRAFACILE_SEED_DEMO_DATA: ${SAGRAFACILE_SEED_DEMO_DATA:-false} # Added for demo data seeding
+      INITIAL_ORGANIZATION_NAME: ${INITIAL_ORGANIZATION_NAME} # Added for initial org setup
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL} # Added for initial org setup
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD} # Added for initial org setup
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL} # Added for superadmin
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD} # Added for superadmin
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD} # Added for demo user password
       # Add other backend-specific environment variables from .env if any were missed
-      # INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL}
-      # INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
     volumes:
       - sagrafacile_media_data:/app/wwwroot/media # Persist uploaded media
     depends_on:
