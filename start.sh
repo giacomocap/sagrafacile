@@ -74,10 +74,25 @@ load_config_from_json() {
         INITIAL_ORGANIZATION_NAME=$(grep -oP '"INITIAL_ORGANIZATION_NAME": "\K[^"]*' $CONFIG_FILE || echo "")
         INITIAL_ADMIN_EMAIL=$(grep -oP '"INITIAL_ADMIN_EMAIL": "\K[^"]*' $CONFIG_FILE || echo "")
         INITIAL_ADMIN_PASSWORD=$(grep -oP '"INITIAL_ADMIN_PASSWORD": "\K[^"]*' $CONFIG_FILE || echo "")
-        # Optional SuperAdmin/DemoUser Passwords (not prompted, but preserved if in config)
-        SUPERADMIN_EMAIL=$(grep -oP '"SUPERADMIN_EMAIL": "\K[^"]*' $CONFIG_FILE || echo "")
-        SUPERADMIN_PASSWORD=$(grep -oP '"SUPERADMIN_PASSWORD": "\K[^"]*' $CONFIG_FILE || echo "")
-        DEMO_USER_PASSWORD=$(grep -oP '"DEMO_USER_PASSWORD": "\K[^"]*' $CONFIG_FILE || echo "")
+        
+        # Advanced/Optional settings from config
+        JWT_ISSUER_CFG=$(grep -oP '"JWT_ISSUER": "\K[^"]*' $CONFIG_FILE || echo "SagraFacile")
+        JWT_AUDIENCE_CFG=$(grep -oP '"JWT_AUDIENCE": "\K[^"]*' $CONFIG_FILE || echo "SagraFacileApp")
+        ENABLE_PREORDER_POLLING_SERVICE_CFG=$(grep -oP '"ENABLE_PREORDER_POLLING_SERVICE": \K(true|false)' $CONFIG_FILE || echo "true")
+        CLOUDFLARE_EMAIL_CFG=$(grep -oP '"CLOUDFLARE_EMAIL": "\K[^"]*' $CONFIG_FILE || echo "")
+        SUPERADMIN_EMAIL_CFG=$(grep -oP '"SUPERADMIN_EMAIL": "\K[^"]*' $CONFIG_FILE || echo "superadmin@example.com")
+        SUPERADMIN_PASSWORD_CFG=$(grep -oP '"SUPERADMIN_PASSWORD": "\K[^"]*' $CONFIG_FILE || echo "SuperAdminPass123!")
+        DEMO_USER_PASSWORD_CFG=$(grep -oP '"DEMO_USER_PASSWORD": "\K[^"]*' $CONFIG_FILE || echo "DemoUserPass123!")
+
+        # Assign to main variables, respecting existing values if already set (e.g. during reconfigure prompt)
+        JWT_ISSUER=${JWT_ISSUER:-$JWT_ISSUER_CFG}
+        JWT_AUDIENCE=${JWT_AUDIENCE:-$JWT_AUDIENCE_CFG}
+        ENABLE_PREORDER_POLLING_SERVICE=${ENABLE_PREORDER_POLLING_SERVICE:-$ENABLE_PREORDER_POLLING_SERVICE_CFG}
+        CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL:-$CLOUDFLARE_EMAIL_CFG}
+        SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL:-$SUPERADMIN_EMAIL_CFG}
+        SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-$SUPERADMIN_PASSWORD_CFG}
+        DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD:-$DEMO_USER_PASSWORD_CFG}
+
 
         # Defaults for JWT if not found or empty
         if [ -z "$JWT_SECRET" ]; then
@@ -181,6 +196,38 @@ if [ "$RECONFIGURE" = true ]; then
     # prompt_for_input "Enter SuperAdmin Email (optional, leave blank for default)" SUPERADMIN_EMAIL "$SUPERADMIN_EMAIL"
     # prompt_for_input "Enter SuperAdmin Password (optional, leave blank for default)" SUPERADMIN_PASSWORD "$SUPERADMIN_PASSWORD"
 
+    echo
+    echo "--- Advanced Configuration ---"
+    prompt_yes_no "Configure advanced settings (JWT Issuer/Audience, Polling Service, etc.)?" CONFIGURE_ADVANCED "no"
+
+    if [ "$CONFIGURE_ADVANCED" = true ]; then
+        prompt_for_input "Enter JWT Issuer" JWT_ISSUER "${JWT_ISSUER:-SagraFacile}"
+        prompt_for_input "Enter JWT Audience" JWT_AUDIENCE "${JWT_AUDIENCE:-SagraFacileApp}"
+        prompt_yes_no "Enable PreOrder Polling Service?" ENABLE_PREORDER_POLLING_SERVICE_CHOICE "${ENABLE_PREORDER_POLLING_SERVICE:-yes}"
+        ENABLE_PREORDER_POLLING_SERVICE=$ENABLE_PREORDER_POLLING_SERVICE_CHOICE
+        prompt_for_input "Enter Cloudflare Email (optional, for some Caddy DNS plugins)" CLOUDFLARE_EMAIL "$CLOUDFLARE_EMAIL"
+
+        if [ "$SAGRAFACILE_SEED_DEMO_DATA" = true ]; then
+            prompt_for_input "Enter Demo User Password (leave blank for default 'DemoUserPass123!')" DEMO_USER_PASSWORD_INPUT "$DEMO_USER_PASSWORD"
+            DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD_INPUT:-DemoUserPass123!}
+        fi
+        
+        prompt_for_input "Enter SuperAdmin Email (optional, leave blank for 'superadmin@example.com')" SUPERADMIN_EMAIL_INPUT "$SUPERADMIN_EMAIL"
+        SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL_INPUT:-superadmin@example.com}
+        prompt_for_input "Enter SuperAdmin Password (optional, leave blank for 'SuperAdminPass123!')" SUPERADMIN_PASSWORD_INPUT "$SUPERADMIN_PASSWORD"
+        SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD_INPUT:-SuperAdminPass123!}
+    else
+        # Ensure defaults are set if not configuring advanced and they weren't loaded from an existing file
+        JWT_ISSUER=${JWT_ISSUER:-SagraFacile}
+        JWT_AUDIENCE=${JWT_AUDIENCE:-SagraFacileApp}
+        ENABLE_PREORDER_POLLING_SERVICE=${ENABLE_PREORDER_POLLING_SERVICE:-true}
+        # CLOUDFLARE_EMAIL can remain as loaded or empty
+        SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL:-superadmin@example.com}
+        SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD:-SuperAdminPass123!}
+        if [ "$SAGRAFACILE_SEED_DEMO_DATA" = true ]; then
+            DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD:-DemoUserPass123!}
+        fi
+    fi
 
     echo
     echo "Saving configuration to $CONFIG_FILE..."
@@ -192,13 +239,17 @@ if [ "$RECONFIGURE" = true ]; then
   "POSTGRES_PASSWORD": "$POSTGRES_PASSWORD",
   "POSTGRES_DB": "$POSTGRES_DB",
   "JWT_SECRET": "$JWT_SECRET",
+  "JWT_ISSUER": "$JWT_ISSUER",
+  "JWT_AUDIENCE": "$JWT_AUDIENCE",
   "SAGRAFACILE_SEED_DEMO_DATA": $SAGRAFACILE_SEED_DEMO_DATA,
   "INITIAL_ORGANIZATION_NAME": "$INITIAL_ORGANIZATION_NAME",
   "INITIAL_ADMIN_EMAIL": "$INITIAL_ADMIN_EMAIL",
   "INITIAL_ADMIN_PASSWORD": "$INITIAL_ADMIN_PASSWORD",
-  "SUPERADMIN_EMAIL": "${SUPERADMIN_EMAIL:-superadmin@example.com}",
-  "SUPERADMIN_PASSWORD": "${SUPERADMIN_PASSWORD:-SuperAdminPass123!}",
-  "DEMO_USER_PASSWORD": "${DEMO_USER_PASSWORD:-DemoUserPass123!}"
+  "SUPERADMIN_EMAIL": "$SUPERADMIN_EMAIL",
+  "SUPERADMIN_PASSWORD": "$SUPERADMIN_PASSWORD",
+  "DEMO_USER_PASSWORD": "$DEMO_USER_PASSWORD",
+  "ENABLE_PREORDER_POLLING_SERVICE": $ENABLE_PREORDER_POLLING_SERVICE,
+  "CLOUDFLARE_EMAIL": "$CLOUDFLARE_EMAIL"
 }
 EOF
     if [ $? -eq 0 ]; then
@@ -223,8 +274,8 @@ POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 POSTGRES_DB=$POSTGRES_DB
 
 JWT_SECRET=$JWT_SECRET
-JWT_ISSUER=https://\$MY_DOMAIN
-JWT_AUDIENCE=https://\$MY_DOMAIN
+JWT_ISSUER=$JWT_ISSUER
+JWT_AUDIENCE=$JWT_AUDIENCE
 
 # API Configuration
 CONNECTION_STRING=Host=db;Port=5432;Database=\$POSTGRES_DB;Username=\$POSTGRES_USER;Password=\$POSTGRES_PASSWORD;
@@ -250,9 +301,10 @@ DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD:-DemoUserPass123!}
 
 # Caddy specific (already covered by MY_DOMAIN and CLOUDFLARE_API_TOKEN)
 # ACME_AGREE=true # Caddy v1, not needed for v2 with direct config
+CLOUDFLARE_EMAIL=$CLOUDFLARE_EMAIL
 
 # Enable PreOrder Polling Service (true or false, defaults to true if not set)
-# ENABLE_PREORDER_POLLING_SERVICE=true
+ENABLE_PREORDER_POLLING_SERVICE=$ENABLE_PREORDER_POLLING_SERVICE
 EOF
 
 if [ $? -eq 0 ]; then
