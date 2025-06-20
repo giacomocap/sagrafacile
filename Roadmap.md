@@ -407,8 +407,6 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[x]` Update `README.md` installation instructions for the new interactive `start.sh` and `start.bat` scripts and Cloudflare Let's Encrypt setup.
             *   `[x]` Update `DEPLOYMENT_ARCHITECTURE.md` to reflect interactive `start.sh` and `start.bat` scripts, `sagrafacile_config.json`, API changes for seeding, and ZIP package contents.
             *   `[x]` Ensure service name consistency (`api` for backend) across `docker-compose.yml`, `Caddyfile`, and docs.
->>>>>>> REPLACE
->>>>>>> REPLACE
 
 ### Phase 8: Guest & Takeaway Charges (Completed)
 
@@ -462,5 +460,43 @@ This document outlines the planned development phases for the SagraFacile system
     *   `[x]` **Phase 9.4 (Frontend):** Dashboard KPIs and charts component implementation and integration.
     *   `[ ]` **Phase 9.5 (Frontend):** Orders analytics charts component implementation and integration.
     *   `[ ]` **Phase 9.6 (Frontend & Backend):** Polish, comprehensive testing, potential enhancement of report export (e.g., PDF/Excel), and user feedback integration.
+
+### Phase 10: Android Wrapper App (See `docs/AndroidWrapperAppArchitecture.md`)
+
+*   **Goal:** Develop a lightweight native Android application that embeds the SagraFacile PWA. This app will handle local DNS resolution internally, allowing Android users to connect to the SagraFacile server using its domain name and trusted SSL certificate without needing to change device DNS settings.
+*   **Key Tasks:**
+    *   `[x]` **Project Setup:**
+        *   `[x]` Choose development approach (Native Kotlin).
+        *   `[x]` Set up Android Studio project (`sagrafacile-androidapp`).
+        *   `[x]` Install and configure JDK.
+    *   `[x]` **Core Wrapper Implementation:**
+        *   `[x]` Implement MainActivity with a full-screen WebView.
+        *   `[x]` Configure WebView settings (JavaScript, DOM Storage, modern back button handling).
+        *   `[x]` Implement Settings Activity for user to input and save the SagraFacile server's local IP address and domain name (using SharedPreferences).
+        *   `[x]` Implement custom `WebViewClient` with `shouldInterceptRequest` override:
+            *   `[x]` Intercept requests to the configured SagraFacile domain.
+            *   `[x]` Re-route to the saved local IP, preserving path/query.
+            *   `[x]` Set `Host` HTTP header to the configured SagraFacile domain for SSL validation.
+            *   `[x]` Return `WebResourceResponse` with data from the local server.
+    *   `[x]` **Application Shell (Partial):**
+        *   `[x]` Add app icon (using Image Asset Studio).
+        *   `[ ]` Add splash screen.
+        *   `[x]` Configure `AndroidManifest.xml` (permissions, activities).
+    *   `[x]` **Testing (Initial):**
+        *   `[x]` Test PWA functionality within the wrapper.
+        *   `[x]` Verify SSL connection is trusted.
+        *   `[x]` Test IP and domain configuration and persistence.
+    *   `[ ]` **Build & Distribution:**
+        *   `[ ]` Generate signed release APK.
+        *   `[ ]` Prepare for direct distribution (e.g., download link).
+    *   `[ ]` **Documentation:**
+        *   `[x]` Create `docs/AndroidWrapperAppArchitecture.md`. (Already completed)
+        *   `[x]` Create `sagrafacile-androidapp/ProjectMemory.md` and log initial setup.
+        *   `[ ]` Update main `README.md` with instructions for using the Android Wrapper App.
+    *   `[ ]` **Further Enhancements:**
+        *   `[ ]` Add menu item in `MainActivity` to re-open `SettingsActivity`.
+        *   `[ ]` Enhance error handling in `CustomWebViewClient` (e.g., custom error page).
+        *   `[ ]` Review and confirm `app_name` in `strings.xml`.
+
 
 *(This roadmap is a living document and will be updated as the project progresses.)*
