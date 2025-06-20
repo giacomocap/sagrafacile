@@ -17,8 +17,27 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.IOException
-import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLException
+import javax.net.ssl.SSLParameters
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
+import java.net.InetAddress // For SSLSocketFactory
+import android.os.Build // For SNI handling
+
+// OkHttp Imports
+import okhttp3.OkHttpClient
+import okhttp3.Request as OkHttpRequest // Alias to avoid confusion with WebResourceRequest
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.Headers
+import okhttp3.Response as OkHttpResponse // Alias
+import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -103,7 +122,8 @@ class MainActivity : AppCompatActivity() {
         } else {
             // Both IP and Domain are saved
             sagraFacileBaseUrl = "https://$sagraFacileDomain"
-            webView.webViewClient = CustomWebViewClient()
+            // Pass the confirmed non-null sagraFacileDomain to the CustomWebViewClient
+            webView.webViewClient = CustomWebViewClient(sagraFacileDomain!!)
             // Now load the actual SagraFacile URL
             webView.loadUrl(sagraFacileBaseUrl!!)
         }
@@ -117,89 +137,148 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private inner class CustomWebViewClient : WebViewClient() {
+    // Pass sagraFacileDomain to CustomWebViewClient constructor
+    private inner class CustomWebViewClient(private val clientSagraFacileDomain: String) : WebViewClient() {
+        private val okHttpClient: OkHttpClient
+
+        init {
+            val loggingInterceptor = HttpLoggingInterceptor(object : HttpLoggingInterceptor.Logger {
+                override fun log(message: String) {
+                    Log.d("OkHttp", message)
+                }
+            }).apply {
+                level = HttpLoggingInterceptor.Level.BODY // Log request and response lines and their respective headers and bodies (if present).
+            }
+
+            // SNISSLSocketFactory needs the sniHostname, which is sagraFacileDomain
+            // We need to ensure sagraFacileDomain is available when OkHttpClient is initialized.
+            // This might require passing it to CustomWebViewClient or accessing it carefully.
+            // For now, assuming sagraFacileDomain is accessible or will be handled.
+            // A placeholder is used if sagraFacileDomain is null during init, though this should be avoided.
+            // val currentSagraFacileDomain = sagraFacileDomain ?: "placeholder.domain.com" // Fallback, should be improved
+            // Use the passed-in clientSagraFacileDomain for SNISSLSocketFactory
+            okHttpClient = OkHttpClient.Builder()
+                .sslSocketFactory(SNISSLSocketFactory(clientSagraFacileDomain), TrustManagerUtils.getTrustAllCerts()[0] as javax.net.ssl.X509TrustManager)
+                .hostnameVerifier { _, sslSession ->
+                    // Verify against the original host (clientSagraFacileDomain)
+                    HttpsURLConnection.getDefaultHostnameVerifier().verify(clientSagraFacileDomain, sslSession)
+                }
+                .addInterceptor(loggingInterceptor)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build()
+            Log.d("CustomWebViewClient", "OkHttpClient initialized with SNISSLSocketFactory for domain: $clientSagraFacileDomain")
+        }
+
+
         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
             val requestUrl = request?.url?.toString() ?: return super.shouldInterceptRequest(view, request)
 
-            // Log.d("WebViewDebug", "Intercepting: $requestUrl") // For debugging
+            Log.d("WebViewDebug", "Intercepting with OkHttp: $requestUrl")
 
-            if (sagraFacileBaseUrl != null && requestUrl.startsWith(sagraFacileBaseUrl!!) && !sagraFacileServerIp.isNullOrEmpty() && sagraFacileDomain != null) {
+            // Use clientSagraFacileDomain from constructor for checks and operations
+            // sagraFacileBaseUrl is still from MainActivity for the initial check
+            if (sagraFacileBaseUrl != null && requestUrl.startsWith(sagraFacileBaseUrl!!) && !sagraFacileServerIp.isNullOrEmpty()) { // Removed isInitialized check
                 try {
-                    val originalHost = sagraFacileDomain!! // Use the configured domain
+                    val originalHost = clientSagraFacileDomain // Use domain from constructor
                     val modifiedUrlString = requestUrl.replaceFirst(originalHost, sagraFacileServerIp!!)
-                    val modifiedUrl = URL(modifiedUrlString)
 
-                    // Log.d("WebViewDebug", "Modified URL: $modifiedUrl") // For debugging
+                    Log.d("WebViewDebug", "OkHttp - Modified URL String: $modifiedUrlString, Original Host: $originalHost")
 
-                    val connection = modifiedUrl.openConnection() as HttpURLConnection
-                    connection.requestMethod = request.method
+                    val okHttpRequestBuilder = OkHttpRequest.Builder().url(modifiedUrlString)
+
+                    // Copy headers from WebResourceRequest to OkHttpRequest
                     request.requestHeaders.forEach { (key, value) ->
-                        connection.setRequestProperty(key, value)
-                    }
-                    // CRITICAL: Set the Host header to the original domain for SSL validation
-                    connection.setRequestProperty("Host", originalHost)
-
-                    // Handle POST/PUT body if present (simplified example)
-                    // For a full solution, you'd need to read the request body if it's a POST/PUT
-                    // and write it to the connection. This is complex with shouldInterceptRequest.
-                    // OkHttp or other libraries might offer better ways if complex body handling is needed.
-
-                    connection.connect() // Explicitly connect
-
-                    val statusCode = connection.responseCode
-                    val reasonPhrase = connection.responseMessage ?: "" // Get reason phrase
-
-                    // Log.d("WebViewDebug", "Response Code: $statusCode $reasonPhrase") // For debugging
-
-                    // Get headers from the HttpURLConnection response
-                    val responseHeaders = mutableMapOf<String, String>()
-                    connection.headerFields.forEach { (key, values) ->
-                        if (key != null && values.isNotEmpty()) {
-                            responseHeaders[key] = values.joinToString(", ")
+                        // OkHttp's Host header is managed automatically based on the URL,
+                        // but for SNI with IP-based connections, we might need to ensure it's correctly handled
+                        // by the SSLSocketFactory and HostnameVerifier.
+                        // Explicitly setting Host here might be overridden or conflict.
+                        // The critical part is that SNISSLSocketFactory uses originalHost.
+                        if (!key.equals("Host", ignoreCase = true)) { // Avoid explicitly setting Host if OkHttp handles it
+                           okHttpRequestBuilder.addHeader(key, value)
                         }
                     }
-                     // Ensure "content-type" is lowercase for consistency
-                    val contentType = responseHeaders.entries.firstOrNull { it.key.equals("content-type", ignoreCase = true) }?.value
-                    val encoding = connection.contentEncoding ?: "UTF-8"
+                    // Ensure the Host header is set for the request itself if needed, though SNI is at SSL layer
+                    okHttpRequestBuilder.header("Host", originalHost)
 
+
+                    // Handle request body for POST/PUT
+                    var okHttpRequestBody: RequestBody? = null
+                    if (request.method == "POST" || request.method == "PUT") {
+                        // This part is complex with shouldInterceptRequest as direct access to request body is not provided.
+                        // WebView doesn't easily expose the request body stream here.
+                        // This is a known limitation. For GET requests or simple POSTs without bodies, it's fine.
+                        // For POSTs with bodies, a more advanced setup or library might be needed,
+                        // or one might have to assume no body or specific content types.
+                        // For now, we'll assume no body or that it's not critical for this PWA's initial load.
+                        // If POSTs with bodies are failing, this is the area to investigate.
+                        Log.w("WebViewDebug", "OkHttp - ${request.method} request: Body handling is limited in shouldInterceptRequest.")
+                        // Example: creating an empty body if none, or a placeholder
+                        // val emptyBody = "".toRequestBody("text/plain".toMediaTypeOrNull())
+                        // okHttpRequestBody = emptyBody
+                    }
+
+                    when (request.method) {
+                        "GET" -> okHttpRequestBuilder.get()
+                        "POST" -> okHttpRequestBuilder.post(okHttpRequestBody ?: ByteArray(0).toRequestBody(null, 0, 0)) // Empty body if null
+                        "PUT" -> okHttpRequestBuilder.put(okHttpRequestBody ?: ByteArray(0).toRequestBody(null, 0, 0))   // Empty body if null
+                        "DELETE" -> okHttpRequestBuilder.delete(okHttpRequestBody)
+                        "HEAD" -> okHttpRequestBuilder.head()
+                        "PATCH" -> okHttpRequestBuilder.patch(okHttpRequestBody ?: ByteArray(0).toRequestBody(null, 0, 0)) // Empty body if null
+                        else -> {
+                            Log.e("WebViewDebug", "OkHttp - Unsupported method: ${request.method}")
+                            okHttpRequestBuilder.method(request.method, okHttpRequestBody) // Generic method
+                        }
+                    }
+
+                    val okhttpRequest = okHttpRequestBuilder.build()
+                    val okhttpResponse: OkHttpResponse = okHttpClient.newCall(okhttpRequest).execute()
+
+                    val statusCode = okhttpResponse.code
+                    var reasonPhrase = okhttpResponse.message // Make it var
+                    val responseBody = okhttpResponse.body
+
+                    if (reasonPhrase.isEmpty()) {
+                        reasonPhrase = if (statusCode in 200..299) "OK" else "Status $statusCode"
+                        Log.d("WebViewDebug", "OkHttp - Empty reason phrase, defaulted to: $reasonPhrase for status $statusCode")
+                    }
+
+                    Log.d("WebViewDebug", "OkHttp - Response Code: $statusCode $reasonPhrase from $modifiedUrlString")
+
+                    val responseHeadersOkHttp = okhttpResponse.headers
+                    val responseHeadersMap = mutableMapOf<String, String>()
+                    for (i in 0 until responseHeadersOkHttp.size) {
+                        responseHeadersMap[responseHeadersOkHttp.name(i)] = responseHeadersOkHttp.value(i)
+                    }
+
+                    val contentType = responseBody?.contentType()?.toString()
+                    val encoding = responseBody?.contentType()?.charset()?.name() ?: "UTF-8"
 
                     return WebResourceResponse(
                         contentType?.substringBefore(';'), // MIME type
-                        encoding, // Encoding
+                        encoding,
                         statusCode,
                         reasonPhrase,
-                        responseHeaders,
-                        connection.inputStream
+                        responseHeadersMap,
+                        responseBody?.byteStream() // This stream will be closed by WebView
                     )
-                } catch (e: IOException) {
-                    Log.e("CustomWebViewClient", "Error intercepting request: ${requestUrl}", e)
-                    // Load a local error page from assets
-                    // Ensure the webView is accessed on the UI thread if modification is needed
-                    // For just returning a response, this should be fine.
-                    // However, if webView.loadUrl is called, it must be on UI thread.
-                    // Here, we are returning a WebResourceResponse, which is part of the background processing of the request.
-//                    try {
-//                        val assetManager = applicationContext.assets
-//                        val inputStream = assetManager.open("network_error.html")
-//                        return WebResourceResponse(
-//                            "text/html",
-//                            "utf-8",
-//                            inputStream
-//                        )
-//                    } catch (assetError: IOException) {
-//                        Log.e("CustomWebViewClient", "Error loading local error page from assets", assetError)
-//                        // Fallback if local error page also fails to load
-//                        return WebResourceResponse(
-//                            "text/plain",
-//                            "utf-8",
-//                            500,
-//                            "Internal Server Error",
-//                            mutableMapOf(),
-//                            "Error loading error page.".byteInputStream()
-//                        )
-//                    }
+
+                } catch (e: Exception) { // Catch generic Exception as OkHttp might throw various types
+                    Log.e("CustomWebViewClient", "OkHttp - Error intercepting request to $requestUrl (IP ${sagraFacileServerIp}): ${e.message}", e)
+                    val errorHtml = """
+                        <html><body>
+                        <h1>Connection Error (OkHttp)</h1>
+                        <p>Failed to connect to the server at ${sagraFacileServerIp} for domain ${clientSagraFacileDomain}.</p>
+                        <p>URL: ${requestUrl}</p>
+                        <p>Error: ${e.javaClass.simpleName} - ${e.message}</p>
+                        <p>Please check your network connection and the server IP/domain settings in the app.</p>
+                        </body></html>
+                    """.trimIndent()
+                    return WebResourceResponse("text/html", "utf-8", 503, "Service Unavailable", mutableMapOf("Connection" to "close"), errorHtml.byteInputStream(Charsets.UTF_8))
                 }
             }
+            Log.d("WebViewDebug", "Not intercepting (OkHttp - passing to super): $requestUrl")
             return super.shouldInterceptRequest(view, request)
         }
 
@@ -207,5 +286,171 @@ class MainActivity : AppCompatActivity() {
         // override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
         //     handler?.proceed() // DANGEROUS: Ignores SSL errors. Only for specific local dev scenarios.
         // }
+    }
+
+    // Custom SSLSocketFactory to enable SNI for a specific hostname when connecting via IP
+    // This factory will be used by OkHttpClient
+    private class SNISSLSocketFactory(private val sniHostname: String) : SSLSocketFactory() {
+        private val customSslContext: SSLContext = SSLContext.getInstance("TLSv1.2").apply { // Or TLSv1.3 if preferred and widely supported
+            init(null, null, null) // Initialize with default trust/key managers
+        }
+        private val underlyingSocketFactory: SSLSocketFactory = customSslContext.socketFactory
+
+        override fun getDefaultCipherSuites(): Array<String> = underlyingSocketFactory.defaultCipherSuites
+        override fun getSupportedCipherSuites(): Array<String> = underlyingSocketFactory.supportedCipherSuites
+
+        @Throws(IOException::class)
+        override fun createSocket(s: java.net.Socket?, host: String?, port: Int, autoClose: Boolean): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket(Socket, String, Int, Boolean) called. Target Host(IP): $host, Port: $port, ExistingSocket: $s, SNI Hostname for factory: $sniHostname")
+
+            // If 's' is not null, an existing plain socket is being wrapped with SSL.
+            // The 'host' parameter in createSocket(s, host, port, autoClose) is typically for identification/verification,
+            // not for establishing a new connection since 's' is already connected.
+            // Let's try passing our actual SNI hostname to the underlying factory when layering,
+            // hoping it influences the SSL session setup more directly.
+            val effectiveHostForUnderlyingFactory = if (s != null) sniHostname else host
+
+            Log.d("SNISSLSocketFactory", "Calling underlyingSocketFactory.createSocket with s: $s, effectiveHost: $effectiveHostForUnderlyingFactory, port: $port, autoClose: $autoClose")
+            val newUnderlyingSocket = underlyingSocketFactory.createSocket(s, effectiveHostForUnderlyingFactory, port, autoClose)
+
+            if (newUnderlyingSocket is SSLSocket) {
+                Log.i("SNISSLSocketFactory", "Configuring SSLSocket from createSocket(Socket, String, Int, Boolean). Class: ${newUnderlyingSocket.javaClass.name}")
+                newUnderlyingSocket.useClientMode = true // CRITICAL: Ensure socket is in client mode
+                Log.i("SNISSLSocketFactory", "Set useClientMode=true on socket: $newUnderlyingSocket")
+                setSni(newUnderlyingSocket) // Apply SNI settings
+            } else {
+                Log.w("SNISSLSocketFactory", "Underlying factory did not return an SSLSocket in createSocket(Socket, String, Int, Boolean). Returned: ${newUnderlyingSocket?.javaClass?.name}")
+            }
+            return newUnderlyingSocket
+        }
+
+        @Throws(IOException::class)
+        override fun createSocket(host: String?, port: Int): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket(String, Int) called. Host: $host, Port: $port")
+            val newSocket = underlyingSocketFactory.createSocket(host, port)
+            setSni(newSocket as? SSLSocket)
+            return newSocket
+        }
+
+        @Throws(IOException::class)
+        override fun createSocket(host: String?, port: Int, localHost: InetAddress?, localPort: Int): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket(String, Int, InetAddress, Int) called. Host: $host, Port: $port")
+            val newSocket = underlyingSocketFactory.createSocket(host, port, localHost, localPort)
+            setSni(newSocket as? SSLSocket)
+            return newSocket
+        }
+
+        @Throws(IOException::class)
+        override fun createSocket(host: InetAddress?, port: Int): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket(InetAddress, Int) called. Host: $host, Port: $port")
+            val newSocket = underlyingSocketFactory.createSocket(host, port)
+            setSni(newSocket as? SSLSocket)
+            return newSocket
+        }
+
+        @Throws(IOException::class)
+        override fun createSocket(address: InetAddress?, port: Int, localAddress: InetAddress?, localPort: Int): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket(InetAddress, Int, InetAddress, Int) called. Host: $address, Port: $port")
+            val newSocket = underlyingSocketFactory.createSocket(address, port, localAddress, localPort)
+            setSni(newSocket as? SSLSocket)
+            return newSocket
+        }
+
+        @Throws(IOException::class)
+        override fun createSocket(): java.net.Socket {
+            Log.d("SNISSLSocketFactory", "createSocket() called.")
+            val newSocket = underlyingSocketFactory.createSocket()
+            setSni(newSocket as? SSLSocket)
+            return newSocket
+        }
+
+        private fun setSni(socket: SSLSocket?) {
+            Log.d("SNISSLSocketFactory", "setSni() called. Socket: $socket, Target SNI: $sniHostname")
+            if (socket == null) {
+                Log.w("SNISSLSocketFactory", "SSLSocket is null, cannot set SNI.")
+                return
+            }
+
+            Log.i("SNISSLSocketFactory", "Socket class: ${socket.javaClass.name}, isConnected: ${socket.isConnected}, isBound: ${socket.isBound}, isClosed: ${socket.isClosed}")
+
+            // Ensure useClientMode is true, as this is essential for client sockets.
+            if (!socket.useClientMode) {
+                Log.w("SNISSLSocketFactory", "Socket was not in client mode. Forcing useClientMode=true.")
+                socket.useClientMode = true
+            } else {
+                Log.d("SNISSLSocketFactory", "Socket already in client mode.")
+            }
+
+            Log.d("SNISSLSocketFactory", "Supported Protocols: ${socket.supportedProtocols.joinToString()}")
+            Log.d("SNISSLSocketFactory", "Enabled Protocols: ${socket.enabledProtocols.joinToString()}")
+            Log.d("SNISSLSocketFactory", "Supported Cipher Suites: ${socket.supportedCipherSuites.joinToString()}")
+            Log.d("SNISSLSocketFactory", "Enabled Cipher Suites: ${socket.enabledCipherSuites.joinToString()}")
+
+
+            try {
+                // Parameters are typically set before connect for client sockets.
+                // HttpsURLConnection handles the connect call after the factory provides the socket.
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Log.i("SNISSLSocketFactory", "Using SSLParameters API (Android N+)")
+                    val params = socket.sslParameters ?: SSLParameters() // Get existing or create new
+
+                    Log.d("SNISSLSocketFactory", "Initial SSLParameters: ServerNames=${params.serverNames?.joinToString { (it as? javax.net.ssl.SNIHostName)?.asciiName ?: it.toString() }}, EndpointIDAlgo=${params.endpointIdentificationAlgorithm}")
+
+                    val sniList = listOf(javax.net.ssl.SNIHostName(sniHostname))
+                    params.serverNames = sniList
+                    // params.endpointIdentificationAlgorithm = null // Consider if HostnameVerifier issues persist
+
+                    socket.sslParameters = params // Apply the modified parameters
+
+                    val newParams = socket.sslParameters
+                    Log.i("SNISSLSocketFactory", "SNI configured with SSLParameters. Applied ServerNames: ${newParams.serverNames?.joinToString { (it as? javax.net.ssl.SNIHostName)?.asciiName ?: it.toString() }}")
+                } else {
+                    Log.i("SNISSLSocketFactory", "Using reflection (setHostname) for older Android (API < 24)")
+                    try {
+                        val setHostnameMethod = socket.javaClass.getMethod("setHostname", String::class.java)
+                        setHostnameMethod.invoke(socket, sniHostname)
+                        Log.i("SNISSLSocketFactory", "SNI configured with reflection (setHostname) to: $sniHostname")
+                    } catch (e: NoSuchMethodException) {
+                        Log.e("SNISSLSocketFactory", "Reflection: setHostname method not found on ${socket.javaClass.name}", e)
+                        throw SSLException("SNI configuration failed: setHostname method not found", e)
+                    } catch (e: Exception) {
+                        Log.e("SNISSLSocketFactory", "Reflection: Error invoking setHostname on ${socket.javaClass.name}", e)
+                        throw SSLException("SNI configuration failed via reflection", e)
+                    }
+                }
+                Log.d("SNISSLSocketFactory", "setSni() finished successfully for $sniHostname.")
+            } catch (e: Exception) {
+                Log.e("SNISSLSocketFactory", "Exception in setSni for $sniHostname on socket $socket", e)
+                if (e is SSLException) throw e
+                throw SSLException("Failed to set SNI due to: ${e.message}", e)
+            }
+        }
+    }
+}
+
+// Helper object for TrustManager to trust all certificates (USE WITH CAUTION - FOR DEVELOPMENT/SPECIFIC SCENARIOS ONLY)
+// In a production app, you should use a proper TrustManager that validates the server certificate.
+// This is included because OkHttp's .sslSocketFactory(factory, trustManager) requires an X509TrustManager.
+object TrustManagerUtils {
+    fun getTrustAllCerts(): Array<javax.net.ssl.TrustManager> {
+        return arrayOf(object : javax.net.ssl.X509TrustManager {
+            override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {
+                Log.d("TrustManagerUtils", "checkClientTrusted: authType=$authType, chain non-null=${chain!=null}")
+            }
+
+            override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {
+                Log.d("TrustManagerUtils", "checkServerTrusted: authType=$authType, chain non-null=${chain!=null}")
+                // For debugging, log certificate details if needed
+                // chain?.forEachIndexed { index, cert ->
+                //     Log.d("TrustManagerUtils", "Server Cert $index: ${cert.subjectDN}")
+                // }
+            }
+
+            override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> {
+                Log.d("TrustManagerUtils", "getAcceptedIssuers called")
+                return arrayOf()
+            }
+        })
     }
 }

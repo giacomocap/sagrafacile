@@ -34,7 +34,7 @@ public class MenuItemsController : ControllerBase
             }
             try
             {
-                var items = await _menuItemService.GetItemsByCategoryAsync(categoryId);
+                var items = (await _menuItemService.GetItemsByCategoryAsync(categoryId))?.ToList();
                 if (items == null)
                 {
                     // Service returns null if category not found or not accessible
@@ -42,7 +42,7 @@ public class MenuItemsController : ControllerBase
                     return NotFound($"MenuCategory with ID {categoryId} not found or access denied.");
                 }
                 // Service already returns DTOs
-                _logger.LogInformation("Successfully retrieved {Count} menu items for CategoryId: {CategoryId}", ((List<MenuItemDto>)items).Count, categoryId);
+                _logger.LogInformation("Successfully retrieved {Count} menu items for CategoryId: {CategoryId}", items.Count, categoryId);
                 return Ok(items);
             }
             catch (UnauthorizedAccessException ex)

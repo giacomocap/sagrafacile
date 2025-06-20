@@ -9,6 +9,21 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-20) - SNI Issue Resolution Attempt with OkHttp
+*   **Context:** Continued troubleshooting of SSL handshake errors (`TLSV1_ALERT_INTERNAL_ERROR`) on real Android devices. The issue was identified as the Caddy server not receiving the SNI from the Android app when requests were made to the local IP. `HttpURLConnection` with a custom `SSLSocketFactory` did not reliably send SNI.
+*   **Accomplishments:**
+    *   **Integrated OkHttp:**
+        *   Added OkHttp (`com.squareup.okhttp3:okhttp:4.12.0`) and `logging-interceptor` dependencies to `sagrafacile-androidapp/app/build.gradle.kts`.
+        *   Refactored `CustomWebViewClient` in `MainActivity.kt`:
+            *   Replaced `HttpURLConnection` with `OkHttpClient`.
+            *   The `OkHttpClient` is configured with the existing `SNISSLSocketFactory` (responsible for setting SNI) and a `HostnameVerifier` that validates against the `sagraFacileDomain`.
+            *   The `sagraFacileDomain` is now passed to the `CustomWebViewClient` constructor to ensure it's available when the `OkHttpClient` and its `SNISSLSocketFactory` are initialized.
+*   **Outcome:** Initial tests with OkHttp indicate that the SNI is now being correctly sent and received by the Caddy server, resulting in a successful TLS handshake and a 200 OK response from the server. A new issue arose due to OkHttp providing an empty reason phrase, which is incompatible with the `WebResourceResponse` constructor.
+*   **Next Steps:**
+    *   Modify `MainActivity.kt` to provide a default non-empty reason phrase when constructing `WebResourceResponse` if OkHttp's response message is empty.
+    *   Thoroughly test the app on a real device to confirm full PWA functionality.
+    *   Update project documentation if the fix is successful.
+
 ## (2025-06-20) - Documentation Update for Android Wrapper App
 *   **Context:** Finalizing documentation for the Android Wrapper App.
 *   **Accomplishments:**
