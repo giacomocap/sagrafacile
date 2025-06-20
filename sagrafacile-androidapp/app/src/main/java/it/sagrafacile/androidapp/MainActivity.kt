@@ -3,6 +3,9 @@ package it.sagrafacile.androidapp
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import androidx.activity.OnBackPressedCallback
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -10,6 +13,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.IOException
@@ -30,6 +34,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_main)
+
+        val toolbar: Toolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(toolbar)
 
         webView = findViewById(R.id.webView)
         setupWebView()
@@ -60,6 +67,22 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivityForResult(intent, REQUEST_CODE_SETTINGS)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
     private fun setupWebView() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -73,9 +96,10 @@ class MainActivity : AppCompatActivity() {
         sagraFacileDomain = prefs.getString(SettingsActivity.KEY_SERVER_DOMAIN, null)
 
         if (sagraFacileServerIp.isNullOrEmpty() || sagraFacileDomain.isNullOrEmpty()) {
-            // IP or Domain not saved, launch SettingsActivity
-            val intent = Intent(this, SettingsActivity::class.java)
-            startActivityForResult(intent, REQUEST_CODE_SETTINGS)
+            // IP or Domain not saved, load a local HTML page instructing user to configure settings
+            // Ensure CustomWebViewClient is NOT set here, so it doesn't try to intercept this local asset load
+            webView.webViewClient = WebViewClient() // Use a default client for local assets
+            webView.loadUrl("file:///android_asset/please_configure.html")
         } else {
             // Both IP and Domain are saved
             sagraFacileBaseUrl = "https://$sagraFacileDomain"
@@ -148,9 +172,32 @@ class MainActivity : AppCompatActivity() {
                         connection.inputStream
                     )
                 } catch (e: IOException) {
-                    // Log.e("WebViewError", "Error intercepting request: ${e.message}", e)
-                    // You might want to return a custom error page or null
-                    return null
+                    Log.e("CustomWebViewClient", "Error intercepting request: ${requestUrl}", e)
+                    // Load a local error page from assets
+                    // Ensure the webView is accessed on the UI thread if modification is needed
+                    // For just returning a response, this should be fine.
+                    // However, if webView.loadUrl is called, it must be on UI thread.
+                    // Here, we are returning a WebResourceResponse, which is part of the background processing of the request.
+//                    try {
+//                        val assetManager = applicationContext.assets
+//                        val inputStream = assetManager.open("network_error.html")
+//                        return WebResourceResponse(
+//                            "text/html",
+//                            "utf-8",
+//                            inputStream
+//                        )
+//                    } catch (assetError: IOException) {
+//                        Log.e("CustomWebViewClient", "Error loading local error page from assets", assetError)
+//                        // Fallback if local error page also fails to load
+//                        return WebResourceResponse(
+//                            "text/plain",
+//                            "utf-8",
+//                            500,
+//                            "Internal Server Error",
+//                            mutableMapOf(),
+//                            "Error loading error page.".byteInputStream()
+//                        )
+//                    }
                 }
             }
             return super.shouldInterceptRequest(view, request)
