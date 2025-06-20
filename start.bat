@@ -337,22 +337,62 @@ IF "%RECONFIGURE%"=="true" (
         CHOICE /C YN /N /M "Enable PreOrder Polling Service? (Y/N) [%POLLING_DEFAULT%]:"
         IF ERRORLEVEL 2 (SET "ENABLE_PREORDER_POLLING_SERVICE_VAR=false") ELSE (SET "ENABLE_PREORDER_POLLING_SERVICE_VAR=true")
 
-        SET /P "CLOUDFLARE_EMAIL_INPUT=Enter Cloudflare Email (optional) [!CLOUDFLARE_EMAIL_CFG!]: "
-        IF "!CLOUDFLARE_EMAIL_INPUT!"=="" (SET "CLOUDFLARE_EMAIL_VAR=!CLOUDFLARE_EMAIL_CFG!") ELSE (SET "CLOUDFLARE_EMAIL_VAR=!CLOUDFLARE_EMAIL_INPUT!")
+        SET "TEMP_CLOUDFLARE_EMAIL_DISPLAY=!CLOUDFLARE_EMAIL_CFG!"
+        IF "!TEMP_CLOUDFLARE_EMAIL_DISPLAY!"=="" SET "TEMP_CLOUDFLARE_EMAIL_DISPLAY=<blank>"
+        SET /P "CLOUDFLARE_EMAIL_INPUT=Enter Cloudflare Email (optional) [!TEMP_CLOUDFLARE_EMAIL_DISPLAY!]: "
+        IF "!CLOUDFLARE_EMAIL_INPUT!"=="" (
+            SET "CLOUDFLARE_EMAIL_VAR=!CLOUDFLARE_EMAIL_CFG!"
+        ) ELSE (
+            IF "!CLOUDFLARE_EMAIL_INPUT!"=="<blank>" (
+                SET "CLOUDFLARE_EMAIL_VAR="
+            ) ELSE (
+                SET "CLOUDFLARE_EMAIL_VAR=!CLOUDFLARE_EMAIL_INPUT!"
+            )
+        )
         
         IF "!SAGRAFACILE_SEED_DEMO_DATA_VAR!"=="true" (
-            SET /P "DEMO_USER_PASSWORD_INPUT=Enter Demo User Password (leave blank for default 'DemoUserPass123!') [!DEMO_USER_PASSWORD_CFG!]: "
-            IF "!DEMO_USER_PASSWORD_INPUT!"=="" (SET "DEMO_USER_PASSWORD_VAR=!DEMO_USER_PASSWORD_CFG!") ELSE (SET "DEMO_USER_PASSWORD_VAR=!DEMO_USER_PASSWORD_INPUT!")
+            SET "TEMP_DEMO_PASS_DISPLAY=!DEMO_USER_PASSWORD_CFG!"
+            IF "!TEMP_DEMO_PASS_DISPLAY!"=="" SET "TEMP_DEMO_PASS_DISPLAY=<blank>"
+            SET /P "DEMO_USER_PASSWORD_INPUT=Enter Demo User Password (leave blank for default 'DemoUserPass123!') [!TEMP_DEMO_PASS_DISPLAY!]: "
+            IF "!DEMO_USER_PASSWORD_INPUT!"=="" (
+                SET "DEMO_USER_PASSWORD_VAR=!DEMO_USER_PASSWORD_CFG!"
+            ) ELSE (
+                IF "!DEMO_USER_PASSWORD_INPUT!"=="<blank>" (
+                    SET "DEMO_USER_PASSWORD_VAR="
+                ) ELSE (
+                    SET "DEMO_USER_PASSWORD_VAR=!DEMO_USER_PASSWORD_INPUT!"
+                )
+            )
         ) ELSE (
             REM Ensure demo password is blank if not seeding demo data and not set
             IF "!DEMO_USER_PASSWORD_VAR!"=="" SET "DEMO_USER_PASSWORD_VAR="
         )
 
-        SET /P "SUPERADMIN_EMAIL_INPUT=Enter SuperAdmin Email (optional, blank for 'superadmin@example.com') [!SUPERADMIN_EMAIL_CFG!]: "
-        IF "!SUPERADMIN_EMAIL_INPUT!"=="" (SET "SUPERADMIN_EMAIL_VAR=!SUPERADMIN_EMAIL_CFG!") ELSE (SET "SUPERADMIN_EMAIL_VAR=!SUPERADMIN_EMAIL_INPUT!")
+        SET "TEMP_SA_EMAIL_DISPLAY=!SUPERADMIN_EMAIL_CFG!"
+        IF "!TEMP_SA_EMAIL_DISPLAY!"=="" SET "TEMP_SA_EMAIL_DISPLAY=<blank>"
+        SET /P "SUPERADMIN_EMAIL_INPUT=Enter SuperAdmin Email (optional, blank for 'superadmin@example.com') [!TEMP_SA_EMAIL_DISPLAY!]: "
+        IF "!SUPERADMIN_EMAIL_INPUT!"=="" (
+            SET "SUPERADMIN_EMAIL_VAR=!SUPERADMIN_EMAIL_CFG!"
+        ) ELSE (
+            IF "!SUPERADMIN_EMAIL_INPUT!"=="<blank>" (
+                SET "SUPERADMIN_EMAIL_VAR="
+            ) ELSE (
+                SET "SUPERADMIN_EMAIL_VAR=!SUPERADMIN_EMAIL_INPUT!"
+            )
+        )
         
-        SET /P "SUPERADMIN_PASSWORD_INPUT=Enter SuperAdmin Password (optional, blank for 'SuperAdminPass123!') [!SUPERADMIN_PASSWORD_CFG!]: "
-        IF "!SUPERADMIN_PASSWORD_INPUT!"=="" (SET "SUPERADMIN_PASSWORD_VAR=!SUPERADMIN_PASSWORD_CFG!") ELSE (SET "SUPERADMIN_PASSWORD_VAR=!SUPERADMIN_PASSWORD_INPUT!")
+        SET "TEMP_SA_PASS_DISPLAY=!SUPERADMIN_PASSWORD_CFG!"
+        IF "!TEMP_SA_PASS_DISPLAY!"=="" SET "TEMP_SA_PASS_DISPLAY=<blank>"
+        SET /P "SUPERADMIN_PASSWORD_INPUT=Enter SuperAdmin Password (optional, blank for 'SuperAdminPass123!') [!TEMP_SA_PASS_DISPLAY!]: "
+        IF "!SUPERADMIN_PASSWORD_INPUT!"=="" (
+            SET "SUPERADMIN_PASSWORD_VAR=!SUPERADMIN_PASSWORD_CFG!"
+        ) ELSE (
+            IF "!SUPERADMIN_PASSWORD_INPUT!"=="<blank>" (
+                SET "SUPERADMIN_PASSWORD_VAR="
+            ) ELSE (
+                SET "SUPERADMIN_PASSWORD_VAR=!SUPERADMIN_PASSWORD_INPUT!"
+            )
+        )
     )
 
     ECHO.

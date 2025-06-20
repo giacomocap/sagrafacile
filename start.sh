@@ -4,22 +4,42 @@ CONFIG_FILE="sagrafacile_config.json"
 ENV_FILE=".env"
 
 # Function to prompt for user input with a default value
+# Arg1: prompt_message
+# Arg2: variable_name
+# Arg3: default_value
+# Arg4: is_optional (true/false) - if true, allows empty input
 prompt_for_input() {
     local prompt_message="$1"
     local variable_name="$2"
     local default_value="$3"
+    local is_optional="${4:-false}" # Default to not optional
     local current_value
-    eval current_value="\$$variable_name" # Get current value of the variable
+    local input # Temporary variable to store user input
+
+    eval current_value="\$$variable_name" # Get current value of the variable to display in prompt if default_value is not passed explicitly
 
     if [ -n "$default_value" ]; then
         read -r -p "$prompt_message [$default_value]: " input
         eval "$variable_name=\"\${input:-$default_value}\""
     else
-        read -r -p "$prompt_message: " "$variable_name"
-        while [ -z "$(eval echo \$$variable_name)" ]; do
-            echo "This field cannot be empty."
-            read -r -p "$prompt_message: " "$variable_name"
-        done
+        # No explicit default value provided in the call
+        # Use current_value as the display default if it exists
+        if [ -n "$current_value" ]; then
+             read -r -p "$prompt_message [$current_value]: " input
+             eval "$variable_name=\"\${input:-$current_value}\""
+        else
+            read -r -p "$prompt_message: " input
+            eval "$variable_name=\"\$input\""
+        fi
+
+        if [ "$is_optional" != true ] && [ -z "$(eval echo \$$variable_name)" ]; then
+            # Loop only if not optional and is empty
+            while [ -z "$(eval echo \$$variable_name)" ]; do
+                echo "This field cannot be empty."
+                read -r -p "$prompt_message: " input
+                eval "$variable_name=\"\$input\""
+            done
+        fi
     fi
 }
 
@@ -201,20 +221,20 @@ if [ "$RECONFIGURE" = true ]; then
     prompt_yes_no "Configure advanced settings (JWT Issuer/Audience, Polling Service, etc.)?" CONFIGURE_ADVANCED "no"
 
     if [ "$CONFIGURE_ADVANCED" = true ]; then
-        prompt_for_input "Enter JWT Issuer" JWT_ISSUER "${JWT_ISSUER:-SagraFacile}"
-        prompt_for_input "Enter JWT Audience" JWT_AUDIENCE "${JWT_AUDIENCE:-SagraFacileApp}"
+        prompt_for_input "Enter JWT Issuer" JWT_ISSUER "${JWT_ISSUER:-SagraFacile}" false
+        prompt_for_input "Enter JWT Audience" JWT_AUDIENCE "${JWT_AUDIENCE:-SagraFacileApp}" false
         prompt_yes_no "Enable PreOrder Polling Service?" ENABLE_PREORDER_POLLING_SERVICE_CHOICE "${ENABLE_PREORDER_POLLING_SERVICE:-yes}"
         ENABLE_PREORDER_POLLING_SERVICE=$ENABLE_PREORDER_POLLING_SERVICE_CHOICE
-        prompt_for_input "Enter Cloudflare Email (optional, for some Caddy DNS plugins)" CLOUDFLARE_EMAIL "$CLOUDFLARE_EMAIL"
+        prompt_for_input "Enter Cloudflare Email (optional, for some Caddy DNS plugins)" CLOUDFLARE_EMAIL "$CLOUDFLARE_EMAIL" true
 
         if [ "$SAGRAFACILE_SEED_DEMO_DATA" = true ]; then
-            prompt_for_input "Enter Demo User Password (leave blank for default 'DemoUserPass123!')" DEMO_USER_PASSWORD_INPUT "$DEMO_USER_PASSWORD"
+            prompt_for_input "Enter Demo User Password (leave blank for default 'DemoUserPass123!')" DEMO_USER_PASSWORD_INPUT "$DEMO_USER_PASSWORD" true
             DEMO_USER_PASSWORD=${DEMO_USER_PASSWORD_INPUT:-DemoUserPass123!}
         fi
         
-        prompt_for_input "Enter SuperAdmin Email (optional, leave blank for 'superadmin@example.com')" SUPERADMIN_EMAIL_INPUT "$SUPERADMIN_EMAIL"
+        prompt_for_input "Enter SuperAdmin Email (optional, leave blank for 'superadmin@example.com')" SUPERADMIN_EMAIL_INPUT "$SUPERADMIN_EMAIL" true
         SUPERADMIN_EMAIL=${SUPERADMIN_EMAIL_INPUT:-superadmin@example.com}
-        prompt_for_input "Enter SuperAdmin Password (optional, leave blank for 'SuperAdminPass123!')" SUPERADMIN_PASSWORD_INPUT "$SUPERADMIN_PASSWORD"
+        prompt_for_input "Enter SuperAdmin Password (optional, leave blank for 'SuperAdminPass123!')" SUPERADMIN_PASSWORD_INPUT "$SUPERADMIN_PASSWORD" true
         SUPERADMIN_PASSWORD=${SUPERADMIN_PASSWORD_INPUT:-SuperAdminPass123!}
     else
         # Ensure defaults are set if not configuring advanced and they weren't loaded from an existing file

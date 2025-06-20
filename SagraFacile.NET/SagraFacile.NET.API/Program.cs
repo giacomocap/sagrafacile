@@ -10,7 +10,6 @@ using Microsoft.IdentityModel.Tokens; // Added for Token Validation Parameters
 using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
-using SagraFacile.NET.API.Data; // Added for InitialDataSeeder
 using Serilog; // Added for Serilog
 using Serilog.Events; // Added for Serilog LogEventLevel
 
@@ -19,7 +18,8 @@ Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // --- Serilog Bootstrap Logger ---
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Debug() // More verbose for bootstrap
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components during bootstrap
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Information)
     .Enrich.FromLogContext()
@@ -38,7 +38,9 @@ try // Added for Serilog try-finally block
 
     // --- Configure Serilog for WebApplicationBuilder ---
     builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
+        .MinimumLevel.Debug() // More verbose for general logging
+        .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components
+        .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .Enrich.WithMachineName()
@@ -54,7 +56,13 @@ try // Added for Serilog try-finally block
     // Conditionally register Npgsql provider based on environment
     if (!builder.Environment.IsEnvironment("Testing")) // Use a custom "Testing" environment name
     {
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrEmpty(connectionString))
+        {
+            Log.Error("Connection string 'DefaultConnection' not found or is empty. Please check configuration (environment variables or appsettings.json).");
+            throw new InvalidOperationException("Connection string 'DefaultConnection' not found or is empty.");
+        }
+        Log.Information("Using ConnectionString: {ConnectionString}", connectionString); // Log the actual connection string
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString)); // Use PostgreSQL provider
     }
@@ -82,7 +90,8 @@ try // Added for Serilog try-finally block
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key not configured."))),
+            // Use the JWT_SECRET environment variable directly, as this is what's being set.
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables."))),
             // Explicitly tell the middleware which claim contains role information
             RoleClaimType = ClaimTypes.Role
         };
@@ -112,7 +121,7 @@ try // Added for Serilog try-finally block
     builder.Services.AddScoped<IInitialDataSeeder, InitialDataSeeder>(); // Register InitialDataSeeder
 
     // Register the Background Service conditionally
-    var enablePollingService = false; //builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
+    var enablePollingService = builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
 
     // Explicitly check for null to distinguish from a "false" value.
     // If the variable is not present at all, we default to true (as per docker-compose).
@@ -175,8 +184,9 @@ try // Added for Serilog try-finally block
                           });
     });
 
-
+    Log.Information("All services configured. Attempting to build the application...");
     var app = builder.Build();
+    Log.Information("Application built successfully. Configuring HTTP request pipeline...");
 
     // Configure the HTTP request pipeline.
     // Map OpenAPI/Swagger also in Testing environment for integration tests
