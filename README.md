@@ -254,6 +254,32 @@ For printing receipts and comandas to USB-connected printers on Windows machines
 
 See `docs/PrinterArchitecture.md` for more details.
 
+### 6.1. Android Wrapper App (Optional)
+
+For Android users, a dedicated wrapper app is available to simplify connecting to your SagraFacile server on the local network, especially when using a custom domain with SSL. This app embeds the SagraFacile PWA and handles local DNS resolution internally.
+
+**Why use it?**
+*   Avoids manual DNS configuration on each Android device.
+*   Ensures the SagraFacile PWA loads with a trusted SSL certificate using your server's domain name.
+
+**Installation and Setup:**
+
+1.  **Download the APK:**
+    *   The Android app is distributed as an APK file (e.g., `SagraFacileApp-release.apk`). This will be included in the SagraFacile distribution package or can be built from the `sagrafacile-androidapp` project directory.
+2.  **Install on Android Device:**
+    *   Transfer the APK file to your Android device.
+    *   Open the file to install it. You might need to enable "Install from unknown sources" in your Android settings.
+3.  **Configure the App:**
+    *   On the first launch, the app will prompt you to configure server settings.
+    *   Go to the app's **Settings** (usually via a menu icon).
+    *   Enter the **SagraFacile Server Domain** (the same `MY_DOMAIN` you configured for the main SagraFacile setup, e.g., `pos.yourdomain.com`).
+    *   Enter the **SagraFacile Server Local IP** (the local IP address of the computer running SagraFacile, e.g., `192.168.1.10`).
+    *   Save the settings.
+4.  **Usage:**
+    *   The app will then load your SagraFacile PWA. Subsequent launches will go directly to the PWA.
+
+For more details on the Android Wrapper App, including building it from source, see the `README.md` file within the `sagrafacile-androidapp/` directory.
+
 ### 7. Services Overview (Docker Compose)
 
 The `docker-compose.yml` file defines and configures these services. The interactive `start.sh` (macOS/Linux) and `start.bat` (Windows) scripts first collect your configuration choices into `sagrafacile_config.json`, and then use this file to generate the necessary `.env` file that `docker-compose.yml` relies on.

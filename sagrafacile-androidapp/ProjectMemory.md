@@ -9,6 +9,25 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-20) - Documentation Update for Android Wrapper App
+*   **Context:** Finalizing documentation for the Android Wrapper App.
+*   **Accomplishments:**
+    *   **Created `sagrafacile-androidapp/README.md`:** Added a comprehensive README file specifically for the Android wrapper app project. This includes:
+        *   Overview of the app's purpose and functionality.
+        *   Key features.
+        *   Prerequisites for use.
+        *   Step-by-step instructions for installation and first-time setup.
+        *   Guidance on building the app from source for developers.
+        *   Technical details and links to further architectural documentation.
+        *   Basic troubleshooting tips.
+    *   **Updated Main Project `README.md`:** Added a new section (`### 6.1. Android Wrapper App (Optional)`) to the main `README.md` file. This section:
+        *   Explains the purpose and benefits of using the Android Wrapper App.
+        *   Provides installation and setup instructions for end-users.
+        *   Links to the more detailed `README.md` within the `sagrafacile-androidapp/` directory.
+*   **Outcome:** Both the Android app sub-project and the main project now have updated documentation regarding the Android Wrapper App, improving clarity for both end-users and developers.
+*   **Next Steps (from `docs/AndroidWrapperAppArchitecture.md` and `Roadmap.md`):**
+    *   Prepare for build and distribution (signed release APK). *(User/Dev action in Android Studio)*
+
 ## (2025-06-20) - Android Wrapper App Enhancements
 *   **Context:** Continued development of the Android wrapper app, focusing on usability and robustness enhancements based on the next steps from the previous session and `Roadmap.md` (Phase 10).
 *   **Accomplishments:**
