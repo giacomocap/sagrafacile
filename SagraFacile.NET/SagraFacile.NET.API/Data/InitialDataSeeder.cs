@@ -70,7 +70,7 @@ namespace SagraFacile.NET.API.Data
             // --- Seed Roles ---
             try
             {
-                string[] roleNames = { "SuperAdmin", "Admin", "AreaAdmin", "Cashier", "Waiter" };
+                string[] roleNames = { "SuperAdmin", "Admin", "Cashier", "Waiter" };
                 IdentityResult roleResult;
 
                 foreach (var roleName in roleNames)

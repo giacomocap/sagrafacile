@@ -88,8 +88,8 @@ Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidIssuer = builder.Configuration["JWT_ISSUER"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables."),
+            ValidAudience = builder.Configuration["JWT_AUDIENCE"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables."),
             // Use the JWT_SECRET environment variable directly, as this is what's being set.
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables."))),
             // Explicitly tell the middleware which claim contains role information

@@ -542,17 +542,18 @@ public class AccountService : BaseService, IAccountService
     private async Task<TokenResponseDto> GenerateAndSaveTokens(User user)
     {
         _logger.LogDebug("Generating and saving tokens for user {UserId}.", user.Id);
-        var jwtSettings = _configuration.GetSection("Jwt");
-        var key = jwtSettings["Key"] ?? throw new InvalidOperationException("JWT Key not configured.");
-        var issuer = jwtSettings["Issuer"] ?? throw new InvalidOperationException("JWT Issuer not configured.");
-        var audience = jwtSettings["Audience"] ?? throw new InvalidOperationException("JWT Audience not configured.");
-        var accessTokenDurationMinutes = jwtSettings.GetValue<int?>("AccessTokenDurationMinutes") ?? 15; // Default to 15 minutes
-        var refreshTokenDurationDays = jwtSettings.GetValue<int?>("RefreshTokenDurationDays") ?? 7; // Default to 7 days
+        // Use JWT_SECRET directly from configuration, consistent with Program.cs validation
+        var key = _configuration["JWT_SECRET"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables.");
+        // Use JWT_ISSUER and JWT_AUDIENCE directly from configuration, consistent with .env and docker-compose
+        var issuer = _configuration["JWT_ISSUER"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables.");
+        var audience = _configuration["JWT_AUDIENCE"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables.");
+        var accessTokenDurationMinutes = _configuration.GetValue<int?>("Jwt:AccessTokenDurationMinutes") ?? 15; // Default to 15 minutes
+        var refreshTokenDurationDays = _configuration.GetValue<int?>("Jwt:RefreshTokenDurationDays") ?? 7; // Default to 7 days
 
         if (string.IsNullOrEmpty(key) || key.Length < 32)
         {
-            _logger.LogCritical("JWT Key is missing or too short. This is a configuration error.");
-             throw new InvalidOperationException("JWT Key is missing or too short (requires at least 32 characters). Ensure it is configured securely.");
+            _logger.LogCritical("JWT_SECRET is missing or too short. This is a configuration error. It must be at least 32 characters long.");
+             throw new InvalidOperationException("JWT_SECRET is missing or too short (requires at least 32 characters). Ensure it is configured securely in environment variables.");
         }
 
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
