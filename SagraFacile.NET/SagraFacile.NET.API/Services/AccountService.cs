@@ -101,8 +101,8 @@ public class AccountService : BaseService, IAccountService
             Email = registerDto.Email,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName,
-            OrganizationId = organizationIdToAssign // Assign the validated OrganizationId
-            // EmailConfirmed = true; // Consider email confirmation flow
+            OrganizationId = organizationIdToAssign, // Assign the validated OrganizationId
+            EmailConfirmed = true // Consider email confirmation flow
         };
 
         _logger.LogInformation("Creating user {Email} in organization {OrganizationId}.", user.Email, user.OrganizationId);
@@ -210,10 +210,10 @@ public class AccountService : BaseService, IAccountService
         }
 
         var currentRoles = await _userManager.GetRolesAsync(user);
-        
+
         // Roles to add are the ones in the DTO that are not already assigned to the user.
         var rolesToAdd = assignRolesDto.RoleNames.Except(currentRoles).ToList();
-        
+
         // Roles to remove are the ones currently assigned that are NOT in the DTO.
         var rolesToRemove = currentRoles.Except(assignRolesDto.RoleNames).ToList();
 
