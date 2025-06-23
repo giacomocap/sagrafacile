@@ -266,10 +266,6 @@ const CashierPage = () => {
     };
 
     const handleAddItem = (item: MenuItemDto) => {
-        if (scannedPreOrderId) {
-            setScannedPreOrderId(null);
-            toast.info("Pre-ordine rimosso. Stai creando un nuovo ordine.");
-        }
         setJustAddedItemId(item.id);
         setTimeout(() => setJustAddedItemId(null), 500);
         const category = menuCategories.find(c => c.id === item.menuCategoryId);

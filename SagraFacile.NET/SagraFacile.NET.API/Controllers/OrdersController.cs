@@ -10,91 +10,91 @@ using System.Threading.Tasks;
 
 namespace SagraFacile.NET.API.Controllers
 {
-[Route("api/[controller]")]
-[ApiController]
-[Authorize] // Require authentication for all actions in this controller
-public class OrdersController : ControllerBase
-{
-    private readonly IOrderService _orderService;
-    private readonly ILogger<OrdersController> _logger; // Added logger
-    private readonly IPrinterService _printerService; // Added IPrinterService
-
-    public OrdersController(IOrderService orderService, ILogger<OrdersController> logger, IPrinterService printerService) // Added IPrinterService
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize] // Require authentication for all actions in this controller
+    public class OrdersController : ControllerBase
     {
-        _orderService = orderService;
-        _logger = logger; // Assign logger
-        _printerService = printerService; // Assign IPrinterService
-    }
+        private readonly IOrderService _orderService;
+        private readonly ILogger<OrdersController> _logger; // Added logger
+        private readonly IPrinterService _printerService; // Added IPrinterService
 
-// POST: api/Orders
-[HttpPost]
-[Authorize(Roles = "Cashier, AreaAdmin, Admin, SuperAdmin")] // Define who can create orders
-public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto orderDto) // Return OrderDto
-{
-    _logger.LogInformation("Received request to create order for AreaId: {AreaId}, CustomerName: {CustomerName}", orderDto.AreaId, orderDto.CustomerName);
-    if (!ModelState.IsValid)
-    {
-        _logger.LogWarning("Invalid model state for creating order for AreaId: {AreaId}. Errors: {@Errors}", orderDto.AreaId, ModelState);
-        return BadRequest(ModelState);
-    }
-
-    // --- Get Cashier ID from Authenticated User ---
-    // In a real scenario, you'd get the user ID from the claims principal
-    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-    if (userId == null)
-    {
-        _logger.LogError("Unauthorized: Cannot identify cashier for order creation.");
-        // This shouldn't happen if [Authorize] is working correctly
-        return Unauthorized("Cannot identify cashier.");
-    }
-    string cashierId = userId;
-    // --- End Get Cashier ID ---
-
-    try
-    {
-        var createdOrderDto = await _orderService.CreateOrderAsync(orderDto, cashierId);
-
-        if (createdOrderDto == null)
+        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger, IPrinterService printerService) // Added IPrinterService
         {
-            _logger.LogError("Order creation returned null unexpectedly for AreaId: {AreaId}, CustomerName: {CustomerName}", orderDto.AreaId, orderDto.CustomerName);
-            // This might indicate an internal service error not caught as a specific exception
-            return BadRequest("Failed to create order due to an unexpected issue.");
+            _orderService = orderService;
+            _logger = logger; // Assign logger
+            _printerService = printerService; // Assign IPrinterService
         }
 
-        _logger.LogInformation("Successfully created order with ID: {OrderId} for AreaId: {AreaId}", createdOrderDto.Id, createdOrderDto.AreaId);
-        // Return the created OrderDto
-        return CreatedAtAction(nameof(GetOrder), new { id = createdOrderDto.Id }, createdOrderDto);
-    }
-    catch (KeyNotFoundException ex)
-    {
-        _logger.LogWarning(ex, "Failed to create order for AreaId: {AreaId}. Error: {Error}", orderDto.AreaId, ex.Message);
-        // e.g., AreaId or MenuItemId not found
-        return NotFound(ex.Message);
-    }
-    catch (UnauthorizedAccessException ex)
-    {
-        _logger.LogWarning(ex, "Unauthorized access attempt to create order for AreaId: {AreaId}", orderDto.AreaId);
-        // e.g., User trying to access area/item from another org
-        return Forbid(); // Corrected: No message argument
-    }
-    catch (InvalidOperationException ex)
-    {
-        _logger.LogWarning(ex, "Invalid operation during order creation for AreaId: {AreaId}. Error: {Error}", orderDto.AreaId, ex.Message);
-        // e.g., Item not in area, missing required note
-        return BadRequest(ex.Message);
-    }
-    catch (Exception ex) // Catch unexpected errors
-    {
-        _logger.LogError(ex, "An unexpected error occurred while creating the order for AreaId: {AreaId}", orderDto.AreaId);
-        return StatusCode(500, "An unexpected error occurred while creating the order.");
-    }
-}
+        // POST: api/Orders
+        [HttpPost]
+        [Authorize(Roles = "Cashier, AreaAdmin, Admin, SuperAdmin")] // Define who can create orders
+        public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto orderDto) // Return OrderDto
+        {
+            _logger.LogInformation("Received request to create order for AreaId: {AreaId}, CustomerName: {CustomerName}", orderDto.AreaId, orderDto.CustomerName);
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("Invalid model state for creating order for AreaId: {AreaId}. Errors: {@Errors}", orderDto.AreaId, ModelState);
+                return BadRequest(ModelState);
+            }
 
-         // GET: api/Orders/{id} (e.g., api/Orders/1-1-1713189311000-ABCDEF12)
-         [HttpGet("{id}")]
-         [Authorize(Roles = "Waiter, Cashier, AreaAdmin, Admin, SuperAdmin")] // Allow Waiter and others to fetch specific orders
-         public async Task<ActionResult<OrderDto>> GetOrder(string id) // Changed id to string
-         {
+            // --- Get Cashier ID from Authenticated User ---
+            // In a real scenario, you'd get the user ID from the claims principal
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null)
+            {
+                _logger.LogError("Unauthorized: Cannot identify cashier for order creation.");
+                // This shouldn't happen if [Authorize] is working correctly
+                return Unauthorized("Cannot identify cashier.");
+            }
+            string cashierId = userId;
+            // --- End Get Cashier ID ---
+
+            try
+            {
+                var createdOrderDto = await _orderService.CreateOrderAsync(orderDto, cashierId);
+
+                if (createdOrderDto == null)
+                {
+                    _logger.LogError("Order creation returned null unexpectedly for AreaId: {AreaId}, CustomerName: {CustomerName}", orderDto.AreaId, orderDto.CustomerName);
+                    // This might indicate an internal service error not caught as a specific exception
+                    return BadRequest("Failed to create order due to an unexpected issue.");
+                }
+
+                _logger.LogInformation("Successfully created order with ID: {OrderId} for AreaId: {AreaId}", createdOrderDto.Id, createdOrderDto.AreaId);
+                // Return the created OrderDto
+                return CreatedAtAction(nameof(GetOrder), new { id = createdOrderDto.Id }, createdOrderDto);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Failed to create order for AreaId: {AreaId}. Error: {Error}", orderDto.AreaId, ex.Message);
+                // e.g., AreaId or MenuItemId not found
+                return NotFound(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access attempt to create order for AreaId: {AreaId}", orderDto.AreaId);
+                // e.g., User trying to access area/item from another org
+                return Forbid(); // Corrected: No message argument
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation during order creation for AreaId: {AreaId}. Error: {Error}", orderDto.AreaId, ex.Message);
+                // e.g., Item not in area, missing required note
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex) // Catch unexpected errors
+            {
+                _logger.LogError(ex, "An unexpected error occurred while creating the order for AreaId: {AreaId}", orderDto.AreaId);
+                return StatusCode(500, "An unexpected error occurred while creating the order.");
+            }
+        }
+
+        // GET: api/Orders/{id} (e.g., api/Orders/1-1-1713189311000-ABCDEF12)
+        [HttpGet("{id}")]
+        [Authorize(Roles = "Waiter, Cashier, AreaAdmin, Admin, SuperAdmin")] // Allow Waiter and others to fetch specific orders
+        public async Task<ActionResult<OrderDto>> GetOrder(string id) // Changed id to string
+        {
             _logger.LogInformation("Received request to get order with ID: {OrderId}", id);
             try
             {
@@ -121,7 +121,7 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
                 _logger.LogError(ex, "An unexpected error occurred while retrieving order with ID: {OrderId}", id);
                 return StatusCode(500, "An unexpected error occurred while retrieving the order.");
             }
-         }
+        }
 
         // GET: api/Orders?areaId=123 (Optional areaId)
         // GET: api/Orders?organizationId=1&areaId=123&statuses=Paid&statuses=PreOrder (All optional)
@@ -162,8 +162,8 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
             {
                 _logger.LogError(ex, "An unexpected error occurred while retrieving orders. OrgId: {OrgId}, AreaId: {AreaId}", organizationId, areaId);
                 return StatusCode(500, "An unexpected error occurred while retrieving orders.");
-             }
-         }
+            }
+        }
 
         // PUT: api/Orders/{orderId}/confirm-preparation
         [HttpPut("{orderId}/confirm-preparation")]
@@ -195,8 +195,8 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
             }
             catch (UnauthorizedAccessException ex) // Catch specific exception from service if thrown
             {
-                 _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmOrderPreparation for Order {OrderId}", orderId); // Use logger
-                 return Forbid(); // User is authenticated but not authorized for this specific action/order
+                _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmOrderPreparation for Order {OrderId}", orderId); // Use logger
+                return Forbid(); // User is authenticated but not authorized for this specific action/order
             }
             catch (KeyNotFoundException ex)
             {
@@ -215,8 +215,8 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
             }
         }
 
-         // TODO: Add endpoints for updating order status if needed in Phase 1
-         // e.g., PUT /api/Orders/{id}/status
+        // TODO: Add endpoints for updating order status if needed in Phase 1
+        // e.g., PUT /api/Orders/{id}/status
 
         // --- KDS Endpoints ---
 
@@ -333,8 +333,8 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
                 // If it returns null unexpectedly, it's likely an unhandled case or DB issue not caught.
                 if (updatedOrderDto == null)
                 {
-                     _logger.LogError("ConfirmPreOrderPaymentAsync returned null unexpectedly for Order {OrderId}.", orderId);
-                     return StatusCode(500, "An unexpected error occurred while confirming the pre-order payment.");
+                    _logger.LogError("ConfirmPreOrderPaymentAsync returned null unexpectedly for Order {OrderId}.", orderId);
+                    return StatusCode(500, "An unexpected error occurred while confirming the pre-order payment.");
                 }
 
                 _logger.LogInformation("Successfully confirmed pre-order payment for OrderId: {OrderId}", orderId);
@@ -355,7 +355,7 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
             catch (UnauthorizedAccessException ex)
             {
                 // User doesn't have access to the order's organization
-                 _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmPreOrderPayment for Order {OrderId}", orderId);
+                _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmPreOrderPayment for Order {OrderId}", orderId);
                 return Forbid(); // Return 403 Forbidden
             }
             catch (Exception ex) // Catch unexpected errors
@@ -371,11 +371,11 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
         public async Task<IActionResult> ConfirmKdsOrderCompletion(string orderId, int kdsStationId)
         {
             _logger.LogInformation("Received request to confirm KDS order completion for OrderId: {OrderId}, KDSStationId: {KdsStationId}", orderId, kdsStationId);
-             if (kdsStationId <= 0)
-             {
-                 _logger.LogWarning("Bad request: Invalid KDS Station ID {KdsStationId} provided for KDS order completion.", kdsStationId);
-                 return BadRequest("Valid KDS Station ID is required.");
-             }
+            if (kdsStationId <= 0)
+            {
+                _logger.LogWarning("Bad request: Invalid KDS Station ID {KdsStationId} provided for KDS order completion.", kdsStationId);
+                return BadRequest("Valid KDS Station ID is required.");
+            }
 
             try
             {
@@ -403,7 +403,7 @@ public async Task<ActionResult<OrderDto>> CreateOrder([FromBody] CreateOrderDto 
             }
             catch (UnauthorizedAccessException ex)
             {
-                 _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmKdsOrderCompletion for Order {OrderId}, Station {KdsStationId}", orderId, kdsStationId); // Use logger
+                _logger.LogWarning(ex, "Unauthorized access attempt in ConfirmKdsOrderCompletion for Order {OrderId}, Station {KdsStationId}", orderId, kdsStationId); // Use logger
                 return Forbid(ex.Message);
             }
             catch (InvalidOperationException ex)
