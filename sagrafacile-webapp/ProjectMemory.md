@@ -12,6 +12,20 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-23) - Enhanced Order Filtering and Optional Pagination (Frontend)
+**Context:** Implemented frontend changes to support the backend's new optional pagination and status filtering for orders, specifically addressing a bug where the waiter page was not distinguishing between order statuses.
+**Accomplishments:**
+*   **Type Definitions:** Updated `src/types/index.ts` to reflect the changes in `OrderQueryParameters` (nullable `page`, `pageSize`, and added `statuses?: number[]`).
+*   **Component Updates:**
+    *   `src/components/cashier/ReprintOrderDialog.tsx`: Removed hardcoded `pageSize: 1000` and `page: 1` from the API call, relying on the backend's new optional pagination behavior to fetch all orders.
+    *   `src/app/app/org/[orgId]/waiter/area/[areaId]/page.tsx`: Re-added the `statuses` parameter to the `apiClient.get` calls for fetching both "pending" (`OrderStatus.Paid`, `OrderStatus.PreOrder`) and "active" (`OrderStatus.Preparing`, `OrderStatus.ReadyForPickup`) orders, ensuring correct filtering and display in their respective tabs. Removed hardcoded `pageSize: 1000` and `page: 1`.
+    *   `src/app/app/org/[orgId]/table-order/area/[areaId]/page.tsx`: Removed hardcoded `pageSize: 50` and changed `sortDirection: 'desc'` to `sortAscending: false` in the API call for fetching past orders, allowing the backend to return all items by default.
+**Key Decisions:**
+*   Aligned frontend API calls with the backend's new optional pagination and status filtering capabilities.
+*   Ensured that components requiring full lists of orders (e.g., waiter, reprint dialog) now correctly leverage the optional pagination by omitting `page` and `pageSize`.
+*   Fixed the waiter page bug by reintroducing status filtering.
+**Outcome:** The frontend now correctly interacts with the updated order API, resolving previous data display issues and improving flexibility.
+
 ## (2025-06-23) - Refactored Orders Page with Reusable Paginated Table
 **Context:** Refactored the admin "Storico Ordini" page to use a new reusable, paginated table component, enhancing performance and code reuse.
 **Accomplishments:**

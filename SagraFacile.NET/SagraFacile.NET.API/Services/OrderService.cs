@@ -720,6 +720,12 @@ namespace SagraFacile.NET.API.Services
                 query = query.Where(o => o.AreaId == queryParameters.AreaId.Value);
             }
 
+            if (queryParameters.Statuses != null && queryParameters.Statuses.Any())
+            {
+                var statusesAsEnum = queryParameters.Statuses.Cast<OrderStatus>().ToList();
+                query = query.Where(o => statusesAsEnum.Contains(o.Status));
+            }
+
             int? filterDayId = null;
             if (queryParameters.DayId.HasValue)
             {
@@ -744,7 +750,15 @@ namespace SagraFacile.NET.API.Services
                 }
                 else
                 {
-                    return new PaginatedResult<OrderDto> { Items = new List<OrderDto>(), TotalCount = 0, Page = queryParameters.Page, PageSize = queryParameters.PageSize, TotalPages = 0 };
+                    // If no day is open, return an empty paginated result.
+                    return new PaginatedResult<OrderDto>
+                    {
+                        Items = new List<OrderDto>(),
+                        TotalCount = 0,
+                        Page = 1,
+                        PageSize = queryParameters.PageSize ?? 20, // Use a default page size
+                        TotalPages = 0
+                    };
                 }
             }
 
@@ -766,9 +780,14 @@ namespace SagraFacile.NET.API.Services
                 .Include(o => o.Waiter)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.MenuItem)
-                .Skip((queryParameters.Page - 1) * queryParameters.PageSize)
-                .Take(queryParameters.PageSize)
                 .AsNoTracking();
+
+            // Only apply pagination if both Page and PageSize have values
+            if (queryParameters.Page.HasValue && queryParameters.PageSize.HasValue)
+            {
+                pagedQuery = pagedQuery.Skip((queryParameters.Page.Value - 1) * queryParameters.PageSize.Value)
+                                       .Take(queryParameters.PageSize.Value);
+            }
 
             var orders = await pagedQuery.ToListAsync();
 
@@ -780,13 +799,21 @@ namespace SagraFacile.NET.API.Services
                 return MapOrderToDto(order, order.Area?.Name ?? "Unknown Area", cashierName, waiterName, menuItemNames);
             }).ToList();
 
+            // If pagination was applied, use the provided parameters. Otherwise, calculate based on total count.
+            var page = queryParameters.Page ?? 1;
+            var pageSize = queryParameters.PageSize ?? totalCount;
+            if (pageSize == 0 && totalCount > 0) pageSize = totalCount; // Avoid division by zero
+
+            var totalPages = (pageSize > 0) ? (int)Math.Ceiling(totalCount / (double)pageSize) : 0;
+            if (totalPages == 0 && totalCount > 0) totalPages = 1; // If there are items, there's at least one page.
+
             return new PaginatedResult<OrderDto>
             {
                 Items = orderDtos,
                 TotalCount = totalCount,
-                Page = queryParameters.Page,
-                PageSize = queryParameters.PageSize,
-                TotalPages = (int)Math.Ceiling(totalCount / (double)queryParameters.PageSize)
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = totalPages
             };
         }
 

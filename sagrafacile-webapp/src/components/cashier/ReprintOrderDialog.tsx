@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2, Printer, } from 'lucide-react';
 import apiClient from '@/services/apiClient';
-import { OrderDto, OrderStatus, AreaDto, ReprintType } from '@/types'; // Added AreaDto
+import { OrderDto, OrderStatus, AreaDto, ReprintType, PaginatedResult, OrderQueryParameters } from '@/types'; // Added AreaDto, PaginatedResult, OrderQueryParameters
 import { toast } from 'sonner';
 import ReceiptDialog from '@/components/ReceiptDialog';
 import { Badge } from "@/components/ui/badge";
@@ -61,18 +61,17 @@ const ReprintOrderDialog: React.FC<ReprintOrderDialogProps> = ({ isOpen, onClose
         try {
             // Fetch both orders and the current area details in parallel
             const [ordersResponse, areaResponse] = await Promise.all([
-                apiClient.get<OrderDto[]>('/orders', {
+                apiClient.get<PaginatedResult<OrderDto>>('/orders', {
                     params: {
-                        organizationId: orgId,
+                        organizationId: parseInt(orgId, 10),
                         areaId: areaId,
-                        // Fetches orders for the current open day by default on the backend
-                    }
+                    } as OrderQueryParameters // Cast to ensure type compatibility
                 }),
                 apiClient.get<AreaDto>(`/Areas/${areaId}`)
             ]);
 
             // Sort orders by date descending
-            const sortedOrders = ordersResponse.data.sort((a, b) =>
+            const sortedOrders = ordersResponse.data.items.sort((a, b) =>
                 new Date(b.orderDateTime).getTime() - new Date(a.orderDateTime).getTime()
             );
             setOrders(sortedOrders);

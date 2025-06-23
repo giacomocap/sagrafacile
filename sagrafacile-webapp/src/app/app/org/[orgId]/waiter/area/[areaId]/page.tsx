@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScanLine, List, Hourglass, RefreshCw, AlertCircle } from 'lucide-react';
 import apiClient from '@/services/apiClient';
-import { OrderDto, OrderStatus } from '@/types';
+import { OrderDto, OrderStatus, PaginatedResult } from '@/types';
 import NoDayOpenOverlay from '@/components/NoDayOpenOverlay';
 import { useParams } from 'next/navigation';
 import OrderQrScanner from '@/components/shared/OrderQrScanner';
@@ -35,10 +35,10 @@ const WaiterPage = () => {
         setErrorActive(null);
 
         try {
-            const pendingResponse = await apiClient.get<OrderDto[]>('/orders', {
+            const pendingResponse = await apiClient.get<PaginatedResult<OrderDto>>('/orders', {
                 params: { statuses: [OrderStatus.Paid, OrderStatus.PreOrder], areaId }
             });
-            setPendingOrders(pendingResponse.data);
+            setPendingOrders(pendingResponse.data.items);
         } catch (err: any) {
             console.error("Failed to fetch pending orders:", err);
             setErrorPending(err.response?.data?.message || err.message || 'Errore nel caricamento ordini da confermare.');
@@ -47,10 +47,10 @@ const WaiterPage = () => {
         }
 
         try {
-            const activeResponse = await apiClient.get<OrderDto[]>('/orders', {
+            const activeResponse = await apiClient.get<PaginatedResult<OrderDto>>('/orders', {
                 params: { statuses: [OrderStatus.Preparing, OrderStatus.ReadyForPickup], areaId }
             });
-            setActiveOrders(activeResponse.data);
+            setActiveOrders(activeResponse.data.items);
         } catch (err: any) {
             console.error("Failed to fetch active orders:", err);
             setErrorActive(err.response?.data?.message || err.message || 'Errore nel caricamento ordini in corso.');

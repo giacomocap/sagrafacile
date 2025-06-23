@@ -453,6 +453,7 @@ export interface OrderQueryParameters {
   areaId?: number;
   dayId?: number | 'current';
   organizationId?: number;
+  statuses?: number[];
 }
 
 export interface PaginatedResult<T> {

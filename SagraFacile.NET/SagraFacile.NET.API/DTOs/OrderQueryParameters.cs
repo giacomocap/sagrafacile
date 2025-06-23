@@ -5,16 +5,14 @@ namespace SagraFacile.NET.API.DTOs;
 public class OrderQueryParameters
 {
     private const int MaxPageSize = 100;
-    private int _pageSize = 20;
+    private int? _pageSize;
 
-    [DefaultValue(1)]
-    public int Page { get; set; } = 1;
+    public int? Page { get; set; }
 
-    [DefaultValue(20)]
-    public int PageSize
+    public int? PageSize
     {
         get => _pageSize;
-        set => _pageSize = (value > MaxPageSize) ? MaxPageSize : value;
+        set => _pageSize = (value.HasValue && value.Value > MaxPageSize) ? MaxPageSize : value;
     }
 
     [DefaultValue("orderDateTime")]
@@ -27,4 +25,5 @@ public class OrderQueryParameters
     public int? AreaId { get; set; }
     public int? DayId { get; set; }
     public int? OrganizationId { get; set; }
+    public List<int>? Statuses { get; set; }
 }
