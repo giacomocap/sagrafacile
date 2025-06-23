@@ -121,6 +121,14 @@ export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationPr
             Assegnazione Stampanti
           </Button>
         </Link>
+        <Link href={`/app/org/${currentOrgId}/admin/print-jobs`} onClick={handleLinkClick}>
+          <Button 
+            variant={pathname.includes('/admin/print-jobs') ? 'secondary' : 'ghost'} 
+            className="w-full justify-start h-9 px-3 text-sm font-normal"
+          >
+            Monitoraggio Stampe
+          </Button>
+        </Link>
         <Link href={`/app/org/${currentOrgId}/admin/ads`} onClick={handleLinkClick}>
           <Button 
             variant={pathname.includes('/admin/ads') ? 'secondary' : 'ghost'} 

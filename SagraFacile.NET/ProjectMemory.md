@@ -350,6 +350,32 @@
 *   User to test the new resilient printing system as per the provided instructions.
 *   (Future) Implement Admin UI for monitoring print job statuses.
 
+## (2025-06-23) - Implemented Admin UI for Print Job Monitoring
+**Context:** Implemented the Admin UI for monitoring print jobs, providing visibility into the resilient printing system's operations. This builds upon the previously implemented backend job queue and processing.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   Created `PrintJobQueryParameters.cs`, `PrintJobDto.cs`, and `PaginatedResult.cs` DTOs for data transfer and pagination.
+    *   Implemented `IPrintJobService.cs` and `PrintJobService.cs` to encapsulate business logic for fetching paginated and sortable print jobs, and for manually retrying failed jobs.
+    *   Registered `IPrintJobService` and `PrintJobService` for dependency injection in `Program.cs`.
+    *   Created `PrintJobsController.cs` with `GET /api/PrintJobs` (for paginated list) and `POST /api/PrintJobs/{jobId}/retry` (for manual retry) endpoints, secured with `Admin,SuperAdmin` roles.
+*   **Frontend (Next.js WebApp):**
+    *   Updated `sagrafacile-webapp/src/services/printerService.ts` to include `getPrintJobs` and `retryPrintJob` methods.
+    *   Added `PrintJobStatus`, `PrintJobType`, `PrintJobDto`, `PrintJobQueryParameters`, and `PaginatedResult` TypeScript types to `sagrafacile-webapp/src/types/index.ts`.
+    *   Created the new Admin UI page `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx`. This page displays a table of print jobs with columns for ID, JobType, Status, CreatedAt, LastAttemptAt, RetryCount, ErrorMessage, OrderId, and PrinterName.
+    *   Implemented client-side pagination and sorting for the print jobs table.
+    *   Added a "Retry Manually" action for failed print jobs, which triggers the backend retry endpoint.
+    *   Ensured date formatting uses vanilla JavaScript `Date` methods for consistency.
+    *   Added a link to "Monitoraggio Stampe" in `sagrafacile-webapp/src/components/admin/AdminNavigation.tsx`.
+    *   Added a new card for "Monitoraggio Stampe" to the main Admin Dashboard page (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`).
+**Key Decisions:**
+*   Implemented server-side pagination and sorting for print jobs to optimize performance for large datasets.
+*   Provided a manual retry mechanism for failed jobs, complementing the automatic retry logic in the `PrintJobProcessor`.
+*   Used vanilla JavaScript for date formatting in the frontend as per user preference.
+*   Integrated the new page into the existing admin navigation and dashboard for easy access.
+**Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
+**Next Steps:**
+*   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
 ## (Next Session) - Planned Work
 *   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 

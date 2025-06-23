@@ -113,6 +113,7 @@ builder.Services.AddScoped<ISyncConfigurationService, SyncConfigurationService>(
 builder.Services.AddScoped<IMenuSyncService, MenuSyncService>(); // Register Menu Sync Service
 builder.Services.AddScoped<IPreOrderPollingService, PreOrderPollingService>(); // Register the polling logic service
 builder.Services.AddScoped<IPrinterService, PrinterService>(); // Add Printer Service
+builder.Services.AddScoped<IPrintJobService, PrintJobService>(); // Add Print Job Service
 builder.Services.AddScoped<IPrinterAssignmentService, PrinterAssignmentService>(); // Add Printer Assignment Service
 builder.Services.AddScoped<ICashierStationService, CashierStationService>();
 builder.Services.AddScoped<IQueueService, QueueService>(); // Add QueueService registration
