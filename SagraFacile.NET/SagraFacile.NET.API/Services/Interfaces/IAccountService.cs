@@ -21,36 +21,16 @@ public class LoginResult : AccountResult
     public bool IsNotAllowed { get; set; }
 }
 
-// DTO for assigning a role to a user
-public class AssignRoleDto
-{
-    [Required]
-    public required string UserId { get; set; }
-    [Required]
-    public required string RoleName { get; set; }
-}
-
-// DTO for unassigning a role from a user
-public class UnassignRoleDto
-{
-    [Required]
-    public required string UserId { get; set; }
-    [Required]
-    public required string RoleName { get; set; }
-}
-
-
 public interface IAccountService
 {
     Task<AccountResult> RegisterUserAsync(RegisterDto registerDto);
     Task<LoginResult> LoginUserAsync(LoginDto loginDto);
-    Task<AccountResult> AssignUserToRoleAsync(AssignRoleDto assignRoleDto);
+    Task<AccountResult> AssignRolesAsync(AssignRolesDto assignRolesDto);
     Task<IEnumerable<UserDto>> GetUsersAsync(); // Added for User Management
     Task<UserDto?> GetUserByIdAsync(string userId); // Added for getting a single user
     Task<AccountResult> UpdateUserAsync(string userId, UpdateUserDto updateUserDto);
     Task<AccountResult> DeleteUserAsync(string userId);
     Task<IEnumerable<string>> GetRolesAsync(); // List all available roles
     Task<AccountResult> CreateRoleAsync(CreateRoleDto createRoleDto); // Create a new role
-    Task<AccountResult> UnassignUserFromRoleAsync(UnassignRoleDto unassignRoleDto); // Unassign a role
     Task<TokenResponseDto?> RefreshTokenAsync(string refreshToken);
 }

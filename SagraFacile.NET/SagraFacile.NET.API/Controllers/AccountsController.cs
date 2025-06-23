@@ -93,102 +93,41 @@ public class AccountsController : ControllerBase
         }
     }
 
-    [HttpPost("assign-role")]
-    [Authorize(Roles = "SuperAdmin")] // TODO: Define roles properly and secure this endpoint
+    [HttpPost("assign-roles")]
+    [Authorize(Roles = "SuperAdmin,Admin")] 
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)] // If user or role not found
-    public async Task<IActionResult> AssignRole(AssignRoleDto assignRoleDto)
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AssignRoles(AssignRolesDto assignRolesDto)
     {
-        _logger.LogInformation("Received request to assign role '{RoleName}' to user '{UserId}'.", assignRoleDto.RoleName, assignRoleDto.UserId);
+        _logger.LogInformation("Received request to assign roles to user '{UserId}'.", assignRolesDto.UserId);
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("Assign role request for user {UserId} failed due to invalid model state.", assignRoleDto.UserId);
+            _logger.LogWarning("Assign roles request for user {UserId} failed due to invalid model state.", assignRolesDto.UserId);
             return BadRequest(ModelState);
         }
 
-        var result = await _accountService.AssignUserToRoleAsync(assignRoleDto);
+        var result = await _accountService.AssignRolesAsync(assignRolesDto);
 
         if (result.Succeeded)
         {
-            _logger.LogInformation("Role '{RoleName}' assigned successfully to user '{UserId}'.", assignRoleDto.RoleName, assignRoleDto.UserId);
-            return Ok(new { Message = $"Role '{assignRoleDto.RoleName}' assigned successfully to user '{assignRoleDto.UserId}'." });
+            _logger.LogInformation("Roles assigned successfully to user '{UserId}'.", assignRolesDto.UserId);
+            return Ok(new { Message = $"Roles assigned successfully to user '{assignRolesDto.UserId}'." });
         }
         else
         {
-            _logger.LogWarning("Failed to assign role '{RoleName}' to user '{UserId}'.", assignRoleDto.RoleName, assignRoleDto.UserId);
+            _logger.LogWarning("Failed to assign roles to user '{UserId}'.", assignRolesDto.UserId);
             foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
             {
-                // Check if it's a "not found" error to return 404
                 if (error.Description.Contains("not found", StringComparison.OrdinalIgnoreCase))
                 {
                     return NotFound(new { Message = error.Description });
                 }
                 ModelState.AddModelError(string.Empty, error.Description);
             }
-            // Return 400 for other validation errors
             return BadRequest(ModelState);
         }
     }
-
-    [HttpPost("unassign-role")]
-    [Authorize(Roles = "SuperAdmin")] // Only SuperAdmins can unassign roles
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)] // If user or role not found
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UnassignRole([FromBody] UnassignRoleDto unassignRoleDto)
-    {
-        _logger.LogInformation("Received request to unassign role '{RoleName}' from user '{UserId}'.", unassignRoleDto.RoleName, unassignRoleDto.UserId);
-        if (!ModelState.IsValid)
-        {
-            _logger.LogWarning("Unassign role request for user {UserId} failed due to invalid model state.", unassignRoleDto.UserId);
-            return BadRequest(ModelState);
-        }
-
-        try
-        {
-            var result = await _accountService.UnassignUserFromRoleAsync(unassignRoleDto);
-
-            if (result.Succeeded)
-            {
-                _logger.LogInformation("Role '{RoleName}' unassigned successfully from user '{UserId}'.", unassignRoleDto.RoleName, unassignRoleDto.UserId);
-                return Ok(new { Message = $"Role '{unassignRoleDto.RoleName}' unassigned successfully from user '{unassignRoleDto.UserId}'." });
-            }
-            else
-            {
-                _logger.LogWarning("Failed to unassign role '{RoleName}' from user '{UserId}'.", unassignRoleDto.RoleName, unassignRoleDto.UserId);
-                bool isNotFound = false;
-                foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
-                {
-                    // Check if it's a "not found" error (user or role)
-                    if (error.Description.Contains("not found", StringComparison.OrdinalIgnoreCase))
-                    {
-                        isNotFound = true;
-                        _logger.LogWarning("Unassign role failed for user {UserId}: {ErrorDescription}", unassignRoleDto.UserId, error.Description);
-                    }
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
-
-                if (isNotFound)
-                {
-                    return NotFound(new { Message = $"User or Role not found." }); // Generic not found
-                }
-                else
-                {
-                    // Return 400 for other Identity errors
-                    return BadRequest(ModelState);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An unexpected error occurred while unassigning role {RoleName} from user {UserId}.", unassignRoleDto.RoleName, unassignRoleDto.UserId);
-            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
-        }
-    }
-
 
     [HttpGet] // Route: GET /api/Accounts
     [Authorize(Roles = "Admin,SuperAdmin")] // Only Admins and SuperAdmins can list users

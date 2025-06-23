@@ -123,48 +123,6 @@ public class AccountService : BaseService, IAccountService
         }
     }
 
-    public async Task<AccountResult> UnassignUserFromRoleAsync(UnassignRoleDto unassignRoleDto)
-    {
-        _logger.LogInformation("Attempting to unassign user {UserId} from role {RoleName}.", unassignRoleDto.UserId, unassignRoleDto.RoleName);
-        var user = await _userManager.FindByIdAsync(unassignRoleDto.UserId);
-        if (user == null)
-        {
-            _logger.LogWarning("Unassign role failed: User with ID {UserId} not found.", unassignRoleDto.UserId);
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {unassignRoleDto.UserId} not found." } } };
-        }
-
-        // Check if role exists
-        var roleExists = await _roleManager.RoleExistsAsync(unassignRoleDto.RoleName);
-        if (!roleExists)
-        {
-            _logger.LogWarning("Unassign role failed: Role '{RoleName}' not found.", unassignRoleDto.RoleName);
-             return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Role '{unassignRoleDto.RoleName}' not found." } } };
-        }
-
-        // Check if the user is actually in the role before attempting removal
-        var isInRole = await _userManager.IsInRoleAsync(user, unassignRoleDto.RoleName);
-        if (!isInRole)
-        {
-            _logger.LogInformation("User {UserId} is not assigned to role '{RoleName}'. No action needed.", unassignRoleDto.UserId, unassignRoleDto.RoleName);
-            return new AccountResult { Succeeded = true };
-        }
-
-        // Unassign role
-        _logger.LogInformation("Removing user {UserId} from role '{RoleName}'.", unassignRoleDto.UserId, unassignRoleDto.RoleName);
-        var identityResult = await _userManager.RemoveFromRoleAsync(user, unassignRoleDto.RoleName);
-
-        if (identityResult.Succeeded)
-        {
-            _logger.LogInformation("User {UserId} successfully unassigned from role '{RoleName}'.", unassignRoleDto.UserId, unassignRoleDto.RoleName);
-            return new AccountResult { Succeeded = true };
-        }
-        else
-        {
-            _logger.LogError("Failed to unassign user {UserId} from role '{RoleName}'. Errors: {Errors}", unassignRoleDto.UserId, unassignRoleDto.RoleName, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
-        }
-    }
-
     public async Task<LoginResult> LoginUserAsync(LoginDto loginDto)
     {
         _logger.LogInformation("Attempting login for user with email {Email}.", loginDto.Email);
@@ -231,37 +189,59 @@ public class AccountService : BaseService, IAccountService
         }
     }
 
-    public async Task<AccountResult> AssignUserToRoleAsync(AssignRoleDto assignRoleDto)
+    public async Task<AccountResult> AssignRolesAsync(AssignRolesDto assignRolesDto)
     {
-        _logger.LogInformation("Attempting to assign user {UserId} to role {RoleName}.", assignRoleDto.UserId, assignRoleDto.RoleName);
-        var user = await _userManager.FindByIdAsync(assignRoleDto.UserId);
+        _logger.LogInformation("Attempting to set roles for user {UserId}.", assignRolesDto.UserId);
+        var user = await _userManager.FindByIdAsync(assignRolesDto.UserId);
         if (user == null)
         {
-            _logger.LogWarning("Assign role failed: User with ID {UserId} not found.", assignRoleDto.UserId);
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {assignRoleDto.UserId} not found." } } };
+            _logger.LogWarning("Assign roles failed: User with ID {UserId} not found.", assignRolesDto.UserId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {assignRolesDto.UserId} not found." } } };
         }
 
-        // Check if role exists before attempting assignment
-        var roleExists = await _roleManager.RoleExistsAsync(assignRoleDto.RoleName);
-        if (!roleExists)
+        // Ensure all requested roles actually exist to prevent partial success states.
+        foreach (var roleName in assignRolesDto.RoleNames)
         {
-            _logger.LogWarning("Assign role failed: Role '{RoleName}' not found.", assignRoleDto.RoleName);
-             return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Role '{assignRoleDto.RoleName}' not found." } } };
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                _logger.LogWarning("Assign roles failed: Role '{RoleName}' not found.", roleName);
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Role '{roleName}' not found." } } };
+            }
         }
 
-        // Assign role
-        _logger.LogInformation("Assigning user {UserId} to role '{RoleName}'.", assignRoleDto.UserId, assignRoleDto.RoleName);
-        var identityResult = await _userManager.AddToRoleAsync(user, assignRoleDto.RoleName);
+        var currentRoles = await _userManager.GetRolesAsync(user);
+        
+        // Roles to add are the ones in the DTO that are not already assigned to the user.
+        var rolesToAdd = assignRolesDto.RoleNames.Except(currentRoles).ToList();
+        
+        // Roles to remove are the ones currently assigned that are NOT in the DTO.
+        var rolesToRemove = currentRoles.Except(assignRolesDto.RoleNames).ToList();
 
-        if (identityResult.Succeeded)
+        IdentityResult addResult = IdentityResult.Success;
+        IdentityResult removeResult = IdentityResult.Success;
+
+        if (rolesToAdd.Any())
         {
-            _logger.LogInformation("User {UserId} successfully assigned to role '{RoleName}'.", assignRoleDto.UserId, assignRoleDto.RoleName);
+            _logger.LogInformation("Adding roles {Roles} to user {UserId}.", string.Join(", ", rolesToAdd), assignRolesDto.UserId);
+            addResult = await _userManager.AddToRolesAsync(user, rolesToAdd);
+        }
+
+        if (rolesToRemove.Any())
+        {
+            _logger.LogInformation("Removing roles {Roles} from user {UserId}.", string.Join(", ", rolesToRemove), assignRolesDto.UserId);
+            removeResult = await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+        }
+
+        if (addResult.Succeeded && removeResult.Succeeded)
+        {
+            _logger.LogInformation("Roles for user {UserId} updated successfully.", assignRolesDto.UserId);
             return new AccountResult { Succeeded = true };
         }
         else
         {
-            _logger.LogError("Failed to assign user {UserId} to role '{RoleName}'. Errors: {Errors}", assignRoleDto.UserId, assignRoleDto.RoleName, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
+            var errors = addResult.Errors.Concat(removeResult.Errors);
+            _logger.LogError("Failed to update roles for user {UserId}. Errors: {Errors}", assignRolesDto.UserId, string.Join(", ", errors.Select(e => e.Description)));
+            return new AccountResult { Succeeded = false, Errors = errors };
         }
     }
 
@@ -280,7 +260,7 @@ public class AccountService : BaseService, IAccountService
             if (!userOrganizationId.HasValue)
             {
                 _logger.LogError("User organization context is missing for non-SuperAdmin when fetching users.");
-                 throw new InvalidOperationException("User organization context is missing for non-SuperAdmin.");
+                throw new InvalidOperationException("User organization context is missing for non-SuperAdmin.");
             }
             // Filter by the calling user's organization
             usersQuery = usersQuery.Where(u => u.OrganizationId == userOrganizationId.Value);
@@ -379,7 +359,7 @@ public class AccountService : BaseService, IAccountService
             if (!callerOrganizationId.HasValue || user.OrganizationId != callerOrganizationId.Value)
             {
                 _logger.LogWarning("Unauthorized update attempt: User {CallerUserId} from Org {CallerOrgId} tried to update user {TargetUserId} from Org {TargetOrgId}.", GetUserId(), callerOrganizationId.Value, userId, user.OrganizationId);
-                 return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {userId} not found." } } };
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {userId} not found." } } };
             }
         }
         else
@@ -387,14 +367,25 @@ public class AccountService : BaseService, IAccountService
             _logger.LogDebug("Caller is SuperAdmin. Access granted for updating user {UserId}.", userId);
         }
 
-        // Update user properties
+        // Update user properties only if they are provided in the DTO
         _logger.LogDebug("Updating properties for user {UserId}.", userId);
-        user.FirstName = updateUserDto.FirstName;
-        user.LastName = updateUserDto.LastName;
+        bool hasChanges = false;
+
+        if (!string.IsNullOrWhiteSpace(updateUserDto.FirstName) && user.FirstName != updateUserDto.FirstName)
+        {
+            user.FirstName = updateUserDto.FirstName;
+            hasChanges = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(updateUserDto.LastName) && user.LastName != updateUserDto.LastName)
+        {
+            user.LastName = updateUserDto.LastName;
+            hasChanges = true;
+        }
 
         // Handle potential email/username change
         var oldEmail = user.Email;
-        if (user.Email != updateUserDto.Email)
+        if (!string.IsNullOrWhiteSpace(updateUserDto.Email) && user.Email != updateUserDto.Email)
         {
             _logger.LogInformation("User {UserId} email changed from {OldEmail} to {NewEmail}. Checking for existing email.", userId, oldEmail, updateUserDto.Email);
             // Check if the new email is already taken by another user
@@ -407,6 +398,14 @@ public class AccountService : BaseService, IAccountService
 
             user.Email = updateUserDto.Email;
             user.UserName = updateUserDto.Email; // Keep UserName synced with Email
+            hasChanges = true;
+        }
+
+        // If no actual changes were made, we can return success early.
+        if (!hasChanges)
+        {
+            _logger.LogInformation("No properties were changed for user {UserId}.", userId);
+            return new AccountResult { Succeeded = true };
         }
 
         var identityResult = await _userManager.UpdateAsync(user);
@@ -450,7 +449,7 @@ public class AccountService : BaseService, IAccountService
             if (!callerOrganizationId.HasValue || user.OrganizationId != callerOrganizationId.Value)
             {
                 _logger.LogWarning("Unauthorized delete attempt: User {CallerUserId} from Org {CallerOrgId} tried to delete user {TargetUserId} from Org {TargetOrgId}.", GetUserId(), callerOrganizationId.Value, userId, user.OrganizationId);
-                 return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {userId} not found." } } };
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"User with ID {userId} not found." } } };
             }
         }
         else
@@ -541,19 +540,18 @@ public class AccountService : BaseService, IAccountService
 
     private async Task<TokenResponseDto> GenerateAndSaveTokens(User user)
     {
-        _logger.LogDebug("Generating and saving tokens for user {UserId}.", user.Id);
         // Use JWT_SECRET directly from configuration, consistent with Program.cs validation
-        var key = _configuration["JWT_SECRET"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables.");
+        var key = _configuration["JWT_SECRET"] ?? _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables.");
         // Use JWT_ISSUER and JWT_AUDIENCE directly from configuration, consistent with .env and docker-compose
-        var issuer = _configuration["JWT_ISSUER"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables.");
-        var audience = _configuration["JWT_AUDIENCE"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables.");
+        var issuer = _configuration["JWT_ISSUER"] ?? _configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables.");
+        var audience = _configuration["JWT_AUDIENCE"] ?? _configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables.");
         var accessTokenDurationMinutes = _configuration.GetValue<int?>("Jwt:AccessTokenDurationMinutes") ?? 15; // Default to 15 minutes
         var refreshTokenDurationDays = _configuration.GetValue<int?>("Jwt:RefreshTokenDurationDays") ?? 7; // Default to 7 days
 
         if (string.IsNullOrEmpty(key) || key.Length < 32)
         {
             _logger.LogCritical("JWT_SECRET is missing or too short. This is a configuration error. It must be at least 32 characters long.");
-             throw new InvalidOperationException("JWT_SECRET is missing or too short (requires at least 32 characters). Ensure it is configured securely in environment variables.");
+            throw new InvalidOperationException("JWT_SECRET is missing or too short (requires at least 32 characters). Ensure it is configured securely in environment variables.");
         }
 
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));

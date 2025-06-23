@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, FormEvent, useEffect } from 'react';
-import Image from 'next/image'; // Import next/image
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/services/apiClient';
@@ -20,30 +19,30 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isAuthLoading && user) {
-        console.log("Login Page Effect: User detected, determining redirect...");
-        const isSuperAdmin = user.roles?.includes('SuperAdmin');
-        const isCashier = user.roles?.includes('Cashier');
-        const organizationId = user.organizationId ? parseInt(user.organizationId, 10) : null;
+      console.log("Login Page Effect: User detected, determining redirect...");
+      const isSuperAdmin = user.roles?.includes('SuperAdmin');
+      const isCashier = user.roles?.includes('Cashier');
+      const organizationId = user.organizationId ? parseInt(user.organizationId, 10) : null;
 
-        if (organizationId && !isNaN(organizationId)) {
-            if (isCashier) {
-                console.log(`Login Page Effect: Redirecting Cashier for Org ${organizationId} to select area...`);
-                router.replace(`/app/org/${organizationId}/cashier`);
-            } else if (isSuperAdmin) {
-                console.log("Login Page Effect: Redirecting SuperAdmin...");
-                router.replace(`/app/org/1/admin`);
-            } else {
-                console.log(`Login Page Effect: Redirecting Admin/Other User for Org ${organizationId} to admin...`);
-                router.replace(`/app/org/${organizationId}/admin`);
-            }
-        } else if (isSuperAdmin && !organizationId) {
-             console.log("Login Page Effect: Redirecting SuperAdmin (no specific orgId) to default org admin...");
-             router.replace(`/app/org/1/admin`);
+      if (organizationId && !isNaN(organizationId)) {
+        if (isCashier) {
+          console.log(`Login Page Effect: Redirecting Cashier for Org ${organizationId} to select area...`);
+          router.replace(`/app/org/${organizationId}/cashier`);
+        } else if (isSuperAdmin) {
+          console.log("Login Page Effect: Redirecting SuperAdmin...");
+          router.replace(`/app/org/1/admin`);
+        } else {
+          console.log(`Login Page Effect: Redirecting Admin/Other User for Org ${organizationId} to admin...`);
+          router.replace(`/app/org/${organizationId}/admin`);
         }
-        else {
-            console.error("Login Page Effect: User exists but cannot determine redirect path (OrgID missing or invalid?).", user);
-            setError("Logged in, but could not determine your destination.");
-        }
+      } else if (isSuperAdmin && !organizationId) {
+        console.log("Login Page Effect: Redirecting SuperAdmin (no specific orgId) to default org admin...");
+        router.replace(`/app/org/1/admin`);
+      }
+      else {
+        console.error("Login Page Effect: User exists but cannot determine redirect path (OrgID missing or invalid?).", user);
+        setError("Logged in, but could not determine your destination.");
+      }
     }
   }, [user, isAuthLoading, router]);
 
@@ -59,7 +58,7 @@ export default function LoginPage() {
       });
 
       // The entire response.data should be the TokenResponseDto
-      const tokenResponse = response.data; 
+      const tokenResponse = response.data;
 
       if (tokenResponse && tokenResponse.accessToken) {
         login(tokenResponse); // Pass the whole DTO
@@ -72,11 +71,11 @@ export default function LoginPage() {
       if (typeof err === 'object' && err !== null) {
         const errorResponse = err as { response?: { status?: number, data?: { message?: string } }, message?: string };
         if (errorResponse.response?.status === 401) {
-            errorMsg = 'Login failed: Invalid email or password.';
+          errorMsg = 'Login failed: Invalid email or password.';
         } else if (errorResponse.response?.data?.message) {
-            errorMsg = `Login failed: ${String(errorResponse.response.data.message)}`;
+          errorMsg = `Login failed: ${String(errorResponse.response.data.message)}`;
         } else if (errorResponse.message) {
-            errorMsg = `Login failed: ${String(errorResponse.message)}`;
+          errorMsg = `Login failed: ${String(errorResponse.message)}`;
         }
       }
       setError(errorMsg);
@@ -133,13 +132,10 @@ export default function LoginPage() {
         </div>
       </div>
       <div className="flex flex-col items-center bg-muted py-6 mt-8 lg:flex lg:items-center lg:justify-center lg:p-6 lg:mt-0">
-        <Image
-            src="/sagrafacile-logo.png"
-            alt="SagraFacile Logo"
-            width={1920}
-            height={1080}
-            className="h-auto w-full max-w-[150px] object-contain dark:brightness-[0.2] dark:grayscale lg:max-w-xl"
-            priority // Added priority as it's likely LCP
+        <img
+          src="/images/sagrafacile-logo-scritte.svg"
+          alt="SagraFacile"
+          className="w-full max-w-sm h-auto"
         />
       </div>
     </div>
