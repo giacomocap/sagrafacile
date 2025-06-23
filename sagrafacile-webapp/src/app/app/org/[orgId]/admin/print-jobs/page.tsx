@@ -5,12 +5,12 @@ import { PrintJobDto, PaginatedResult, PrintJobQueryParameters, PrintJobStatus, 
 import printerService from '@/services/printerService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, RefreshCw, AlertCircle, CheckCircle, Clock, Hourglass, ChevronsUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { MoreHorizontal, RefreshCw, AlertCircle, CheckCircle, Clock, Hourglass } from 'lucide-react';
 import { toast } from 'sonner';
+import PaginatedTable from '@/components/common/PaginatedTable';
 
 const DEBOUNCE_DELAY = 300;
 
@@ -68,20 +68,8 @@ export default function PrintJobsPage() {
     }
   };
 
-  const handleSort = (column: string) => {
-    setQueryParams(prev => ({
-      ...prev,
-      sortBy: column,
-      sortAscending: prev.sortBy === column ? !prev.sortAscending : true,
-      page: 1, // Reset to first page on sort
-    }));
-  };
-
-  const renderSortIcon = (column: string) => {
-    if (queryParams.sortBy !== column) {
-      return <ChevronsUpDown className="ml-2 h-4 w-4" />;
-    }
-    return queryParams.sortAscending ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  const handleQueryChange = (newParams: Partial<PrintJobQueryParameters>) => {
+    setQueryParams(prev => ({ ...prev, ...newParams }));
   };
 
   const renderStatusBadge = (status: PrintJobStatus) => {
@@ -126,15 +114,60 @@ export default function PrintJobsPage() {
   };
 
   const columns = useMemo(() => [
-    { key: 'status', label: 'Stato' },
-    { key: 'jobType', label: 'Tipo' },
-    { key: 'printerName', label: 'Stampante' },
-    { key: 'orderDisplayNumber', label: 'Ordine' },
-    { key: 'createdAt', label: 'Creato il' },
-    { key: 'lastAttemptAt', label: 'Ultimo Tentativo' },
-    { key: 'retryCount', label: 'Tentativi' },
-    { key: 'errorMessage', label: 'Errore' },
+    { key: 'status', label: 'Stato', sortable: true },
+    { key: 'jobType', label: 'Tipo', sortable: true },
+    { key: 'printerName', label: 'Stampante', sortable: true },
+    { key: 'orderDisplayNumber', label: 'Ordine', sortable: true },
+    { key: 'createdAt', label: 'Creato il', sortable: true },
+    { key: 'lastAttemptAt', label: 'Ultimo Tentativo', sortable: true },
+    { key: 'retryCount', label: 'Tentativi', sortable: true },
+    { key: 'errorMessage', label: 'Errore', sortable: false },
   ], []);
+
+  const renderCell = (job: PrintJobDto, columnKey: string) => {
+    switch (columnKey) {
+      case 'status':
+        return renderStatusBadge(job.status);
+      case 'jobType':
+        return renderJobType(job.jobType);
+      case 'printerName':
+        return job.printerName;
+      case 'orderDisplayNumber':
+        return job.orderDisplayNumber || 'N/A';
+      case 'createdAt':
+        return formatDate(job.createdAt);
+      case 'lastAttemptAt':
+        return formatDate(job.lastAttemptAt);
+      case 'retryCount':
+        return <div className="text-center">{job.retryCount}</div>;
+      case 'errorMessage':
+        return <div className="max-w-xs truncate" title={job.errorMessage || ''}>{job.errorMessage || 'Nessun errore'}</div>;
+      default:
+        return null;
+    }
+  };
+
+  const renderActions = (job: PrintJobDto) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={() => handleRetryJob(job.id)}
+          disabled={isRetrying === job.id || job.status !== PrintJobStatus.Failed}
+        >
+          {isRetrying === job.id ? (
+            <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Riprovo...</>
+          ) : (
+            <><RefreshCw className="mr-2 h-4 w-4" /> Riprova Manualmente</>
+          )}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="space-y-6">
@@ -146,85 +179,18 @@ export default function PrintJobsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && !printJobs ? <p className="text-center py-4">Caricamento...</p> : error ? <p className="text-red-500 text-center py-4">{error}</p> : printJobs && printJobs.items.length > 0 ? (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {columns.map(col => (
-                      <TableHead key={col.key} className="cursor-pointer" onClick={() => handleSort(col.key)}>
-                        <div className="flex items-center">
-                          {col.label}
-                          {renderSortIcon(col.key)}
-                        </div>
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-right">Azioni</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {printJobs.items.map((job) => (
-                    <TableRow key={job.id}>
-                      <TableCell>{renderStatusBadge(job.status)}</TableCell>
-                      <TableCell>{renderJobType(job.jobType)}</TableCell>
-                      <TableCell>{job.printerName}</TableCell>
-                      <TableCell>{job.orderDisplayNumber || 'N/A'}</TableCell>
-                      <TableCell>{formatDate(job.createdAt)}</TableCell>
-                      <TableCell>{formatDate(job.lastAttemptAt)}</TableCell>
-                      <TableCell className="text-center">{job.retryCount}</TableCell>
-                      <TableCell className="max-w-xs truncate" title={job.errorMessage || ''}>{job.errorMessage || 'Nessun errore'}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleRetryJob(job.id)}
-                              disabled={isRetrying === job.id || job.status !== PrintJobStatus.Failed}
-                            >
-                              {isRetrying === job.id ? (
-                                <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Riprovo...</>
-                              ) : (
-                                <><RefreshCw className="mr-2 h-4 w-4" /> Riprova Manualmente</>
-                              )}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Pagina {printJobs.page} di {printJobs.totalPages}. Totale: {printJobs.totalCount} processi.
-                </p>
-                <div className="space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setQueryParams(p => ({ ...p, page: (p.page || 1) - 1 }))}
-                    disabled={printJobs.page <= 1}
-                  >
-                    Precedente
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setQueryParams(p => ({ ...p, page: (p.page || 1) + 1 }))}
-                    disabled={printJobs.page >= printJobs.totalPages}
-                  >
-                    Successivo
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p className="text-center text-muted-foreground py-4">Nessun processo di stampa trovato.</p>
-          )}
+          <PaginatedTable
+            storageKey="printJobs"
+            columns={columns}
+            paginatedData={printJobs}
+            isLoading={isLoading}
+            error={error}
+            queryParams={queryParams}
+            onQueryChange={handleQueryChange}
+            renderCell={renderCell}
+            renderActions={renderActions}
+            itemKey={(job) => job.id}
+          />
         </CardContent>
       </Card>
     </div>

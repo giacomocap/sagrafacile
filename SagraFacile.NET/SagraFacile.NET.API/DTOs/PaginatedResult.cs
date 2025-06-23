@@ -8,6 +8,6 @@ namespace SagraFacile.NET.API.DTOs
         public int TotalCount { get; set; }
         public int Page { get; set; }
         public int PageSize { get; set; }
-        public int TotalPages => (int)System.Math.Ceiling(TotalCount / (double)PageSize);
+        public int TotalPages { get; set; }
     }
 }

@@ -123,44 +123,35 @@ namespace SagraFacile.NET.API.Controllers
             }
         }
 
-        // GET: api/Orders?areaId=123 (Optional areaId)
-        // GET: api/Orders?organizationId=1&areaId=123&statuses=Paid&statuses=PreOrder (All optional)
         [HttpGet]
-        [Authorize(Roles = "Waiter, Cashier, AreaAdmin, Admin, SuperAdmin")] // Added Waiter role
-        public async Task<ActionResult<IEnumerable<OrderDto>>> GetOrders(
-            [FromQuery] int? organizationId,
-            [FromQuery] int? areaId,
-            // Rename parameter to match the incoming query string format statuses[]=...
-            [FromQuery(Name = "statuses[]")] List<OrderStatus>? statuses,
-            [FromQuery] int? dayId) // Added dayId parameter
+        [Authorize(Roles = "Waiter, Cashier, AreaAdmin, Admin, SuperAdmin")]
+        public async Task<ActionResult<PaginatedResult<OrderDto>>> GetOrders([FromQuery] OrderQueryParameters queryParameters)
         {
-            _logger.LogInformation("Received request to get orders. OrgId: {OrgId}, AreaId: {AreaId}, DayId: {DayId}, Statuses: {Statuses}", organizationId, areaId, dayId, statuses != null ? string.Join(",", statuses) : "None");
-            // organizationId: Optional override for SuperAdmins. Ignored for other roles.
-            // areaId: Optional filter within the determined organization context.
-            // dayId: Optional filter for a specific operational day. Defaults to current open day if null.
-            // statuses: Optional filter for specific order statuses.
+            _logger.LogInformation("Received request to get orders with parameters: {@QueryParameters}", queryParameters);
             try
             {
-                // Service method needs to handle optional orgId, areaId, statuses, and dayId filtering
-                var orderDtos = await _orderService.GetOrdersAsync(organizationId, areaId, statuses, dayId, User); // Pass all params + dayId + User context
-                _logger.LogInformation("Successfully retrieved {Count} orders.", ((List<OrderDto>)orderDtos).Count);
-                return Ok(orderDtos);
+                var result = await _orderService.GetOrdersAsync(queryParameters, User);
+                _logger.LogInformation("Successfully retrieved {Count} orders of {TotalCount} total.", result.Items.Count, result.TotalCount);
+                return Ok(result);
             }
-            catch (KeyNotFoundException ex) // Could be thrown if orgId/areaId/dayId is provided but not found/accessible
+            catch (KeyNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Failed to retrieve orders. Error: {Error}", ex.Message);
-                // Area not found
                 return NotFound(ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "Unauthorized access attempt to get orders. OrgId: {OrgId}, AreaId: {AreaId}", organizationId, areaId);
-                // User doesn't have access to the area
-                return Forbid(); // Corrected: No message argument
+                _logger.LogWarning(ex, "Unauthorized access attempt to get orders.");
+                return Forbid();
             }
-            catch (Exception ex) // Catch unexpected errors
+            catch (ArgumentException ex)
             {
-                _logger.LogError(ex, "An unexpected error occurred while retrieving orders. OrgId: {OrgId}, AreaId: {AreaId}", organizationId, areaId);
+                _logger.LogWarning(ex, "Invalid argument provided for getting orders.");
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred while retrieving orders.");
                 return StatusCode(500, "An unexpected error occurred while retrieving orders.");
             }
         }

@@ -445,6 +445,16 @@ export interface PrintJobQueryParameters {
   // Add filters here later if needed
 }
 
+export interface OrderQueryParameters {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortAscending?: boolean;
+  areaId?: number;
+  dayId?: number | 'current';
+  organizationId?: number;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   totalCount: number;

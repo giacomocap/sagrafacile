@@ -376,6 +376,30 @@
 **Next Steps:**
 *   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
 
+## (2025-06-23) - Refactored Orders Page with Reusable Paginated Table
+**Context:** Refactored the admin "Storico Ordini" page to use a new reusable, paginated table component, enhancing performance and code reuse.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   Implemented server-side pagination and sorting for the `GET /api/Orders` endpoint.
+    *   Created `OrderQueryParameters.cs` DTO to handle pagination, sorting, and filtering (by `AreaId`, `DayId`, `OrganizationId`).
+    *   Updated `IOrderService.cs` and `OrderService.cs` to replace the old `GetOrdersAsync` with a new method that accepts `OrderQueryParameters` and returns a `PaginatedResult<OrderDto>`.
+    *   Installed `System.Linq.Dynamic.Core` to enable dynamic sorting based on string property names.
+    *   Updated `OrdersController.cs` to use the new service method and DTO.
+*   **Frontend (Next.js WebApp):**
+    *   Created a generic, reusable `PaginatedTable.tsx` component in `src/components/common/`. This component handles table rendering, sorting, pagination controls, and a page size selector. It also persists page size settings to `localStorage`.
+    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx` to use the new `PaginatedTable` component, simplifying its code significantly.
+    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/orders/page.tsx`:
+        *   Replaced the old static `OrderTable.tsx` with the new `PaginatedTable.tsx`.
+        *   Integrated the `AdminAreaSelector.tsx` component for area filtering.
+        *   Added `orderService.ts` to fetch paginated order data.
+        *   Updated `types/index.ts` with `OrderQueryParameters`.
+    *   Deleted the now-redundant `OrderTable.tsx` component.
+**Key Decisions:**
+*   Abstracted table logic into a reusable `PaginatedTable` component to be used across different admin pages.
+*   Implemented server-side pagination for the Orders API to handle potentially large datasets efficiently.
+*   Leveraged `localStorage` in the `PaginatedTable` component to provide a better user experience by remembering page size preferences.
+**Outcome:** The Orders and Print Jobs admin pages are now more performant and maintainable. The new `PaginatedTable` component can be easily reused for other data tables in the application.
+
 ## (Next Session) - Planned Work
 *   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 
