@@ -185,6 +185,19 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[ ]` If `EnableCompletionConfirmation` is needed: Implement UI trigger for pickup confirmation.
 
     *   **Implement Advanced Printing Architecture (See `PrinterArchitecture.md`)**
+        *   `[x]` **Implement Resilient Printing via Job Queue (NEW - TOP PRIORITY)**
+            *   `[x]` **Goal:** Rearchitect the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost.
+            *   `[x]` **Backend (.NET API):**
+                *   `[x]` **Database:** Create `PrintJob` entity and EF Core migration.
+                *   `[x]` **New Service (`PrintJobProcessor`):** Implement a `BackgroundService` to poll for pending jobs.
+                *   `[x]` **"Fast Lane" Signaling:** Implement an in-memory signaling mechanism to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
+                *   `[x]` **Refactor `PrinterService`:** Change `PrintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. Move `SendToPrinterAsync` logic to the `PrintJobProcessor`.
+                *   `[x]` **Refactor `OrderService`:** Ensure it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
+            *   `[x]` **Windows Companion App:**
+                *   `[x]` Update the app to receive a `PrintJobId` with each job.
+                *   `[x]` Implement a callback (`ReportPrintJobStatus`) via SignalR to inform the backend of print success or failure.
+            *   `[ ]` **Admin UI (Phase 2 of this feature):**
+                *   `[ ]` Create a new page (`/admin/print-jobs`) to monitor job statuses, view errors, and manually trigger retries.
         *   `[ ]` **Backend - Schema & Config (Phase 1 - Mostly Complete):**
             *   `[x]` Define `Printer` and `PrinterCategoryAssignment` models. Update `Area` model (`ReceiptPrinterId`, `PrintComandasAtCashier`). Create migration.
             *   `[x]` Create `PrintersController` for Admin CRUD API (`/api/printers`). Update `AreasController` for new Area fields.

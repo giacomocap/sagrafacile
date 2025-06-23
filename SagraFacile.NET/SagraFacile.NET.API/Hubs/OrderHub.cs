@@ -15,10 +15,12 @@ namespace SagraFacile.NET.API.Hubs
         // This allows the PrintService to send targeted messages to specific WindowsPrinterService instances.
         private static readonly ConcurrentDictionary<string, string> _printerConnections = new ConcurrentDictionary<string, string>();
         private readonly ILogger<OrderHub> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        public OrderHub(ILogger<OrderHub> logger)
+        public OrderHub(ILogger<OrderHub> logger, IServiceProvider serviceProvider)
         {
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         // Example: Client could potentially join groups based on KDS station ID
@@ -77,6 +79,23 @@ namespace SagraFacile.NET.API.Hubs
             _logger.LogInformation($"Printer client registered. GUID: {printerGuid}, ConnectionId: {Context.ConnectionId}");
             // Optional: Send a confirmation back to the client
             // await Clients.Caller.SendAsync("RegistrationConfirmed", $"Successfully registered printer GUID: {printerGuid}");
+        }
+
+        public async Task ReportPrintJobStatus(string printJobId, bool success, string? errorMessage)
+        {
+            if (!Guid.TryParse(printJobId, out var jobIdGuid))
+            {
+                _logger.LogWarning("Received invalid PrintJobId format: {PrintJobId}", printJobId);
+                return;
+            }
+
+            _logger.LogInformation("Received status for PrintJobId: {PrintJobId}. Success: {Success}, Error: {ErrorMessage}", printJobId, success, errorMessage);
+
+            using (var scope = _serviceProvider.CreateScope())
+            {
+                var printerService = scope.ServiceProvider.GetRequiredService<SagraFacile.NET.API.Services.Interfaces.IPrinterService>();
+                await printerService.UpdatePrintJobStatusAsync(jobIdGuid, success, errorMessage);
+            }
         }
 
         public override async Task OnConnectedAsync()

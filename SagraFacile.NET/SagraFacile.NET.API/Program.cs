@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens; // Added for Token Validation Parameters
 using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
+using SagraFacile.NET.API.Models.Enums;
 // using Serilog; // Added for Serilog
 // using Serilog.Events; // Added for Serilog LogEventLevel
 
@@ -135,6 +136,9 @@ else
 {
     Console.WriteLine("PreOrderPollingBackgroundService is DISABLED by configuration."); // Log for clarity
 }
+
+// Register the new PrintJobProcessor background service
+builder.Services.AddHostedService<PrintJobProcessor>();
 
 
 // 4. Configure Options Pattern for Settings

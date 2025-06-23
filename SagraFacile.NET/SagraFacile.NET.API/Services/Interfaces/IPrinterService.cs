@@ -28,6 +28,9 @@ namespace SagraFacile.NET.API.Services.Interfaces
         // Method to trigger a test print directly to a printer
         Task<(bool Success, string? Error)> SendTestPrintAsync(int printerId);
 
+        // New method for companion app to report job status
+        Task UpdatePrintJobStatusAsync(Guid jobId, bool success, string? errorMessage);
+
         // Placeholder for network printing logic (details TBD)
         // Task SendToNetworkPrinterAsync(int printerId, byte[] data); // Example
     }

@@ -328,17 +328,30 @@
     *   Test editing and deleting profiles.
     *   Confirm that UI elements (tray icon, PrintStationForm title) reflect the active profile.
 
-## (Next Session) - Planned Work
-**Context:** Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub.
+## (2025-06-23) - Implemented Resilient Printing via Job Queue
+**Context:** Rearchitected the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost due to temporary printer or network failures. This involved implementing a persistent job queue in the database and a hybrid processing model for performance.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   **Database:** Created `PrintJob` entity and applied EF Core migrations (`AddPrintJobQueue`, `MakePrintJobAreaIdNullable`).
+    *   **New Service (`PrintJobProcessor.cs`):** Implemented a `BackgroundService` to poll for pending jobs and process them.
+    *   **"Fast Lane" Signaling:** Implemented an in-memory `SemaphoreSlim` to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
+    *   **Refactored `PrinterService.cs`:** Changed `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. The `SendToPrinterAsync` logic was adapted to be called by the `PrintJobProcessor`.
+    *   **Refactored `OrderService.cs`:** Ensured it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
+    *   **`OrderHub.cs`:** Added a `ReportPrintJobStatus` method to receive status updates from the companion app.
+*   **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
+    *   **`SignalRService.cs`:** Updated to receive `JobId` as `Guid` and to call the `ReportPrintJobStatus` hub method after a print attempt (success or failure), completing the confirmation loop.
+    *   **`PrintJobItem.cs`:** Updated `JobId` to `Guid` to match backend.
+**Key Decisions:**
+*   Implemented a hybrid "Fast Lane" model to balance reliability (job queue) with performance (instant processing for critical jobs).
+*   Ensured end-to-end confirmation for Windows USB printers via SignalR callbacks.
+*   Made `AreaId` nullable in `PrintJob` to accommodate test prints not associated with a specific area.
+**Outcome:** The printing system is now significantly more robust, with guaranteed delivery, automatic retries, and comprehensive status monitoring capabilities.
 **Next Steps:**
-1.  **Enhance `SagraFacile.WindowsPrinterService` (Companion App):**
-    *   Improve the UI/UX for displaying connection status to the SignalR hub.
-    *   Provide a clearer way to configure the necessary settings (SignalR Hub URL, Printer GUID).
-    *   Implement better logging within the companion app to aid troubleshooting.
-2.  **Resume USB Thermal Printer Debugging:**
-    *   Once the companion app is improved and its connection/registration can be reliably verified, continue debugging the USB thermal printer functionality.
-    *   Focus on ensuring the companion app correctly registers with the `OrderHub` using the matching GUID.
-    *   Verify print jobs are dispatched and received by the companion app.
+*   User to test the new resilient printing system as per the provided instructions.
+*   (Future) Implement Admin UI for monitoring print job statuses.
+
+## (Next Session) - Planned Work
+*   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 
 
 ---

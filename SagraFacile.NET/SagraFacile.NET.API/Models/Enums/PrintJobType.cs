@@ -4,6 +4,6 @@ namespace SagraFacile.NET.API.Models.Enums
     {
         Receipt,
         Comanda,
-        TestPrint // Optional, for testing printer configurations
+        TestPrint
     }
-} 
+}
