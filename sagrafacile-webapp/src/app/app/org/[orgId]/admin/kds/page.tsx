@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link'; // Import Link
-import { KdsStationDto, AreaDto } from '@/types';
+import { KdsStationDto } from '@/types';
 import apiClient from '@/services/apiClient';
 import { toast } from 'sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select
+import AdminAreaSelector from '@/components/shared/AdminAreaSelector';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,11 +36,7 @@ const OrgKdsStationsAdminPage = () => {
     const [isLoadingStations, setIsLoadingStations] = useState(false); // Start false, load on area select
     const [stationsError, setStationsError] = useState<string | null>(null);
 
-    // State for Areas
-    const [areas, setAreas] = useState<AreaDto[]>([]);
     const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
-    const [isLoadingAreas, setIsLoadingAreas] = useState(true);
-    const [areasError, setAreasError] = useState<string | null>(null);
 
 
     // State for Delete Dialog
@@ -55,31 +51,6 @@ const OrgKdsStationsAdminPage = () => {
     const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
     const [stationForAssignment, setStationForAssignment] = useState<KdsStationDto | null>(null);
 
-    // Fetch Areas
-    useEffect(() => {
-        const fetchAreas = async () => {
-            setIsLoadingAreas(true);
-            setAreasError(null);
-            try {
-                const response = await apiClient.get<AreaDto[]>('/Areas'); // Backend filters by org context
-                setAreas(response.data || []);
-                // Auto-select if only one area
-                if (response.data && response.data.length === 1) {
-                    setSelectedAreaId(response.data[0].id.toString());
-                } else {
-                    setSelectedAreaId(undefined); // Ensure no area is selected if multiple exist initially
-                }
-            } catch (err) {
-                console.error("Errore nel recupero delle aree:", err);
-                const message = `Caricamento aree fallito: ${(err instanceof Error ? err.message : 'Errore sconosciuto')}`;
-                setAreasError(message);
-                toast.error(message);
-            } finally {
-                setIsLoadingAreas(false);
-            }
-        };
-        fetchAreas();
-    }, [orgId]);
 
     // Fetch Stations for the selected Area
     const fetchStationsForArea = useCallback(async (areaId: string) => {
@@ -172,35 +143,13 @@ const OrgKdsStationsAdminPage = () => {
 
 
     return (
-        <div className="space-y-6"> {/* Added outer div for spacing */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Seleziona Area</CardTitle>
-                    <CardDescription>Scegli un'area per visualizzare o gestire le sue stazioni KDS.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {isLoadingAreas ? (
-                        <Skeleton className="h-10 w-[280px]" />
-                    ) : areasError ? (
-                        <p className="text-red-500">{areasError}</p>
-                    ) : areas.length > 0 ? (
-                        <Select onValueChange={setSelectedAreaId} value={selectedAreaId}>
-                            <SelectTrigger className="w-[280px]">
-                                <SelectValue placeholder="Seleziona un'area..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {areas.map((area) => (
-                                    <SelectItem key={area.id} value={area.id.toString()}>
-                                        {area.name} (ID: {area.id})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    ) : (
-                        <p>Nessuna area trovata per questa organizzazione. Crea prima un'area.</p>
-                    )}
-                </CardContent>
-            </Card>
+        <div className="space-y-6">
+            <AdminAreaSelector
+                selectedAreaId={selectedAreaId}
+                onAreaChange={setSelectedAreaId}
+                title="Seleziona Area"
+                description="Scegli un'area per visualizzare o gestire le sue stazioni KDS."
+            />
 
             {/* Only show station management card if an area is selected */}
             {selectedAreaId && (

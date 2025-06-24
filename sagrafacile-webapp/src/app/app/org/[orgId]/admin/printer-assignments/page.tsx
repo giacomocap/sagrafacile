@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PrinterDto, MenuCategoryDto, AreaResponseDto } from '@/types';
+import { PrinterDto, MenuCategoryDto } from '@/types';
 import printerService from '@/services/printerService';
 import menuService from '@/services/menuService';
 import printerAssignmentService from '@/services/printerAssignmentService';
@@ -9,23 +9,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import AdminAreaSelector from '@/components/shared/AdminAreaSelector';
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
-import apiClient from '@/services/apiClient';
 
 export default function PrinterAssignmentsPage() {
   const { user } = useAuth();
-  const [areas, setAreas] = useState<AreaResponseDto[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
   const [printers, setPrinters] = useState<PrinterDto[]>([]);
   const [categories, setCategories] = useState<MenuCategoryDto[]>([]);
   const [selectedPrinterId, setSelectedPrinterId] = useState<string>(''); // Memorizza come stringa per il componente Select
   const [assignedCategoryIds, setAssignedCategoryIds] = useState<Set<number>>(new Set());
 
-  const [isLoadingAreas, setIsLoadingAreas] = useState(false);
   const [isLoadingPrinters, setIsLoadingPrinters] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
@@ -33,31 +31,6 @@ export default function PrinterAssignmentsPage() {
 
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // --- Recupero Dati ---
-  // Recupera Aree
-  useEffect(() => {
-    const fetchAreas = async () => {
-      if (!user) return;
-      setIsLoadingAreas(true);
-      setFetchError(null);
-      try {
-        const response = await apiClient.get<AreaResponseDto[]>('/Areas');
-        setAreas(response.data);
-        // --- Selezione automatica se c'è solo un'area ---
-        if (response.data && response.data.length === 1) {
-          setSelectedAreaId(response.data[0].id.toString());
-          // Nota: non è necessario resettare categorie/voci qui, il prossimo useEffect se ne occupa
-        }
-        // --- Fine selezione automatica ---
-      } catch (err) {
-        console.error('Errore nel recupero delle aree:', err);
-        setFetchError('Caricamento aree fallito.');
-      } finally {
-        setIsLoadingAreas(false);
-      }
-    };
-    fetchAreas();
-  }, [user]);
 
   const fetchPrintersAndCategories = useCallback(async () => {
     if (!selectedAreaId) {
@@ -119,8 +92,8 @@ export default function PrinterAssignmentsPage() {
   }, [selectedPrinterId, fetchAssignments]);
 
   // --- Gestori Eventi ---
-  const handleAreaChange = (value: string) => {
-    setSelectedAreaId(value);
+  const handleAreaChange = (areaId: string | undefined) => {
+    setSelectedAreaId(areaId);
     // Resetta le selezioni a valle
     setSelectedPrinterId('');
     setAssignedCategoryIds(new Set());
@@ -172,28 +145,11 @@ export default function PrinterAssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Selettore Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Passo 1: Seleziona Area</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingAreas ? <p>Caricamento aree...</p> : areas.length > 0 ? (
-            <Select onValueChange={handleAreaChange} value={selectedAreaId}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Seleziona un'area" />
-              </SelectTrigger>
-              <SelectContent>
-                {areas.map((area) => (
-                  <SelectItem key={area.id} value={area.id.toString()}>
-                    {area.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : <p>Nessuna area trovata o caricamento fallito.</p>}
-        </CardContent>
-      </Card>
+      <AdminAreaSelector
+        selectedAreaId={selectedAreaId}
+        onAreaChange={handleAreaChange}
+        title="Passo 1: Seleziona Area"
+      />
 
       {/* Selettore Categorie (condizionale) */}
       {selectedAreaId && (

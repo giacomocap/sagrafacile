@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import apiClient from '@/services/apiClient'; // Changed to default import
-import { useAuth } from '@/contexts/AuthContext';
+import apiClient from '@/services/apiClient';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import AdminAreaSelector from '@/components/shared/AdminAreaSelector';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,25 +30,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-// Define interfaces based on DataStructures.md
-interface Area {
-  id: number;
-  name: string;
-  organizationId: number;
-}
-
-interface MenuCategory {
-  id: number;
-  name: string;
-  areaId: number;
-}
+import { MenuCategoryDto as MenuCategory } from '@/types';
 
 export default function MenuCategoriesPage() {
-  const { user } = useAuth();
-  const [areas, setAreas] = useState<Area[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
   const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [isLoadingAreas, setIsLoadingAreas] = useState(false);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false); // State for Add dialog
@@ -82,30 +67,6 @@ export default function MenuCategoriesPage() {
     }
   };
 
-  // Fetch Areas on component mount
-  useEffect(() => {
-    const fetchAreas = async () => {
-      if (!user) return; // Need user context for potential filtering later
-      setIsLoadingAreas(true);
-      setError(null);
-      try {
-        // Assuming /api/Areas returns areas accessible by the logged-in user
-        const response = await apiClient.get<Area[]>('/Areas');
-        setAreas(response.data);
-        // --- Auto-select if only one area ---
-        if (response.data && response.data.length === 1) {
-          setSelectedAreaId(response.data[0].id.toString());
-        }
-        // --- End auto-select ---
-      } catch (err) {
-        console.error('Error fetching areas:', err);
-        setError('Caricamento aree fallito.');
-      } finally {
-        setIsLoadingAreas(false);
-      }
-    };
-    fetchAreas();
-  }, [user]);
 
   // Fetch Categories when selectedAreaId changes
   useEffect(() => {
@@ -116,40 +77,16 @@ export default function MenuCategoriesPage() {
     }
   }, [selectedAreaId]); // Removed fetchCategories from dependency array as it's defined outside now
 
-  const handleAreaChange = (value: string) => {
-    setSelectedAreaId(value);
-  };
-
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Gestione Categorie Menu</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Seleziona Area</CardTitle>
-          <CardDescription>Scegli l'area di cui vuoi gestire le categorie.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingAreas ? (
-            <p>Caricamento aree...</p>
-          ) : areas.length > 0 ? (
-            <Select onValueChange={handleAreaChange} value={selectedAreaId}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Seleziona un'area" />
-              </SelectTrigger>
-              <SelectContent>
-                {areas.map((area) => (
-                  <SelectItem key={area.id} value={area.id.toString()}>
-                    {area.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p>Nessuna area trovata o caricamento fallito.</p>
-          )}
-        </CardContent>
-      </Card>
+      <AdminAreaSelector
+        selectedAreaId={selectedAreaId}
+        onAreaChange={setSelectedAreaId}
+        title="Seleziona Area"
+        description="Scegli l'area di cui vuoi gestire le categorie."
+      />
 
       {selectedAreaId && (
         <Card>
