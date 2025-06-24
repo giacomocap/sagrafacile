@@ -11,42 +11,42 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Models.Enums;
-// using Serilog; // Added for Serilog
-// using Serilog.Events; // Added for Serilog LogEventLevel
+using Serilog; // Added for Serilog
 
 // Ensure extended encodings are available
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-// // --- Serilog Bootstrap Logger ---
-// Log.Logger = new LoggerConfiguration()
-//     .MinimumLevel.Debug() // More verbose for bootstrap
-//     .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components during bootstrap
-//     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
-//     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Information)
-//     .Enrich.FromLogContext()
-//     .Enrich.WithMachineName()
-//     .Enrich.WithThreadId()
-//     .WriteTo.Console(outputTemplate: // Structured console output for Docker
-//         "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
-//     .CreateBootstrapLogger();
-// // --- End Serilog Bootstrap Logger ---
+// --- Serilog Bootstrap Logger ---
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug() // More verbose for bootstrap
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components during bootstrap
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .WriteTo.Console(outputTemplate: // Structured console output for Docker
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
+    .CreateBootstrapLogger();
+// --- End Serilog Bootstrap Logger ---
 
-// try // Added for Serilog try-finally block
-// {
+try // Added for Serilog try-finally block
+{
 Console.WriteLine("Starting SagraFacile.NET.API host"); // Replaced Log.Information
 
 var builder = WebApplication.CreateBuilder(args);
 
-// // --- Configure Serilog for WebApplicationBuilder ---
-// builder.Host.UseSerilog((context, services, configuration) => configuration
-//     .MinimumLevel.Debug() // More verbose for general logging
-//     .MinimumLevel.Override("Microsoft", LogEventLevel.Debug) // More verbose for Microsoft components
-//     .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
-//     .ReadFrom.Services(services)
-//     .Enrich.FromLogContext()
-//     .Enrich.WithMachineName()
-//     .Enrich.WithThreadId());
-// // --- End Configure Serilog for WebApplicationBuilder ---
+// --- Configure Serilog for WebApplicationBuilder ---
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .MinimumLevel.Debug() // More verbose for general logging
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information) // Explicitly set EF command logs to Information
+    .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId());
+// --- End Configure Serilog for WebApplicationBuilder ---
 
 // Define CORS policy name
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -251,21 +251,21 @@ await app.SeedDatabaseAsync();
 // --- End Seed Database ---
 
 
-// // --- Serilog Request Logging ---
-// app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
-// // --- End Serilog Request Logging ---
+// --- Serilog Request Logging ---
+app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
+// --- End Serilog Request Logging ---
 
 app.Run();
-// } // Added for Serilog try-finally block
-// catch (Exception ex) // Added for Serilog try-finally block
-// {
-//     // Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
-//     Console.WriteLine($"FATAL ERROR: SagraFacile.NET.API host terminated unexpectedly. Exception: {ex}"); // Replaced Log.Fatal
-// }
-// finally // Added for Serilog try-finally block
-// {
-//     // Log.CloseAndFlush();
-// }
+} // Added for Serilog try-finally block
+catch (Exception ex) // Added for Serilog try-finally block
+{
+    Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
+    Console.WriteLine($"FATAL ERROR: SagraFacile.NET.API host terminated unexpectedly. Exception: {ex}"); // Replaced Log.Fatal
+}
+finally // Added for Serilog try-finally block
+{
+    Log.CloseAndFlush();
+}
 
 
 // Add this partial declaration to make the implicit Program class public

@@ -35,8 +35,12 @@ const WaiterPage = () => {
         setErrorActive(null);
 
         try {
+            const pendingParams = new URLSearchParams();
+            pendingParams.append('areaId', areaId);
+            [OrderStatus.Paid, OrderStatus.PreOrder].forEach(s => pendingParams.append('statuses', s.toString()));
+
             const pendingResponse = await apiClient.get<PaginatedResult<OrderDto>>('/orders', {
-                params: { statuses: [OrderStatus.Paid, OrderStatus.PreOrder], areaId }
+                params: pendingParams
             });
             setPendingOrders(pendingResponse.data.items);
         } catch (err: any) {
@@ -47,8 +51,12 @@ const WaiterPage = () => {
         }
 
         try {
+            const activeParams = new URLSearchParams();
+            activeParams.append('areaId', areaId);
+            [OrderStatus.Preparing, OrderStatus.ReadyForPickup].forEach(s => activeParams.append('statuses', s.toString()));
+
             const activeResponse = await apiClient.get<PaginatedResult<OrderDto>>('/orders', {
-                params: { statuses: [OrderStatus.Preparing, OrderStatus.ReadyForPickup], areaId }
+                params: activeParams
             });
             setActiveOrders(activeResponse.data.items);
         } catch (err: any) {
