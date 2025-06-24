@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.SignalR; // Added for SignalR Hub Context
 using SagraFacile.NET.API.Hubs; // Added for OrderHub
 using SagraFacile.NET.API.Utils; // Added for OrderIdGenerator
 using SagraFacile.NET.API.Models.Enums; // Added for PrintJobType
+using System.Linq.Dynamic.Core;
+using System.Reflection;
 
 namespace SagraFacile.NET.API.Services
 {
@@ -397,9 +399,10 @@ namespace SagraFacile.NET.API.Services
                 // Map the created Order entity to OrderDto
                 // Use null-coalescing for potentially null names
                 string cashierFullName = $"{cashier?.FirstName ?? ""} {cashier?.LastName ?? ""}".Trim();
+                string waiterName = order.WaiterId != null ? $"{cashier?.FirstName ?? ""} {cashier?.LastName ?? ""}".Trim() : null;
                 // Encode only the Order ID for scanning by the Waiter app
                 string qrCodeBase64 = GenerateQrCodeBase64(order.Id); // QR code should still use internal ID for lookups
-                return MapOrderToDto(order, area.Name, cashierFullName, menuItems, qrCodeBase64); // Pass QR code
+                return MapOrderToDto(order, area.Name, cashierFullName, waiterName, menuItems, qrCodeBase64);
             }
             catch (Exception ex)
             {
@@ -550,7 +553,7 @@ namespace SagraFacile.NET.API.Services
 
             // Map to OrderDto for the response
             // Pass the menuItems dictionary (which contains MenuItem Name and Price)
-            return MapOrderToDto(order, area.Name, null, menuItems, qrCodeForEmail); // Pass null for cashierName, and QR code
+            return MapOrderToDto(order, area.Name, null, null, menuItems, qrCodeForEmail);
         }
 
 
@@ -624,9 +627,10 @@ namespace SagraFacile.NET.API.Services
             // For simplicity, assuming OrderItems.MenuItem is included as above.
             var menuItemNames = order.OrderItems.ToDictionary(oi => oi.MenuItemId, oi => oi.MenuItem?.Name ?? "Unknown Item");
             string areaName = order.Area?.Name ?? "Unknown Area"; // Handle potentially null Area Name
-            string cashierFullName = $"{order.Cashier?.FirstName ?? ""} {order.Cashier?.LastName ?? ""}".Trim(); // Handle potentially null Cashier names
+            string cashierFullName = !string.IsNullOrEmpty(order.CashierId) ? $"{order.Cashier?.FirstName ?? ""} {order.Cashier?.LastName ?? ""}".Trim() : null;
+            string waiterName = !string.IsNullOrEmpty(order.WaiterId) ? $"{order.Waiter?.FirstName ?? ""} {order.Waiter?.LastName ?? ""}".Trim() : null;
 
-            return MapOrderToDto(order, areaName, cashierFullName, menuItemNames);
+            return MapOrderToDto(order, areaName, cashierFullName, waiterName, menuItemNames);
         }
 
         // Suppress warning about potential trimming issues with Include/ThenInclude if necessary
@@ -677,151 +681,161 @@ namespace SagraFacile.NET.API.Services
             {
                 // Extract menu item names for this order's items
                 var menuItemNames = order.OrderItems.ToDictionary(oi => oi.MenuItemId, oi => oi.MenuItem?.Name ?? "Unknown Item");
-                return MapOrderToDto(order, order.Area?.Name ?? "Unknown Area", $"{order.Cashier?.FirstName} {order.Cashier?.LastName}", menuItemNames);
-            }).ToList(); // Use ToList() to execute the projection
+                string cashierName = (order.Cashier != null) ? $"{order.Cashier.FirstName} {order.Cashier.LastName}".Trim() : null;
+                string waiterName = (order.Waiter != null) ? $"{order.Waiter.FirstName} {order.Waiter.LastName}".Trim() : null;
+                return MapOrderToDto(order, order.Area?.Name ?? "Unknown Area", cashierName, waiterName, menuItemNames);
+            }).ToList();
         }
 
-        // New method for flexible order filtering - Updated signature with dayId
-        public async Task<IEnumerable<OrderDto>> GetOrdersAsync(int? organizationId, int? areaId, List<OrderStatus>? statuses, int? dayId, ClaimsPrincipal user)
+        public async Task<PaginatedResult<OrderDto>> GetOrdersAsync(OrderQueryParameters queryParameters, ClaimsPrincipal user)
         {
             var (userOrganizationId, isSuperAdmin) = GetUserContext();
             int targetOrganizationId;
 
-            // Determine the target organization ID
             if (isSuperAdmin)
             {
-                if (!organizationId.HasValue)
+                if (!queryParameters.OrganizationId.HasValue)
                 {
-                    // SuperAdmin must provide an organizationId to filter by, otherwise it's ambiguous
-                    // Alternatively, could return all orders across all orgs, but that seems risky/unintended.
-                    // Let's require SuperAdmins to specify an org for this admin view.
-                    throw new ArgumentException("SuperAdmin must specify an organizationId to view orders.", nameof(organizationId));
+                    throw new ArgumentException("SuperAdmin must specify an organizationId to view orders.", nameof(queryParameters.OrganizationId));
                 }
-                // SuperAdmin can view the specified organization (no access check needed here, assuming valid ID)
-                targetOrganizationId = organizationId.Value;
+                targetOrganizationId = queryParameters.OrganizationId.Value;
             }
             else
             {
-                // Non-SuperAdmin: Ignore provided organizationId, use their own context
                 if (!userOrganizationId.HasValue)
                 {
-                    // Should not happen for Admin/AreaAdmin roles if claims are set correctly
                     throw new UnauthorizedAccessException("User organization context could not be determined.");
                 }
                 targetOrganizationId = userOrganizationId.Value;
-
-                // If an organizationId was provided but doesn't match the user's context, deny access
-                if (organizationId.HasValue && organizationId.Value != targetOrganizationId)
+                if (queryParameters.OrganizationId.HasValue && queryParameters.OrganizationId.Value != targetOrganizationId)
                 {
-                    throw new UnauthorizedAccessException($"Access denied to view orders for organization ID {organizationId.Value}.");
+                    throw new UnauthorizedAccessException($"Access denied to view orders for organization ID {queryParameters.OrganizationId.Value}.");
                 }
             }
 
-            // --- Area Filter Validation (Moved Before Day Filter) ---
-            // If an areaId is provided, validate it belongs to the target organization *before* proceeding.
-            if (areaId.HasValue)
+            var query = _context.Orders.Where(o => o.OrganizationId == targetOrganizationId);
+
+            if (queryParameters.AreaId.HasValue)
             {
-                var areaExistsInOrg = await _context.Areas
-                                                    .AnyAsync(a => a.Id == areaId.Value && a.OrganizationId == targetOrganizationId);
-                if (!areaExistsInOrg)
-                {
-                    // Throw KeyNotFound as the area doesn't exist *within the accessible org context*.
-                    // This ensures tests checking for non-existent/inaccessible areas fail correctly.
-                    throw new KeyNotFoundException($"Area with ID {areaId.Value} not found within organization ID {targetOrganizationId}.");
-                }
-                _logger.LogInformation("Validated Area {AreaId} exists within Organization {OrganizationId}.", areaId.Value, targetOrganizationId);
+                query = query.Where(o => o.AreaId == queryParameters.AreaId.Value);
             }
-            // --- End Area Filter Validation ---
 
-            // --- Determine Day Filter (NEW LOGIC) ---
-            int? filterDayId = null; // Variable to hold the Day ID to filter by
-
-            if (dayId.HasValue)
+            if (queryParameters.Statuses != null && queryParameters.Statuses.Any())
             {
-                // Specific day requested: Validate role and day existence
+                var statusesAsEnum = queryParameters.Statuses.Cast<OrderStatus>().ToList();
+                query = query.Where(o => statusesAsEnum.Contains(o.Status));
+            }
+
+            int? filterDayId = null;
+            if (queryParameters.DayId.HasValue)
+            {
                 bool isAdminOrSuperAdmin = user.IsInRole("Admin") || user.IsInRole("SuperAdmin");
                 if (!isAdminOrSuperAdmin)
                 {
-                    _logger.LogError("GetOrdersAsync failed: User {UserId} without Admin/SuperAdmin role attempted to access historical orders for Day {DayId}.", GetUserId(), dayId.Value);
                     throw new UnauthorizedAccessException("Access denied to view historical orders. Admin or SuperAdmin role required.");
                 }
-                _logger.LogDebug("User {UserId} is Admin/SuperAdmin, allowing access to historical Day {DayId}.", GetUserId(), dayId.Value);
-
-                var dayExists = await _context.Days.AnyAsync(d => d.Id == dayId.Value && d.OrganizationId == targetOrganizationId);
+                var dayExists = await _context.Days.AnyAsync(d => d.Id == queryParameters.DayId.Value && d.OrganizationId == targetOrganizationId);
                 if (!dayExists)
                 {
-                    throw new KeyNotFoundException($"Day with ID {dayId.Value} not found within organization ID {targetOrganizationId}.");
+                    throw new KeyNotFoundException($"Day with ID {queryParameters.DayId.Value} not found within organization ID {targetOrganizationId}.");
                 }
-                filterDayId = dayId.Value;
-                _logger.LogInformation("Filtering orders for Organization {OrganizationId} by specified Day {DayId} (Admin/SuperAdmin access).", targetOrganizationId, filterDayId);
+                filterDayId = queryParameters.DayId.Value;
             }
             else
             {
-                // No specific day requested: Default to current open day for ALL roles
                 var currentOpenDay = await _dayService.GetCurrentOpenDayAsync(targetOrganizationId);
                 if (currentOpenDay != null)
                 {
                     filterDayId = currentOpenDay.Id;
-                    _logger.LogInformation("Filtering orders for Organization {OrganizationId} by current open Day {DayId} (default for all roles).", targetOrganizationId, filterDayId);
                 }
                 else
                 {
-                    // No day open, return empty list for everyone
-                    _logger.LogInformation("No Day currently open for Organization {OrganizationId}. Returning empty list for GetOrdersAsync.", targetOrganizationId);
-                    return Enumerable.Empty<OrderDto>();
+                    // If no day is open, return an empty paginated result.
+                    return new PaginatedResult<OrderDto>
+                    {
+                        Items = new List<OrderDto>(),
+                        TotalCount = 0,
+                        Page = 1,
+                        PageSize = queryParameters.PageSize ?? 20, // Use a default page size
+                        TotalPages = 0
+                    };
                 }
             }
-            // --- End Determine Day Filter ---
 
-            // Build the query
-            var query = _context.Orders
-                                .Where(o => o.OrganizationId == targetOrganizationId)
-                                .Include(o => o.Area)       // Needed for AreaName
-                                .Include(o => o.Cashier)    // Needed for CashierName
-                                .Include(o => o.Waiter)     // Needed for WaiterName
-                                .Include(o => o.OrderItems) // Needed for Items list in DTO
-                                    .ThenInclude(oi => oi.MenuItem) // Needed for MenuItemName in OrderItemDto
-                                .OrderByDescending(o => o.OrderDateTime)
-                                .AsNoTracking();
-
-            // Apply Day filter (filterDayId will always have a value here unless an empty list was returned above)
-            if (filterDayId.HasValue) // Should always be true if we didn't return early
+            if (filterDayId.HasValue)
             {
-                _logger.LogInformation("Applying Day filter: {DayId}", filterDayId.Value);
                 query = query.Where(o => o.DayId == filterDayId.Value);
             }
-            else
+
+            var totalCount = await query.CountAsync();
+
+            // Sorting
+            var sortProperty = GetSortProperty(queryParameters.SortBy);
+            var orderByString = $"{sortProperty} {(queryParameters.SortAscending ? "ascending" : "descending")}";
+            query = query.OrderBy(orderByString);
+
+            var pagedQuery = query
+                .Include(o => o.Area)
+                .Include(o => o.Cashier)
+                .Include(o => o.Waiter)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.MenuItem)
+                .AsNoTracking();
+
+            // Only apply pagination if both Page and PageSize have values
+            if (queryParameters.Page.HasValue && queryParameters.PageSize.HasValue)
             {
-                // This case should technically not be reachable due to the logic above,
-                // but log a warning if it somehow is.
-                _logger.LogWarning("GetOrdersAsync reached query execution without a filterDayId being set or returning early. This indicates a logic error.");
-                // Depending on desired behavior, could return empty or proceed without day filter.
-                // Returning empty is safer based on the requirements.
-                return Enumerable.Empty<OrderDto>();
+                pagedQuery = pagedQuery.Skip((queryParameters.Page.Value - 1) * queryParameters.PageSize.Value)
+                                       .Take(queryParameters.PageSize.Value);
             }
 
-            // Apply optional Statuses filter
-            if (statuses != null && statuses.Any())
-            {
-                // Ensure the list contains valid enum values if necessary, though EF Core should handle it.
-                query = query.Where(o => statuses.Contains(o.Status));
-            }
+            var orders = await pagedQuery.ToListAsync();
 
-            // Apply optional Area filter (Validation already done above)
-            if (areaId.HasValue)
-            {
-                query = query.Where(o => o.AreaId == areaId.Value);
-            }
-
-            // Execute the query
-            var orders = await query.ToListAsync();
-
-            // Map List<Order> to List<OrderDto>
-            return orders.Select(order =>
+            var orderDtos = orders.Select(order =>
             {
                 var menuItemNames = order.OrderItems.ToDictionary(oi => oi.MenuItemId, oi => oi.MenuItem?.Name ?? "Unknown Item");
-                return MapOrderToDto(order, order.Area?.Name ?? "Unknown Area", $"{order.Cashier?.FirstName} {order.Cashier?.LastName}", menuItemNames);
+                string cashierName = (order.Cashier != null) ? $"{order.Cashier.FirstName} {order.Cashier.LastName}".Trim() : null;
+                string waiterName = (order.Waiter != null) ? $"{order.Waiter.FirstName} {order.Waiter.LastName}".Trim() : null;
+                return MapOrderToDto(order, order.Area?.Name ?? "Unknown Area", cashierName, waiterName, menuItemNames);
             }).ToList();
+
+            // If pagination was applied, use the provided parameters. Otherwise, calculate based on total count.
+            var page = queryParameters.Page ?? 1;
+            var pageSize = queryParameters.PageSize ?? totalCount;
+            if (pageSize == 0 && totalCount > 0) pageSize = totalCount; // Avoid division by zero
+
+            var totalPages = (pageSize > 0) ? (int)Math.Ceiling(totalCount / (double)pageSize) : 0;
+            if (totalPages == 0 && totalCount > 0) totalPages = 1; // If there are items, there's at least one page.
+
+            return new PaginatedResult<OrderDto>
+            {
+                Items = orderDtos,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+                TotalPages = totalPages
+            };
+        }
+
+        private string GetSortProperty(string sortBy)
+        {
+            var orderDtoType = typeof(OrderDto);
+            var orderEntityType = typeof(Order);
+
+            // First, check for a matching property on OrderDto (case-insensitive)
+            var dtoProperty = orderDtoType.GetProperty(sortBy, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+            if (dtoProperty != null)
+            {
+                // Now, find the corresponding property on the Order entity
+                var entityProperty = orderEntityType.GetProperty(dtoProperty.Name, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                if (entityProperty != null)
+                {
+                    return entityProperty.Name; // Return the name from the entity for the query
+                }
+            }
+
+            // Fallback to a default sort property if no match is found
+            return "OrderDateTime";
         }
 
 
@@ -889,18 +903,19 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Helper to map Order entity to OrderDto
-        private OrderDto MapOrderToDto(Order order, string areaName, string? cashierName, IDictionary<int, string> menuItemNames, string? qrCodeBase64 = null) // Added qrCodeBase64 param, made cashierName nullable
+        private OrderDto MapOrderToDto(Order order, string areaName, string? cashierName, string? waiterName, IDictionary<int, string> menuItemNames, string? qrCodeBase64 = null)
         {
             return new OrderDto
             {
                 Id = order.Id,
-                DisplayOrderNumber = order.DisplayOrderNumber, // Added DisplayOrderNumber
+                DisplayOrderNumber = order.DisplayOrderNumber,
                 DayId = order.DayId,
                 AreaId = order.AreaId,
                 AreaName = areaName,
                 CashierId = order.CashierId,
                 CashierName = cashierName,
                 WaiterId = order.WaiterId,
+                WaiterName = waiterName,
                 OrderDateTime = order.OrderDateTime,
                 Status = order.Status,
                 TotalAmount = order.TotalAmount,
@@ -924,18 +939,19 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Overload for mapping when full MenuItem objects are available (e.g., when creating an order)
-        private OrderDto MapOrderToDto(Order order, string areaName, string? cashierName, IDictionary<int, MenuItem> menuItems, string? qrCodeBase64 = null) // Added qrCodeBase64 param, made cashierName nullable
+        private OrderDto MapOrderToDto(Order order, string areaName, string? cashierName, string? waiterName, IDictionary<int, MenuItem> menuItems, string? qrCodeBase64 = null)
         {
             return new OrderDto
             {
                 Id = order.Id,
-                DisplayOrderNumber = order.DisplayOrderNumber, // Added DisplayOrderNumber
+                DisplayOrderNumber = order.DisplayOrderNumber,
                 DayId = order.DayId,
                 AreaId = order.AreaId,
                 AreaName = areaName,
                 CashierId = order.CashierId,
                 CashierName = cashierName,
                 WaiterId = order.WaiterId,
+                WaiterName = waiterName,
                 OrderDateTime = order.OrderDateTime,
                 Status = order.Status,
                 TotalAmount = order.TotalAmount,
@@ -1083,7 +1099,7 @@ namespace SagraFacile.NET.API.Services
 
 
                 // Map to DTO
-                return MapOrderToDto(order, areaName, cashierName, menuItems); // QR Code not needed here
+                return MapOrderToDto(order, areaName, cashierName, waiterName, menuItems);
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -1808,7 +1824,7 @@ namespace SagraFacile.NET.API.Services
                 // If we needed to encode more data, we'd regenerate here.
                 // string qrCodeBase64 = GenerateQrCodeBase64(order.Id);
 
-                return MapOrderToDto(order, areaName, cashierFullName, finalMenuItemNames); // Pass null for QR code for now
+                return MapOrderToDto(order, areaName, cashierFullName, null, finalMenuItemNames, null);
             }
             catch (Exception ex)
             {
@@ -1908,7 +1924,7 @@ namespace SagraFacile.NET.API.Services
                                               .ToDictionaryAsync(mi => mi.Id);
 
                 // Map to DTO - Consider adding WaiterName to OrderDto if useful
-                return MapOrderToDto(order, areaName, cashierName, menuItems);
+                return MapOrderToDto(order, areaName, cashierName, waiterName, menuItems);
             }
             catch (DbUpdateConcurrencyException ex)
             {
@@ -1970,7 +1986,8 @@ namespace SagraFacile.NET.API.Services
                 var menuItemNames = order.OrderItems.ToDictionary(oi => oi.MenuItemId, oi => oi.MenuItem?.Name ?? "Unknown Item");
                 // Cashier name might be null if it was a pre-order confirmed by system or other non-cashier flow
                 string? cashierName = (order.Cashier != null) ? $"{order.Cashier.FirstName} {order.Cashier.LastName}".Trim() : null;
-                return MapOrderToDto(order, area.Name, cashierName, menuItemNames);
+                string? waiterName = (order.Waiter != null) ? $"{order.Waiter.FirstName} {order.Waiter.LastName}".Trim() : null;
+                return MapOrderToDto(order, area.Name, cashierName, waiterName, menuItemNames);
             }).ToList();
         }
 
@@ -2006,7 +2023,8 @@ namespace SagraFacile.NET.API.Services
             {
                 var menuItemNames = order.OrderItems.ToDictionary(oi => oi.MenuItemId, oi => oi.MenuItem?.Name ?? "Unknown Item");
                 string? cashierName = (order.Cashier != null) ? $"{order.Cashier.FirstName} {order.Cashier.LastName}".Trim() : null;
-                return MapOrderToDto(order, area.Name, cashierName, menuItemNames);
+                string? waiterName = (order.Waiter != null) ? $"{order.Waiter.FirstName} {order.Waiter.LastName}".Trim() : null;
+                return MapOrderToDto(order, area.Name, cashierName, waiterName, menuItemNames);
             }).ToList();
         }
 

@@ -32,6 +32,7 @@ namespace SagraFacile.NET.API.Data
         public DbSet<AreaDayOrderSequence> AreaDayOrderSequences { get; set; } // Added for DisplayOrderNumber
         public DbSet<AdMediaItem> AdMediaItems { get; set; }
         public DbSet<AdAreaAssignment> AdAreaAssignments { get; set; }
+        public DbSet<PrintJob> PrintJobs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -366,6 +367,41 @@ namespace SagraFacile.NET.API.Data
                 .HasForeignKey(aaa => aaa.AreaId)
                 .OnDelete(DeleteBehavior.Cascade); // Deleting an Area deletes its assignments
             // -- Ad Carousel Configuration -- END
+
+            // -- Print Job Configuration -- START
+            builder.Entity<PrintJob>()
+                .HasOne(pj => pj.Organization)
+                .WithMany()
+                .HasForeignKey(pj => pj.OrganizationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<PrintJob>()
+                .HasOne(pj => pj.Area)
+                .WithMany()
+                .HasForeignKey(pj => pj.AreaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<PrintJob>()
+                .HasOne(pj => pj.Order)
+                .WithMany()
+                .HasForeignKey(pj => pj.OrderId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade); // If an order is deleted, its print jobs are also deleted.
+
+            builder.Entity<PrintJob>()
+                .HasOne(pj => pj.Printer)
+                .WithMany()
+                .HasForeignKey(pj => pj.PrinterId)
+                .OnDelete(DeleteBehavior.Restrict); // Do not delete a printer if it has pending jobs.
+
+            builder.Entity<PrintJob>()
+                .Property(pj => pj.JobType)
+                .HasConversion<string>();
+
+            builder.Entity<PrintJob>()
+                .Property(pj => pj.Status)
+                .HasConversion<string>();
+            // -- Print Job Configuration -- END
         }
     }
 }

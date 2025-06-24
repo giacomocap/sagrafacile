@@ -3,6 +3,17 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-23) - Enhanced Order Filtering and Optional Pagination
+**Context:** Addressed feedback regarding order filtering on the waiter page and refined the pagination logic to be optional, allowing clients to fetch all items if pagination parameters are omitted.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   **Order Query Parameters:** Modified `SagraFacile.NET.API/DTOs/OrderQueryParameters.cs` to make `Page` and `PageSize` nullable (`int?`) to support optional pagination. Added `Statuses` property (`List<int>?`) to allow filtering orders by multiple statuses.
+    *   **Order Service:** Updated `SagraFacile.NET.API/Services/OrderService.cs` (`GetOrdersAsync`) to conditionally apply pagination (Skip/Take) only if `Page` and `PageSize` are provided. Implemented filtering by the `Statuses` list if it's present in the query parameters. Adjusted `PaginatedResult` construction to correctly reflect total items when pagination is not applied.
+**Key Decisions:**
+*   Made pagination truly optional on the backend, allowing clients to retrieve all items by omitting `page` and `pageSize`.
+*   Introduced status-based filtering for orders via the `Statuses` query parameter, enabling more granular control over fetched data.
+**Outcome:** The backend API is now more flexible for order retrieval, supporting both paginated and full-list fetches, and allowing filtering by order statuses.
+
 ## (2025-06-20) - Resolved JWT Authentication Issues
 **Context:** After a fresh server deployment, users could log in, but subsequent API calls failed with `SecurityTokenSignatureKeyNotFoundException` (401 Unauthorized). This indicated a mismatch in JWT configuration between token generation and validation.
 **Accomplishments:**
@@ -328,139 +339,77 @@
     *   Test editing and deleting profiles.
     *   Confirm that UI elements (tray icon, PrintStationForm title) reflect the active profile.
 
-## (Next Session) - Planned Work
-**Context:** Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub.
-**Next Steps:**
-1.  **Enhance `SagraFacile.WindowsPrinterService` (Companion App):**
-    *   Improve the UI/UX for displaying connection status to the SignalR hub.
-    *   Provide a clearer way to configure the necessary settings (SignalR Hub URL, Printer GUID).
-    *   Implement better logging within the companion app to aid troubleshooting.
-2.  **Resume USB Thermal Printer Debugging:**
-    *   Once the companion app is improved and its connection/registration can be reliably verified, continue debugging the USB thermal printer functionality.
-    *   Focus on ensuring the companion app correctly registers with the `OrderHub` using the matching GUID.
-    *   Verify print jobs are dispatched and received by the companion app.
-
-
----
-# Historical Sessions (Condensed)
-
-## (2025-06-13) - Implemented On-Demand Printing & Full Window UI for Windows Printer Service
-*   **Summary:** Completed on-demand printing for Windows Companion App, making it a full-window UI with minimize-to-tray. Implemented models (`PrintMode`, `PrinterConfigDto`, `PrintJobItem`), updated `SignalRService` for config fetching, job queuing/printing, and SSL bypass. Created `PrintStationForm` for queue management and refactored `ApplicationLifetimeService` for form lifecycle. Key decisions included full-window UI, dev SSL bypass, and `ApplicationLifetimeService` managing `PrintStationForm`. User testing of UI, config, job handling, and tray icon functionality is next.
-
-## (2025-06-12) - Implemented Backend for On-Demand Printer Configuration
-*   **Summary:** Implemented backend support for on-demand printing. Added `PrintMode` to `Printer` entity (defaulting to `Immediate`), created EF Core migration. Updated DTOs (`PrinterDto`, `PrinterUpsertDto`) and `PrinterService` to handle `PrintMode`. Added public endpoint `GET /api/printers/config/{instanceGuid}` for companion app to fetch config. Key decisions: `PrintMode` defaults to `Immediate`, public config endpoint. Next steps: apply migration, update Admin UI, implement companion app logic for on-demand queue and UI.
-
-## (2025-06-12) - Refactor Printer Document Builder to use ESCPOS_NET
-*   **Summary:** Refactored `EscPosDocumentBuilder` to use `ESCPOS_NET` library to fix special character encoding (Euro symbol, accented chars) and small QR codes. Set default code page to `PC858_EURO` and updated `PrintQRCode` to use `ESCPOS_NET.Size2DCode` (e.g., `EXTRA`, `LARGE`). `SetDoubleStrike` is currently non-functional. Key decisions: Adopted `ESCPOS_NET` for reliability, prioritized character encoding and QR code size. Next steps: Thoroughly test printing, review `PrinterService` for QR code sizing, investigate `SetDoubleStrike` if critical.
-
-## (2025-06-12) - Configurable PreOrder Polling Service
-*   **Summary:** Added ability to enable/disable `PreOrderPollingBackgroundService` via `ENABLE_PREORDER_POLLING_SERVICE` environment variable. Updated `.env.example` and `docker-compose.yml` to pass this variable, defaulting to `true`. Modified `Program.cs` to conditionally register the service based on this config, with clear startup logging. Key decisions: Polling service enabled by default, clear startup logging.
-
-## (2025-06-11) - Shifted to Pre-built Docker Image Deployment Strategy
-*   **Summary:** Changed deployment strategy to use pre-built Docker images from a container registry instead of local builds, simplifying user setup. Updated `docker-compose.yml` to use `image:` directives. Created `start.bat/sh`, `update.bat/sh`, `stop.bat/sh` helper scripts. Updated `README.md` and `DEPLOYMENT_ARCHITECTURE.md` to reflect the new, simpler process. Key decisions: Pre-built images for simplified user experience, removing local build requirements. Next steps (developer): Set up CI/CD for image building/pushing, update `docker-compose.yml` with actual image paths, finalize distributable package.
-
-## (2025-06-11) - Initiated Docker-Based Deployment Setup (Backend Aspects)
-*   **Summary:** Began comprehensive Docker-based deployment setup. Documented `DEPLOYMENT_ARCHITECTURE.md` (5-phase plan, Docker, Caddy). Verified `SagraFacile.NET.API/Dockerfile` (exposes 8080). Created `docker-compose.yml` (db, backend, frontend, caddy services, volumes, env vars, dependencies). Created `Caddyfile` (HTTPS, local_certs, reverse proxy). Created `.env.example`. Key decisions: Backend on 8080, Caddy for HTTPS, specific Caddy container name, direct connection string construction. Created `setup.bat/sh` scripts and updated `README.md` for user guidance. Next steps: Package components, finalize Windows Printer Service, create Windows Installer.
-
-## (2025-06-11) - Resolved Static Web Asset Conflict After Project Rename
-*   **Summary:** Resolved a `Conflicting assets` build error in `SagraFacile.NET.API` after project rename from `SagraPOS.NET.API`. The issue was stale references to the old project name. Resolved by manually deleting `obj` and `bin` directories within the project folder and rebuilding. Key decision: Manual deletion of build artifacts was necessary as `dotnet clean` was insufficient. Outcome: Project now builds successfully.
-
-## (2025-06-11) - Fixed VS Code Launch Configuration for .NET API
-*   **Summary:** Fixed broken VS Code launch configuration after renaming .NET project from `SagraPOS.NET.API` to `SagraFacile.NET.API`. Updated `.vscode/launch.json` to add a new configuration `"C#: SagraFacile.NET.API [https]"` that correctly references the project's `launchSettings.json` "https" profile. Key decision: Tailored new launch config to existing "https" profile. Next step: User to test launching the API with F5.
-
-## (2025-06-09) - Fixed Public Display Authentication Errors
-*   **Summary:** Resolved authentication errors on public Queue Display and Order Pickup Display pages. Removed authenticated `GET /api/areas/{areaId}/queue/state` from `QueueController`. Added new public endpoint `GET /api/public/areas/{areaId}/queue/state` to `PublicController`. Updated `GET /api/public/areas/{areaId}/orders/ready-for-pickup` to use new public-safe service methods (`GetPublicOrdersByStatusAsync` in `OrderService`, `GetPublicCurrentOpenDayAsync` in `DayService`). Key decisions: Moved queue state to `PublicController`, created parallel public service methods to avoid regressions.
-
-## (2025-06-09) - Finalized and Debugged Dynamic Ad Carousel
-*   **Summary:** Completed dynamic ad carousel implementation and debugged media serving/display issues. Enabled static file serving (`app.UseStaticFiles()` in `Program.cs`). Changed ad media storage path from `/media/ads` to `/media/promo` to avoid ad blockers. Added public API endpoint `GET /api/public/areas/{areaId}/ads` to `PublicController.cs` to serve active promotional media.
-
-## (2025-06-08) - Implemented Guest and Takeaway Charges
-*   **Summary:** Implemented per-guest "coperto" and per-order "asporto" fees. Added `GuestCharge` and `TakeawayCharge` decimal properties to `Area.cs` entity and applied EF Core migration. Updated DTOs (`AreaDto`, `AreaUpsertDto`) and `AreaService` mapping logic. Modified `OrderService` (`CreateOrderAsync`, `ConfirmPreOrderPaymentAsync`) to apply charges based on `NumberOfGuests` or `IsTakeaway`. Updated `PrinterService` to display charges on receipts. Key decisions: Charges configured at `Area` level, logic distinguishes between guest and takeaway charges.
-
-## (2025-06-08) - Increased QR Code Size on Receipts
-*   **Summary:** Increased QR code size on receipts to improve scannability. Modified `SagraFacile.NET/SagraFacile.NET.API/Services/PrinterService.cs` to set `moduleSize` parameter to `6` (doubled from `3`) in `EscPosDocumentBuilder.PrintQRCode(...)` calls for initial and reprint receipts. Key decision: Increased QR code size via existing `moduleSize` parameter. Note: Euro symbol still not printing correctly, QR code still too small despite this change.
-
-## (2025-06-07) - Refactored Comanda Printing for Mobile & Waiter-Confirmed Orders
-*   **Summary:** Refactored comanda printing in `OrderService.cs` for consistency between mobile and waiter-confirmed orders. Extracted printing logic into `TriggerDeferredComandaPrintingAsync(Order order)` helper method, which checks for prior printing. Replaced existing printing block in `ConfirmOrderPreparationAsync` and added call to `CreateOrderAsync` for mobile table orders. Key decisions: Centralized printing logic for consistency and to prevent duplicates.
-
-## (2025-06-07) - Implemented Mobile Table Order Backend Logic
-*   **Summary:** Implemented backend logic for mobile table ordering. Modified `OrderService.CreateOrderAsync` to handle orders with `TableNumber`. If `Area.EnableWaiterConfirmation` is true, order status bypasses `Paid` and goes directly to `Preparing`/`ReadyForPickup`/`Completed`. `WaiterId` is set to the user creating the order. Added nullable `TableNumber` and `CashierStationId` to `CreateOrderDto.cs`. Key decisions: Backend intelligently progresses order status for table-side orders, user creating order is considered cashier/waiter.
-
-## (2025-06-06) - Enhanced WindowsPrinterService UI/UX and Connection Logic
-*   **Summary:** Improved `SagraFacile.WindowsPrinterService` UI/UX and connection handling. Localized `SettingsForm.Designer.cs` to Italian, added GUID generation and test printer buttons, and real-time connection status. `SettingsForm.cs` now updates status, restarts `SignalRService` on save, and handles test prints. `SignalRService.cs` improved URL parsing, added dev SSL bypass, status reporting, and restart/test print capabilities. `ApplicationLifetimeService.cs` orchestrates `SettingsForm` and `SignalRService` interaction. Key decisions: Centralized printer testing, auto-restart on save, Italian localization, dev SSL bypass. Next steps: Thorough user testing of UI, connection, and functionality.
-
-## (2025-06-06) - Resolved JsonException in Printer Assignments API
-*   **Summary:** Resolved `System.Text.Json.JsonException` (object cycle detected) when retrieving printer assignments via `GET /api/Printers/{printerId}/assignments`. Created `PrinterCategoryAssignmentDto.cs` to flatten the structure and avoid circular references. Updated `IPrinterAssignmentService.cs` and `PrinterAssignmentService.cs` to return and map to this new DTO. Key decision: Used targeted DTO to resolve serialization cycle. Next step: User to test endpoint.
-
-## (2025-06-06) - Resolved .NET Build Error on macOS
-*   **Summary:** Resolved `NETSDK1100` build error for `SagraFacile.WindowsPrinterService` on macOS. Added `<EnableWindowsTargeting>true</EnableWindowsTargeting>` to `SagraFacile.WindowsPrinterService.csproj` to allow building Windows-targeted project on non-Windows OS. Next step: Confirm fix by rebuilding.
-
-## (2025-06-18) - Implemented Serilog Logging in All Controllers and Services
-**Context:** Completed the implementation of comprehensive logging in all controllers and services of the SagraFacile.NET API using Serilog, as detailed in `docs/LoggingStrategy.md`. This significantly enhances debugging, troubleshooting, and operational insight for the backend.
+## (2025-06-23) - Implemented Resilient Printing via Job Queue
+**Context:** Rearchitected the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost due to temporary printer or network failures. This involved implementing a persistent job queue in the database and a hybrid processing model for performance.
 **Accomplishments:**
-*   **NuGet Packages Added:** Installed `Serilog.AspNetCore`, `Serilog.Sinks.Console`, `Serilog.Enrichers.Environment`, `Serilog.Enrichers.Thread`, and `Serilog.Settings.Configuration` to `SagraFacile.NET.API.csproj`.
-*   **`Program.cs` Configuration:**
-    *   Set up a bootstrap logger for early application startup logging.
-    *   Configured `builder.Host.UseSerilog` to integrate Serilog with the ASP.NET Core logging pipeline, reading configuration from `appsettings.json` and enriching logs with machine name and thread ID.
-    *   Added `app.UseSerilogRequestLogging()` to enable automatic logging of HTTP requests and responses.
-*   **`appsettings.json` Configuration:**
-    *   Added a `Serilog` section to define minimum log levels for various namespaces (e.g., `Default`, `Microsoft`, `Microsoft.EntityFrameworkCore.Database.Command`).
-    *   Configured log enrichers (`FromLogContext`, `WithMachineName`, `WithThreadId`) and set an `ApplicationName` property.
-*   **Logging Statements in Code:**
-    *   **All Controllers Covered:** Injected `ILogger<T>` and added detailed logging statements to all public-facing and admin controllers, including:
-        *   `SagraFacile.NET.API/Controllers/AccountsController.cs`
-        *   `SagraFacile.NET.API/Controllers/AdAreaAssignmentsController.cs`
-        *   `SagraFacile.NET.API/Controllers/AdMediaItemsController.cs`
-        *   `SagraFacile.NET.API/Controllers/AnalyticsController.cs`
-        *   `SagraFacile.NET.API/Controllers/AreasController.cs`
-        *   `SagraFacile.NET.API/Controllers/CashierStationsController.cs`
-        *   `SagraFacile.NET.API/Controllers/DaysController.cs`
-        *   `SagraFacile.NET.API/Controllers/KdsStationsController.cs`
-        *   `SagraFacile.NET.API/Controllers/MenuCategoriesController.cs`
-        *   `SagraFacile.NET.API/Controllers/MenuItemsController.cs`
-        *   `SagraFacile.NET.API/Controllers/OrdersController.cs`
-        *   `SagraFacile.NET.API/Controllers/OrganizationsController.cs`
-        *   `SagraFacile.NET.API/Controllers/PrinterAssignmentsController.cs`
-        *   `SagraFacile.NET.API/Controllers/PrintersController.cs`
-        *   `SagraFacile.NET.API/Controllers/PublicController.cs`
-        *   `SagraFacile.NET.API/Controllers/QueueController.cs`
-        *   `SagraFacile.NET.API/Controllers/SyncController.cs`
-    *   **All Services Covered:** Injected `ILogger<T>` and added detailed logging statements to all services, including:
-        *   `SagraFacile.NET.API/Services/AccountService.cs`
-        *   `SagraFacile.NET.API/Services/AdAreaAssignmentService.cs`
-        *   `SagraFacile.NET.API/Services/AdMediaItemService.cs`
-        *   `SagraFacile.NET.API/Services/AnalyticsService.cs`
-        *   `SagraFacile.NET.API/Services/AreaService.cs`
-        *   `SagraFacile.NET.API/Services/CashierStationService.cs`
-        *   `SagraFacile.NET.API/Services/DayService.cs`
-        *   `SagraFacile.NET.API/Services/KdsStationService.cs`
-        *   `SagraFacile.NET.API/Services/MenuCategoryService.cs`
-        *   `SagraFacile.NET.API/Services/MenuItemService.cs`
-        *   `SagraFacile.NET.API/Services/OrderService.cs`
-        *   `SagraFacile.NET.API/Services/OrganizationService.cs`
-        *   `SagraFacile.NET.API/Services/PrinterAssignmentService.cs`
-        *   `SagraFacile.NET.API/Services/PrinterService.cs`
-        *   `SagraFacile.NET.API/Services/QueueService.cs`
-        *   `SagraFacile.NET.API/Services/SyncConfigurationService.cs`
-        *   (Note: `BaseService.cs`, `EmailService.cs`, `EmailSettings.cs`, `IAnalyticsService.cs`, `MenuSyncService.cs`, `PreOrderPollingService.cs` are either base classes, DTOs, interfaces, or background services that do not require direct `ILogger<T>` injection in the same manner as business logic services.)
-*   **Consistent Pattern:** Applied a consistent pattern for `ILogger<T>` injection and structured logging across all controllers and services.
-*   **Log Levels:** Utilized `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` to categorize messages appropriately, focusing on critical business events, validation failures, and exceptions.
-**Outcome:** The SagraFacile.NET API now has a robust and configurable logging infrastructure across all its controllers and services, significantly improving observability and making future debugging and monitoring more efficient.
+*   **Backend (.NET API):**
+    *   **Database:** Created `PrintJob` entity and applied EF Core migrations (`AddPrintJobQueue`, `MakePrintJobAreaIdNullable`).
+    *   **New Service (`PrintJobProcessor.cs`):** Implemented a `BackgroundService` to poll for pending jobs and process them.
+    *   **"Fast Lane" Signaling:** Implemented an in-memory `SemaphoreSlim` to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
+    *   **Refactored `PrinterService.cs`:** Changed `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. The `SendToPrinterAsync` logic was adapted to be called by the `PrintJobProcessor`.
+    *   **Refactored `OrderService.cs`:** Ensured it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
+    *   **`OrderHub.cs`:** Added a `ReportPrintJobStatus` method to receive status updates from the companion app.
+*   **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
+    *   **`SignalRService.cs`:** Updated to receive `JobId` as `Guid` and to call the `ReportPrintJobStatus` hub method after a print attempt (success or failure), completing the confirmation loop.
+    *   **`PrintJobItem.cs`:** Updated `JobId` to `Guid` to match backend.
+**Key Decisions:**
+*   Implemented a hybrid "Fast Lane" model to balance reliability (job queue) with performance (instant processing for critical jobs).
+*   Ensured end-to-end confirmation for Windows USB printers via SignalR callbacks.
+*   Made `AreaId` nullable in `PrintJob` to accommodate test prints not associated with a specific area.
+**Outcome:** The printing system is now significantly more robust, with guaranteed delivery, automatic retries, and comprehensive status monitoring capabilities.
 **Next Steps:**
-*   Monitor log output during development and testing to fine-tune log levels and ensure clarity.
-*   Consider implementing correlation IDs for tracing requests across the application.
-*   Explore advanced Serilog sinks for production environments (e.g., file, Seq, cloud logging).
+*   User to test the new resilient printing system as per the provided instructions.
+*   (Future) Implement Admin UI for monitoring print job statuses.
 
-## (2025-06-18) - Verified and Enhanced Serilog Logging in Services
-**Context:** Following up on the comprehensive Serilog logging implementation, a re-verification of logging in specific service files was performed as per user instruction, focusing on those not recently modified in `git status`.
+## (2025-06-23) - Implemented Admin UI for Print Job Monitoring
+**Context:** Implemented the Admin UI for monitoring print jobs, providing visibility into the resilient printing system's operations. This builds upon the previously implemented backend job queue and processing.
 **Accomplishments:**
-*   **Verified Existing Logging:** Confirmed that `AccountsController.cs`, `AreasController.cs`, `DayService.cs`, `KdsStationService.cs`, `OrderService.cs`, and `PrinterAssignmentService.cs` already had `ILogger<T>` injected and appropriate logging statements.
-*   **Added/Enhanced Logging:** Injected `ILogger<T>` and added detailed logging statements to the following services where it was missing or insufficient:
-    *   `SagraFacile.NET.API/Services/MenuCategoryService.cs`
-    *   `SagraFacile.NET.API/Services/MenuItemService.cs`
-    *   `SagraFacile.NET.API/Services/SyncConfigurationService.cs`
-*   **Consistent Pattern:** Ensured a consistent pattern for `ILogger<T>` injection and structured logging across all updated services.
-**Outcome:** All identified controllers and services now have robust and consistent logging, further improving the observability and debuggability of the SagraFacile.NET API.
+*   **Backend (.NET API):**
+    *   Created `PrintJobQueryParameters.cs`, `PrintJobDto.cs`, and `PaginatedResult.cs` DTOs for data transfer and pagination.
+    *   Implemented `IPrintJobService.cs` and `PrintJobService.cs` to encapsulate business logic for fetching paginated and sortable print jobs, and for manually retrying failed jobs.
+    *   Registered `IPrintJobService` and `PrintJobService` for dependency injection in `Program.cs`.
+    *   Created `PrintJobsController.cs` with `GET /api/PrintJobs` (for paginated list) and `POST /api/PrintJobs/{jobId}/retry` (for manual retry) endpoints, secured with `Admin,SuperAdmin` roles.
+*   **Frontend (Next.js WebApp):**
+    *   Updated `sagrafacile-webapp/src/services/printerService.ts` to include `getPrintJobs` and `retryPrintJob` methods.
+    *   Added `PrintJobStatus`, `PrintJobType`, `PrintJobDto`, `PrintJobQueryParameters`, and `PaginatedResult` TypeScript types to `sagrafacile-webapp/src/types/index.ts`.
+    *   Created the new Admin UI page `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx`. This page displays a table of print jobs with columns for ID, JobType, Status, CreatedAt, LastAttemptAt, RetryCount, ErrorMessage, OrderId, and PrinterName.
+    *   Implemented client-side pagination and sorting for the print jobs table.
+    *   Added a "Retry Manually" action for failed print jobs, which triggers the backend retry endpoint.
+    *   Ensured date formatting uses vanilla JavaScript `Date` methods for consistency.
+    *   Added a link to "Monitoraggio Stampe" in `sagrafacile-webapp/src/components/admin/AdminNavigation.tsx`.
+    *   Added a new card for "Monitoraggio Stampe" to the main Admin Dashboard page (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`).
+**Key Decisions:**
+*   Implemented server-side pagination and sorting for print jobs to optimize performance for large datasets.
+*   Provided a manual retry mechanism for failed jobs, complementing the automatic retry logic in the `PrintJobProcessor`.
+*   Used vanilla JavaScript for date formatting in the frontend as per user preference.
+*   Integrated the new page into the existing admin navigation and dashboard for easy access.
+**Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
+**Next Steps:**
+*   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
+## (2025-06-23) - Refactored Orders Page with Reusable Paginated Table
+**Context:** Refactored the admin "Storico Ordini" page to use a new reusable, paginated table component, enhancing performance and code reuse.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   Implemented server-side pagination and sorting for the `GET /api/Orders` endpoint.
+    *   Created `OrderQueryParameters.cs` DTO to handle pagination, sorting, and filtering (by `AreaId`, `DayId`, `OrganizationId`).
+    *   Updated `IOrderService.cs` and `OrderService.cs` to replace the old `GetOrdersAsync` with a new method that accepts `OrderQueryParameters` and returns a `PaginatedResult<OrderDto>`.
+    *   Installed `System.Linq.Dynamic.Core` to enable dynamic sorting based on string property names.
+    *   Updated `OrdersController.cs` to use the new service method and DTO.
+*   **Frontend (Next.js WebApp):**
+    *   Created a generic, reusable `PaginatedTable.tsx` component in `src/components/common/`. This component handles table rendering, sorting, pagination controls, and a page size selector. It also persists page size settings to `localStorage`.
+    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx` to use the new `PaginatedTable` component, simplifying its code significantly.
+    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/orders/page.tsx`:
+        *   Replaced the old static `OrderTable.tsx` with the new `PaginatedTable.tsx`.
+        *   Integrated the `AdminAreaSelector.tsx` component for area filtering.
+        *   Added `orderService.ts` to fetch paginated order data.
+        *   Updated `types/index.ts` with `OrderQueryParameters`.
+    *   Deleted the now-redundant `OrderTable.tsx` component.
+**Key Decisions:**
+*   Abstracted table logic into a reusable `PaginatedTable` component to be used across different admin pages.
+*   Implemented server-side pagination for the Orders API to handle potentially large datasets efficiently.
+*   Leveraged `localStorage` in the `PaginatedTable` component to provide a better user experience by remembering page size preferences.
+**Outcome:** The Orders and Print Jobs admin pages are now more performant and maintainable. The new `PaginatedTable` component can be easily reused for other data tables in the application.
 
 ## (Next Session) - Planned Work
 *   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.

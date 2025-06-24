@@ -74,6 +74,13 @@ export default function AdminDashboardPage() {
       color: 'bg-gray-500'
     },
     {
+      title: 'Monitoraggio Stampe',
+      description: 'Visualizza stato processi di stampa',
+      icon: Monitor,
+      href: `/app/org/${currentOrgId}/admin/print-jobs`,
+      color: 'bg-cyan-500'
+    },
+    {
       title: 'Giornate',
       description: 'Gestione giornate operative',
       icon: Calendar,

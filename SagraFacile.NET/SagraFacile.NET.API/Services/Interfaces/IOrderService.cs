@@ -11,7 +11,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
         Task<OrderDto?> CreatePreOrderAsync(PreOrderDto preOrderDto);
         Task<OrderDto?> GetOrderByIdAsync(string id);
         Task<IEnumerable<OrderDto>> GetOrdersByAreaAsync(int areaId); // Keep for specific area fetching if needed elsewhere, but new method is primary
-        Task<IEnumerable<OrderDto>> GetOrdersAsync(int? organizationId, int? areaId, List<OrderStatus>? statuses, int? dayId, ClaimsPrincipal user); // Added dayId filter
+        Task<PaginatedResult<OrderDto>> GetOrdersAsync(OrderQueryParameters queryParameters, ClaimsPrincipal user);
         Task<IEnumerable<OrderDto>> GetOrdersByStatusAsync(int areaId, OrderStatus status); // New method for public display
         Task<IEnumerable<OrderDto>> GetPublicOrdersByStatusAsync(int areaId, OrderStatus status); // New method for public display without auth context
 

@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { PrinterDto, PrinterUpsertDto } from '@/types';
+import { PrinterDto, PrinterUpsertDto, PrintJobDto, PaginatedResult, PrintJobQueryParameters } from '@/types';
 
 const printerService = {
   getPrinters: async (): Promise<PrinterDto[]> => {
@@ -27,6 +27,16 @@ const printerService = {
 
   sendTestPrint: async (printerId: number): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>(`/Printers/${printerId}/test-print`);
+    return response.data;
+  },
+
+  getPrintJobs: async (params: PrintJobQueryParameters): Promise<PaginatedResult<PrintJobDto>> => {
+    const response = await apiClient.get<PaginatedResult<PrintJobDto>>('/PrintJobs', { params });
+    return response.data;
+  },
+
+  retryPrintJob: async (jobId: string): Promise<{ message: string }> => {
+    const response = await apiClient.post<{ message: string }>(`/PrintJobs/${jobId}/retry`);
     return response.data;
   },
 };

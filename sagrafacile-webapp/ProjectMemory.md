@@ -12,6 +12,62 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-23) - Enhanced Order Filtering and Optional Pagination (Frontend)
+**Context:** Implemented frontend changes to support the backend's new optional pagination and status filtering for orders, specifically addressing a bug where the waiter page was not distinguishing between order statuses.
+**Accomplishments:**
+*   **Type Definitions:** Updated `src/types/index.ts` to reflect the changes in `OrderQueryParameters` (nullable `page`, `pageSize`, and added `statuses?: number[]`).
+*   **Component Updates:**
+    *   `src/components/cashier/ReprintOrderDialog.tsx`: Removed hardcoded `pageSize: 1000` and `page: 1` from the API call, relying on the backend's new optional pagination behavior to fetch all orders.
+    *   `src/app/app/org/[orgId]/waiter/area/[areaId]/page.tsx`: Re-added the `statuses` parameter to the `apiClient.get` calls for fetching both "pending" (`OrderStatus.Paid`, `OrderStatus.PreOrder`) and "active" (`OrderStatus.Preparing`, `OrderStatus.ReadyForPickup`) orders, ensuring correct filtering and display in their respective tabs. Removed hardcoded `pageSize: 1000` and `page: 1`.
+    *   `src/app/app/org/[orgId]/table-order/area/[areaId]/page.tsx`: Removed hardcoded `pageSize: 50` and changed `sortDirection: 'desc'` to `sortAscending: false` in the API call for fetching past orders, allowing the backend to return all items by default.
+**Key Decisions:**
+*   Aligned frontend API calls with the backend's new optional pagination and status filtering capabilities.
+*   Ensured that components requiring full lists of orders (e.g., waiter, reprint dialog) now correctly leverage the optional pagination by omitting `page` and `pageSize`.
+*   Fixed the waiter page bug by reintroducing status filtering.
+**Outcome:** The frontend now correctly interacts with the updated order API, resolving previous data display issues and improving flexibility.
+
+## (2025-06-23) - Refactored Orders Page with Reusable Paginated Table
+**Context:** Refactored the admin "Storico Ordini" page to use a new reusable, paginated table component, enhancing performance and code reuse.
+**Accomplishments:**
+*   **Frontend (Next.js WebApp):**
+    *   Created a generic, reusable `PaginatedTable.tsx` component in `src/components/common/`. This component handles table rendering, sorting, pagination controls, and a page size selector. It also persists page size settings to `localStorage`.
+    *   Refactored `src/app/app/org/[orgId]/admin/print-jobs/page.tsx` to use the new `PaginatedTable` component, simplifying its code significantly.
+    *   Refactored `src/app/app/org/[orgId]/admin/orders/page.tsx`:
+        *   Replaced the old static `OrderTable.tsx` with the new `PaginatedTable.tsx`.
+        *   Integrated the `AdminAreaSelector.tsx` component for area filtering.
+        *   Added `src/services/orderService.ts` to fetch paginated order data.
+        *   Updated `src/types/index.ts` with `OrderQueryParameters`.
+    *   Deleted the now-redundant `OrderTable.tsx` component.
+**Key Decisions:**
+*   Abstracted table logic into a reusable `PaginatedTable` component to be used across different admin pages.
+*   Implemented server-side pagination for the Orders API to handle potentially large datasets efficiently.
+*   Leveraged `localStorage` in the `PaginatedTable` component to provide a better user experience by remembering page size preferences.
+**Outcome:** The Orders and Print Jobs admin pages are now more performant and maintainable. The new `PaginatedTable` component can be easily reused for other data tables in the application.
+
+## (2025-06-23) - Implemented Admin UI for Print Job Monitoring
+**Context:** Implemented the Admin UI for monitoring print jobs, providing visibility into the resilient printing system's operations. This builds upon the previously implemented backend job queue and processing.
+**Accomplishments:**
+*   **Frontend (Next.js WebApp):**
+    *   Updated `src/services/printerService.ts` to include `getPrintJobs` (for fetching paginated and sortable print jobs) and `retryPrintJob` (for manually retrying failed jobs) methods.
+    *   Added `PrintJobStatus`, `PrintJobType`, `PrintJobDto`, `PrintJobQueryParameters`, and `PaginatedResult` TypeScript types to `src/types/index.ts` to match backend DTOs.
+    *   Created the new Admin UI page `src/app/app/org/[orgId]/admin/print-jobs/page.tsx`. This page displays a table of print jobs with columns for ID, JobType, Status, CreatedAt, LastAttemptAt, RetryCount, ErrorMessage, OrderId, and PrinterName.
+    *   Implemented client-side pagination and sorting for the print jobs table.
+    *   Added a "Retry Manually" action for failed print jobs, which triggers the backend retry endpoint.
+    *   Ensured date formatting uses vanilla JavaScript `Date` methods for consistency, aligning with existing project style.
+    *   Added a link to "Monitoraggio Stampe" in `src/components/admin/AdminNavigation.tsx` for easy access from the sidebar.
+    *   Added a new card for "Monitoraggio Stampe" to the main Admin Dashboard page (`src/app/app/org/[orgId]/admin/page.tsx`) for quick access.
+*   **Backend (.NET API):** (Note: Backend changes were detailed in `SagraFacile.NET/ProjectMemory.md`)
+    *   New API endpoints `/api/PrintJobs` (GET) and `/api/PrintJobs/{jobId}/retry` (POST) were created and secured.
+    *   Supporting DTOs and `PrintJobService` were implemented.
+**Key Decisions:**
+*   Implemented server-side pagination and sorting for print jobs to optimize performance for large datasets.
+*   Provided a manual retry mechanism for failed jobs, complementing the automatic retry logic in the `PrintJobProcessor`.
+*   Used vanilla JavaScript for date formatting in the frontend as per user preference and existing project style.
+*   Integrated the new page into the existing admin navigation and dashboard for easy access.
+**Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
+**Next Steps:**
+*   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
 ## (2025-06-17) - Enhanced README.md with New Introduction and Screenshots
 *   **Context:** The main project `README.md` needed a more user-friendly introduction, including what SagraFacile is, who it's for, and its main features, along with visual aids.
 *   **Accomplishments:**
@@ -174,8 +230,32 @@ Adjusted styling in `CashierOrderPanel.tsx` to reduce horizontal and vertical sp
     *   **Log Levels:** Utilized `LogInformation`, `LogWarning`, `LogError`, and `LogDebug` to categorize messages appropriately, focusing on critical business events, validation failures, and exceptions.
 *   **Outcome:** The .NET API now has a robust and configurable logging infrastructure, improving observability and making future debugging and monitoring more efficient. This provides better insights into backend operations from the frontend perspective.
 
+## (2025-06-23) - Implemented Admin UI for Print Job Monitoring
+**Context:** Implemented the Admin UI for monitoring print jobs, providing visibility into the resilient printing system's operations. This builds upon the previously implemented backend job queue and processing.
+**Accomplishments:**
+*   **Frontend (Next.js WebApp):**
+    *   Updated `src/services/printerService.ts` to include `getPrintJobs` (for fetching paginated and sortable print jobs) and `retryPrintJob` (for manually retrying failed jobs) methods.
+    *   Added `PrintJobStatus`, `PrintJobType`, `PrintJobDto`, `PrintJobQueryParameters`, and `PaginatedResult` TypeScript types to `src/types/index.ts` to match backend DTOs.
+    *   Created the new Admin UI page `src/app/app/org/[orgId]/admin/print-jobs/page.tsx`. This page displays a table of print jobs with columns for ID, JobType, Status, CreatedAt, LastAttemptAt, RetryCount, ErrorMessage, OrderId, and PrinterName.
+    *   Implemented client-side pagination and sorting for the print jobs table.
+    *   Added a "Retry Manually" action for failed print jobs, which triggers the backend retry endpoint.
+    *   Ensured date formatting uses vanilla JavaScript `Date` methods for consistency, aligning with existing project style.
+    *   Added a link to "Monitoraggio Stampe" in `src/components/admin/AdminNavigation.tsx` for easy access from the sidebar.
+    *   Added a new card for "Monitoraggio Stampe" to the main Admin Dashboard page (`src/app/app/org/[orgId]/admin/page.tsx`) for quick access.
+*   **Backend (.NET API):** (Note: Backend changes were detailed in `SagraFacile.NET/ProjectMemory.md`)
+    *   New API endpoints `/api/PrintJobs` (GET) and `/api/PrintJobs/{jobId}/retry` (POST) were created and secured.
+    *   Supporting DTOs and `PrintJobService` were implemented.
+**Key Decisions:**
+*   Implemented server-side pagination and sorting for print jobs to optimize performance for large datasets.
+*   Provided a manual retry mechanism for failed jobs, complementing the automatic retry logic in the `PrintJobProcessor`.
+*   Used vanilla JavaScript for date formatting in the frontend as per user preference and existing project style.
+*   Integrated the new page into the existing admin navigation and dashboard for easy access.
+**Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
+**Next Steps:**
+*   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
 ## (Next Session) - Planned Work
-Current session paused debugging of USB thermal printer due to issues with the `SagraFacile.WindowsPrinterService` companion app's registration with the SignalR hub. This impacts both backend and frontend testing of the printing feature.
+Current session paused debugging of USB thermal printer due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
 
 
 ---

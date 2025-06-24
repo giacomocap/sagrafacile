@@ -23,6 +23,7 @@ import {
     MenuItemDto,
     AppCartItem,
     UserDto,
+    PaginatedResult,
 } from "@/types";
 import { toast } from "sonner";
 import { useForm, Controller, SubmitHandler } from "react-hook-form";
@@ -245,15 +246,14 @@ const MobileTableOrderPage = () => {
         setIsLoadingPastOrders(true);
         setPastOrdersError(null);
         try {
-            const response = await apiClient.get<OrderDto[]>('/orders', {
+            const response = await apiClient.get<PaginatedResult<OrderDto>>('/orders', {
                 params: {
                     areaId: currentArea.id,
                     sortBy: 'orderDateTime',
-                    sortDirection: 'desc',
-                    pageSize: 50,
+                    sortAscending: false,
                 }
             });
-            setPastOrders(response.data);
+            setPastOrders(response.data.items);
         } catch (error) {
             console.error("Error fetching past orders:", error);
             setPastOrdersError("Impossibile caricare lo storico ordini.");

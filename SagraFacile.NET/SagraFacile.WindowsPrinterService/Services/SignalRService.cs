@@ -205,8 +205,8 @@ namespace SagraFacile.WindowsPrinterService.Services
                 OnConnectionStatusChanged("Disconnesso");
             };
 
-            // Backend no longer sends windowsPrinterName
-            _hubConnection.On<string, byte[]>("PrintJob", HandlePrintJobAsync);
+            // Backend sends jobId as a Guid
+            _hubConnection.On<Guid, byte[]>("PrintJob", HandlePrintJobAsync);
 
             await ConnectWithRetriesAsync();
         }
@@ -338,8 +338,7 @@ namespace SagraFacile.WindowsPrinterService.Services
             }
         }
 
-        // windowsPrinterName argument removed as it's no longer sent by the backend
-        private async void HandlePrintJobAsync(string jobId, byte[] rawData)
+        private async void HandlePrintJobAsync(Guid jobId, byte[] rawData)
         {
             // Use _configuredWindowsPrinterName which should be set from the profile
             string? printerToUse = _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter;
@@ -365,30 +364,35 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             if (_currentPrintMode == PrintMode.OnDemandWindows)
             {
-                // PrintJobItem no longer needs targetWindowsPrinterName as it's implicit to the profile
-                var printJobItem = new PrintJobItem(jobId, rawData); 
+                var printJobItem = new PrintJobItem(jobId, rawData);
                 _onDemandPrintQueue.Enqueue(printJobItem);
-                _logger.LogInformation($"Job {jobId} accodato (Profilo: {_activeProfileSettings?.ProfileName}, Printer: {printerToUse}). Comande in coda: {_onDemandPrintQueue.Count}");
+                _logger.LogInformation($"Job {jobId} queued. Queue count: {_onDemandPrintQueue.Count}");
                 OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
             }
-            else 
+            else // Immediate mode
             {
+                string? errorMessage = null;
+                bool success = false;
                 try
                 {
-                    bool success = await _rawPrinter.PrintRawAsync(printerToUse, rawData);
+                    success = await _rawPrinter.PrintRawAsync(printerToUse, rawData);
                     if (success)
                     {
-                        _logger.LogInformation($"Print job {jobId} sent successfully to printer {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                        _logger.LogInformation($"Immediate print job {jobId} sent successfully to printer {printerToUse}.");
                     }
                     else
                     {
-                        _logger.LogError($"Failed to send print job {jobId} to printer {printerToUse}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
+                        errorMessage = $"Failed to print to '{printerToUse}'. See companion app logs for details.";
+                        _logger.LogError(errorMessage);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, $"Exception while processing print job {jobId} for printer {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    errorMessage = $"Exception while printing to '{printerToUse}': {ex.Message}";
+                    _logger.LogError(ex, errorMessage);
+                    success = false;
                 }
+                await ReportStatusToServerAsync(jobId, success, errorMessage);
             }
         }
 
@@ -524,36 +528,64 @@ namespace SagraFacile.WindowsPrinterService.Services
         {
             if (jobItem == null)
             {
-                _logger.LogError($"PrintQueuedJobAsync called with null jobItem. (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogError("PrintQueuedJobAsync called with null jobItem.");
                 return false;
             }
 
             string? printerToUse = _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter;
+            string? errorMessage = null;
+            bool success = false;
 
-            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to profile printer '{printerToUse}' (Profilo: {_activeProfileSettings?.ProfileName})");
+            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to profile printer '{printerToUse}'.");
+
+            if (string.IsNullOrWhiteSpace(printerToUse))
+            {
+                errorMessage = $"Cannot print job {jobItem.JobId}: No target printer name configured in profile '{_activeProfileSettings?.ProfileName}'.";
+                _logger.LogError(errorMessage);
+                await ReportStatusToServerAsync(jobItem.JobId, false, errorMessage);
+                return false;
+            }
+
             try
             {
-                if (string.IsNullOrWhiteSpace(printerToUse))
-                {
-                    _logger.LogError($"Cannot print job {jobItem.JobId}: No target printer name configured in profile '{_activeProfileSettings?.ProfileName}'.");
-                    return false;
-                }
-
-                bool success = await _rawPrinter.PrintRawAsync(printerToUse, jobItem.RawData);
+                success = await _rawPrinter.PrintRawAsync(printerToUse, jobItem.RawData);
                 if (success)
                 {
-                    _logger.LogInformation($"Successfully printed queued job {jobItem.JobId} to {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogInformation($"Successfully printed queued job {jobItem.JobId} to {printerToUse}.");
                 }
                 else
                 {
-                    _logger.LogError($"Failed to print queued job {jobItem.JobId} to {printerToUse}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    errorMessage = $"Failed to print queued job {jobItem.JobId} to {printerToUse}.";
+                    _logger.LogError(errorMessage);
                 }
-                return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Exception while printing queued job {jobItem.JobId} to profile printer '{printerToUse}'. (Profilo: {_activeProfileSettings?.ProfileName})");
-                return false;
+                errorMessage = $"Exception while printing queued job {jobItem.JobId}: {ex.Message}";
+                _logger.LogError(ex, errorMessage);
+                success = false;
+            }
+
+            await ReportStatusToServerAsync(jobItem.JobId, success, errorMessage);
+            return success;
+        }
+
+        private async Task ReportStatusToServerAsync(Guid jobId, bool success, string? errorMessage)
+        {
+            if (_hubConnection == null || _hubConnection.State != HubConnectionState.Connected)
+            {
+                _logger.LogWarning($"Cannot report status for job {jobId}, hub is not connected.");
+                return;
+            }
+
+            try
+            {
+                await _hubConnection.InvokeAsync("ReportPrintJobStatus", jobId, success, errorMessage);
+                _logger.LogInformation("Successfully reported status for job {JobId} to server. Success: {Success}", jobId, success);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to report print job status for job {JobId} to server.", jobId);
             }
         }
     }

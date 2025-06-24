@@ -407,6 +407,65 @@ export interface PrinterCategoryAssignmentDto {
 }
 
 // ==================
+// Print Job
+// ==================
+export enum PrintJobStatus {
+  Pending = 0,
+  Processing = 1,
+  Succeeded = 2,
+  Failed = 3,
+}
+
+export enum PrintJobType {
+  Receipt = 0,
+  Comanda = 1,
+  TestPrint = 2,
+}
+
+export interface PrintJobDto {
+  id: string; // Guid is a string
+  jobType: PrintJobType;
+  status: PrintJobStatus;
+  createdAt: string; // ISO Date string
+  lastAttemptAt?: string | null; // ISO Date string
+  completedAt?: string | null; // ISO Date string
+  retryCount: number;
+  errorMessage?: string | null;
+  orderId?: string | null;
+  orderDisplayNumber?: string | null;
+  printerId: number;
+  printerName: string;
+}
+
+export interface PrintJobQueryParameters {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortAscending?: boolean;
+  // Add filters here later if needed
+}
+
+export interface OrderQueryParameters {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortAscending?: boolean;
+  areaId?: number;
+  dayId?: number | 'current';
+  organizationId?: number;
+  statuses?: number[];
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+
+// ==================
 // Cashier Station
 // ==================
 export interface CashierStationDto {

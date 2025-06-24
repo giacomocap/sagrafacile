@@ -12,7 +12,74 @@ This document details the revised architecture for printing receipts and comanda
 *   **Workflow Integration:** Printing events are triggered by the Backend `OrderService` at specific points in the order lifecycle, determined by the configuration set in `WorkflowArchitecture.md`.
 *   **Cashier Stations:** Multiple, distinct points of sale within a single `Area`, each potentially with its own dedicated receipt printer. This allows for greater operational flexibility.
 
-## 2. Database Schema Changes
+## 2. Resilient Printing via Job Queue (Revision 4)
+
+To enhance reliability and ensure no print requests are lost due to temporary printer or network failures, the printing system is built on a persistent job queue.
+
+### 2.1. Core Principles
+
+*   **Guaranteed Delivery:** Every print request (receipt, comanda, etc.) is first saved as a `PrintJob` record in the database. The initial API call returns success immediately after the job is saved, guaranteeing it will be processed.
+*   **Asynchronous Processing:** A background service, `PrintJobProcessor`, continuously polls the database for pending jobs, attempts to print them, and updates their status. This decouples the user-facing action (like creating an order) from the physical printing process.
+*   **Automatic Retries:** If a print job fails (e.g., printer offline), the processor logs the error and automatically retries after a configurable interval.
+*   **Confirmation Loop:** For printers that support it (like the Windows Companion App), a confirmation mechanism ensures the job is marked as `Succeeded` only after the printer acknowledges the print.
+*   **Monitoring:** All job statuses are stored, creating an audit trail that can be monitored by administrators.
+
+### 2.2. Hybrid Model for Performance
+
+To balance reliability with the need for immediate feedback (especially for cashier receipts), a hybrid processing model is used:
+
+*   **High-Priority "Fast Lane":** For time-sensitive prints like receipts, the `PrinterService` saves the job and then sends an immediate in-memory signal to the `PrintJobProcessor`. This wakes the processor instantly to handle the job, resulting in near-immediate printing (sub-second latency).
+*   **Standard Polling:** For less time-sensitive prints (like kitchen comandas) and for retrying failed jobs, the `PrintJobProcessor` relies on its regular polling interval (e.g., every 1-3 seconds).
+
+### 2.3. Architectural Flow
+
+```mermaid
+graph TD
+    subgraph "1. Job Creation (Fast & Immediate)"
+        A[OrderService] -- PrintOrderDocumentsAsync() --> B(PrinterService);
+        B -- Creates --> C{PrintJob Entity};
+        C -- Saves to --> D[(Database)];
+        B -- Sends 'Fast Lane' Signal --> E(PrintJobProcessor);
+    end
+
+    subgraph "2. Job Processing (Asynchronous & Retriable)"
+        E -- Polls for 'Pending' jobs --> D;
+        E -- Sends job to --> F{Physical Printer<br/>(Network or Windows App)};
+    end
+
+    subgraph "3. Confirmation Loop"
+        F -- For Windows App --> G(SignalR Hub);
+        G -- Reports status back to --> E;
+        E -- Updates job status --> D;
+        F -- For Network Printer --> E;
+        Note right of F: For Network printers,<br/>success is assumed if TCP<br/>send succeeds. Failures<br/>are logged and retried.
+    end
+
+    subgraph "4. Monitoring"
+       H(Admin UI) -- Views job status --> D;
+    end
+
+    style B fill:#cde4ff
+    style E fill:#cde4ff
+```
+
+### 2.4. New Database Entity: `PrintJob`
+
+*   `Id` (GUID, PK)
+*   `OrganizationId` (int, FK)
+*   `AreaId` (int, FK)
+*   `OrderId` (string, FK to `Order.Id`, nullable)
+*   `PrinterId` (int, FK to `Printer.Id`)
+*   `JobType` (enum: `Receipt`, `Comanda`, `TestPrint`)
+*   `Status` (enum: `Pending`, `Processing`, `Succeeded`, `Failed`)
+*   `Content` (byte[], the raw ESC/POS data)
+*   `CreatedAt` (DateTime)
+*   `LastAttemptAt` (DateTime, nullable)
+*   `CompletedAt` (DateTime, nullable)
+*   `RetryCount` (int)
+*   `ErrorMessage` (string, nullable)
+
+## 3. Database Schema Changes
 
 *   **`Printer` Entity:** Stores details about each physical or logical printer.
     *   `Id` (int, PK)
@@ -48,7 +115,7 @@ This document details the revised architecture for printing receipts and comanda
 *   **`Order` Entity Updates:**
     *   `CashierStationId` (int, nullable FK to CashierStation): Records which station an order originated from, useful for auditing and ensuring reprints go to the correct station's printer.
 
-## 3. Components and Data Flow
+## 4. Components and Data Flow
 
 ### 3.1. Admin UI (Frontend)
 
@@ -166,7 +233,7 @@ This document details the revised architecture for printing receipts and comanda
     *   All communication with the backend (including SignalR) should be over HTTPS/WSS.
 *   **Station Selection:** The UI for station selection should be intuitive, especially in busy environments. Consider visual cues (icons, colors) to help quickly identify stations.
 
-## 4. Printing Scenarios (High Level Flow)
+## 5. Printing Scenarios (High Level Flow)
 
 *   **Receipt From Cashier Station (Network Printer):**
     1. Cashier selects a Cashier Station at login (or uses the only one available).
@@ -197,7 +264,7 @@ This document details the revised architecture for printing receipts and comanda
     6. If `ReceiptAndComandas` requested, `PrinterService` generates a *single, consolidated* Comanda ESC/POS document for *all* order items.
     7. `PrinterService` sends the Receipt job and (if applicable) the single Comanda job to the **determined target printer** via `SendToPrinterAsync`.
 
-## 5. Key Considerations
+## 6. Key Considerations
 
 *   **ESC/POS Generation:** Requires a robust method in `PrintService` to create printer-compatible commands, including text formatting, **item notes**, cutting, and QR code printing. **MODIFIED:** As noted above, leveraging a dedicated `EscPosDocumentBuilder` service is recommended for maintainability and abstraction.
 *   **Error Handling:**
@@ -220,7 +287,7 @@ This document details the revised architecture for printing receipts and comanda
         3.  **Log and Alert:** Log the failure prominently and alert an administrator, requiring manual intervention.
         *   The chosen strategy should be configurable or at least well-defined.
 
-## 6. On-Demand Printing for Windows Companion App (Future Enhancement)
+## 7. On-Demand Printing for Windows Companion App (Future Enhancement)
 
 This section outlines a planned enhancement for the `SagraFacile.WindowsPrinterService` to support on-demand printing of comandas, where jobs are queued locally and printed manually by staff at the print station.
 
