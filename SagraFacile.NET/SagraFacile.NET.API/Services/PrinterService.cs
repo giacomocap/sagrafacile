@@ -24,13 +24,15 @@ namespace SagraFacile.NET.API.Services
         private readonly ApplicationDbContext _context;
         private readonly ILogger<PrinterService> _logger;
         private readonly IHubContext<OrderHub> _orderHubContext;
+        private readonly IPdfService _pdfService;
 
-        public PrinterService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<PrinterService> logger, IHubContext<OrderHub> orderHubContext)
+        public PrinterService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<PrinterService> logger, IHubContext<OrderHub> orderHubContext, IPdfService pdfService)
             : base(httpContextAccessor)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _orderHubContext = orderHubContext ?? throw new ArgumentNullException(nameof(orderHubContext));
+            _pdfService = pdfService ?? throw new ArgumentNullException(nameof(pdfService));
         }
 
         public async Task<IEnumerable<PrinterDto>> GetPrintersAsync()
@@ -123,7 +125,8 @@ namespace SagraFacile.NET.API.Services
                 ConnectionString = printerDto.ConnectionString,
                 IsEnabled = printerDto.IsEnabled,
                 OrganizationId = printerDto.OrganizationId,
-                PrintMode = printerDto.PrintMode
+                PrintMode = printerDto.PrintMode,
+                DocumentType = printerDto.DocumentType
             };
 
             _context.Printers.Add(printer);
@@ -180,6 +183,7 @@ namespace SagraFacile.NET.API.Services
             existingPrinter.ConnectionString = printerDto.ConnectionString;
             existingPrinter.IsEnabled = printerDto.IsEnabled;
             existingPrinter.PrintMode = printerDto.PrintMode;
+            existingPrinter.DocumentType = printerDto.DocumentType;
 
             try
             {
@@ -260,7 +264,8 @@ namespace SagraFacile.NET.API.Services
                 ConnectionString = printer.ConnectionString,
                 IsEnabled = printer.IsEnabled,
                 OrganizationId = printer.OrganizationId,
-                PrintMode = printer.PrintMode
+                PrintMode = printer.PrintMode,
+                DocumentType = printer.DocumentType
             };
         }
 
@@ -375,8 +380,8 @@ namespace SagraFacile.NET.API.Services
                 Printer? receiptPrinter = DetermineReceiptPrinter(order);
                 if (receiptPrinter != null)
                 {
-                    var docBuilder = BuildReceiptDocument(order);
-                    jobsToCreate.Add(CreateJob(order, receiptPrinter, PrintJobType.Receipt, docBuilder.Build()));
+                    byte[] content = await GeneratePrintContentAsync(order, receiptPrinter, PrintJobType.Receipt);
+                    jobsToCreate.Add(CreateJob(order, receiptPrinter, PrintJobType.Receipt, content));
                 }
             }
             else if (jobType == PrintJobType.Comanda)
@@ -386,8 +391,8 @@ namespace SagraFacile.NET.API.Services
                 {
                     var printer = kvp.Key;
                     var items = kvp.Value;
-                    var docBuilder = BuildComandaDocument(order, items, $"COMANDA - {printer.Name}");
-                    jobsToCreate.Add(CreateJob(order, printer, PrintJobType.Comanda, docBuilder.Build()));
+                    byte[] content = await GeneratePrintContentAsync(order, printer, PrintJobType.Comanda, items);
+                    jobsToCreate.Add(CreateJob(order, printer, PrintJobType.Comanda, content));
                 }
             }
 
@@ -428,13 +433,16 @@ namespace SagraFacile.NET.API.Services
             }
 
             var jobsToCreate = new List<PrintJob>();
-            var receiptBuilder = BuildReceiptDocument(order, isReprint: true);
-            jobsToCreate.Add(CreateJob(order, targetPrinter, PrintJobType.Receipt, receiptBuilder.Build()));
 
+            // Generate and add receipt job
+            byte[] receiptContent = await GeneratePrintContentAsync(order, targetPrinter, PrintJobType.Receipt, null, true);
+            jobsToCreate.Add(CreateJob(order, targetPrinter, PrintJobType.Receipt, receiptContent));
+
+            // Generate and add consolidated comanda job if requested
             if (reprintRequest.ReprintJobType == ReprintType.ReceiptAndComandas && order.OrderItems.Any())
             {
-                var comandaBuilder = BuildComandaDocument(order, order.OrderItems, $"RISTAMPA COMANDA - CASSA ({targetPrinter.Name})");
-                jobsToCreate.Add(CreateJob(order, targetPrinter, PrintJobType.Comanda, comandaBuilder.Build()));
+                byte[] comandaContent = await GeneratePrintContentAsync(order, targetPrinter, PrintJobType.Comanda, order.OrderItems, true);
+                jobsToCreate.Add(CreateJob(order, targetPrinter, PrintJobType.Comanda, comandaContent));
             }
 
             _context.PrintJobs.AddRange(jobsToCreate);
@@ -452,9 +460,10 @@ namespace SagraFacile.NET.API.Services
                 return (false, "Printer not found or is disabled.");
             }
 
-            var docBuilder = BuildTestDocument(printer);
-            var job = CreateJob(null, printer, PrintJobType.TestPrint, docBuilder.Build());
-            
+            // Test prints don't have an order, so we pass null
+            byte[] content = await GeneratePrintContentAsync(null, printer, PrintJobType.TestPrint);
+            var job = CreateJob(null, printer, PrintJobType.TestPrint, content);
+
             _context.PrintJobs.Add(job);
             await _context.SaveChangesAsync();
             PrintJobProcessor.Trigger();
@@ -486,6 +495,57 @@ namespace SagraFacile.NET.API.Services
 
             await _context.SaveChangesAsync();
             _logger.LogInformation("Updated status for job {JobId} to {Status}.", jobId, job.Status);
+        }
+
+        private async Task<byte[]> GeneratePrintContentAsync(Order? order, Printer printer, PrintJobType jobType, IEnumerable<OrderItem>? items = null, bool isReprint = false)
+        {
+            if (printer.DocumentType == DocumentType.HtmlPdf)
+            {
+                var template = await _context.PrintTemplates
+                    .Where(t => t.OrganizationId == printer.OrganizationId && t.TemplateType == jobType && t.DocumentType == DocumentType.HtmlPdf && t.IsDefault)
+                    .FirstOrDefaultAsync();
+
+                if (template == null || string.IsNullOrWhiteSpace(template.HtmlContent))
+                {
+                    _logger.LogWarning("No default HTML template found for JobType {JobType} and Organization {OrgId}. Cannot generate PDF.", jobType, printer.OrganizationId);
+                    return Array.Empty<byte>();
+                }
+                
+                // For test prints, we can't generate a full PDF without an order.
+                // We could create a simple test HTML here, but for now, we'll just return an empty array.
+                if (order == null) {
+                    _logger.LogInformation("HTML/PDF test print not yet implemented. Returning empty content.");
+                    return Array.Empty<byte>();
+                }
+
+                return await _pdfService.CreatePdfFromHtmlAsync(order, template.HtmlContent);
+            }
+            else // Default to EscPos
+            {
+                var template = await _context.PrintTemplates
+                    .Where(t => t.OrganizationId == printer.OrganizationId && t.TemplateType == jobType && t.DocumentType == DocumentType.EscPos && t.IsDefault)
+                    .FirstOrDefaultAsync();
+
+                EscPosDocumentBuilder docBuilder;
+                switch (jobType)
+                {
+                    case PrintJobType.Receipt:
+                        if (order == null) return Array.Empty<byte>();
+                        docBuilder = BuildReceiptDocument(order, isReprint, template?.EscPosHeader, template?.EscPosFooter);
+                        break;
+                    case PrintJobType.Comanda:
+                        if (order == null || items == null) return Array.Empty<byte>();
+                        string title = isReprint ? $"RISTAMPA COMANDA - CASSA ({printer.Name})" : $"COMANDA - {printer.Name}";
+                        docBuilder = BuildComandaDocument(order, items, title, template?.EscPosHeader, template?.EscPosFooter);
+                        break;
+                    case PrintJobType.TestPrint:
+                        docBuilder = BuildTestDocument(printer);
+                        break;
+                    default:
+                        return Array.Empty<byte>();
+                }
+                return docBuilder.Build();
+            }
         }
 
         // Private helper methods for document generation and printer determination
@@ -551,11 +611,17 @@ namespace SagraFacile.NET.API.Services
             return DetermineReceiptPrinter(order);
         }
 
-        private EscPosDocumentBuilder BuildReceiptDocument(Order order, bool isReprint = false)
+        private EscPosDocumentBuilder BuildReceiptDocument(Order order, bool isReprint = false, string? header = null, string? footer = null)
         {
             var docBuilder = new EscPosDocumentBuilder();
             docBuilder.InitializePrinter();
             docBuilder.SetAlignment(EscPosAlignment.Center);
+
+            if (!string.IsNullOrWhiteSpace(header))
+            {
+                docBuilder.AppendLine(header);
+            }
+
             if (isReprint)
             {
                 docBuilder.SetEmphasis(true).SetFontSize(1, 2).AppendLine("--- RISTAMPA SCONTRINO ---").ResetFontSize().SetEmphasis(false);
@@ -603,15 +669,32 @@ namespace SagraFacile.NET.API.Services
                 _logger.LogError(qrEx, "Failed to generate QR code for Order ID: {OrderId}", order.Id);
                 docBuilder.AppendLine("QR Code non disponibile.");
             }
-            docBuilder.AppendLine("Grazie e arrivederci!").NewLine(5).CutPaper();
+            
+            if (!string.IsNullOrWhiteSpace(footer))
+            {
+                docBuilder.AppendLine(footer);
+            }
+            else
+            {
+                docBuilder.AppendLine("Grazie e arrivederci!");
+            }
+
+            docBuilder.NewLine(5).CutPaper();
             return docBuilder;
         }
 
-        private EscPosDocumentBuilder BuildComandaDocument(Order order, IEnumerable<OrderItem> items, string title)
+        private EscPosDocumentBuilder BuildComandaDocument(Order order, IEnumerable<OrderItem> items, string title, string? header = null, string? footer = null)
         {
             var docBuilder = new EscPosDocumentBuilder();
             docBuilder.InitializePrinter();
-            docBuilder.SetAlignment(EscPosAlignment.Center).SetEmphasis(true).SetFontSize(2, 2).AppendLine(title).ResetFontSize().SetEmphasis(false);
+            docBuilder.SetAlignment(EscPosAlignment.Center);
+
+            if (!string.IsNullOrWhiteSpace(header))
+            {
+                docBuilder.AppendLine(header);
+            }
+
+            docBuilder.SetEmphasis(true).SetFontSize(2, 2).AppendLine(title).ResetFontSize().SetEmphasis(false);
             docBuilder.AppendLine($"Ordine: {order.DisplayOrderNumber ?? order.Id} - {order.OrderDateTime:HH:mm}");
             if (!string.IsNullOrEmpty(order.TableNumber)) docBuilder.AppendLine($"Tavolo: {order.TableNumber}");
             if (!string.IsNullOrEmpty(order.CustomerName)) docBuilder.AppendLine($"Cliente: {order.CustomerName}");
@@ -624,7 +707,14 @@ namespace SagraFacile.NET.API.Services
                 if (!string.IsNullOrWhiteSpace(item.Note)) docBuilder.SetEmphasis(false).AppendLine($"    >> {item.Note.Trim()}");
             }
 
-            docBuilder.AppendLine("--------------------------------").NewLine(3).CutPaper();
+            docBuilder.AppendLine("--------------------------------");
+
+            if (!string.IsNullOrWhiteSpace(footer))
+            {
+                docBuilder.SetAlignment(EscPosAlignment.Center).AppendLine(footer);
+            }
+
+            docBuilder.NewLine(3).CutPaper();
             return docBuilder;
         }
 

@@ -1,0 +1,63 @@
+using PuppeteerSharp;
+using SagraFacile.NET.API.Models;
+using SagraFacile.NET.API.Services.Interfaces;
+using Scriban;
+using QRCoder;
+using System.IO;
+using System;
+
+namespace SagraFacile.NET.API.Services
+{
+    public class PdfService : IPdfService
+    {
+        private readonly ILogger<PdfService> _logger;
+
+        public PdfService(ILogger<PdfService> logger)
+        {
+            _logger = logger;
+        }
+
+        public async Task<byte[]> CreatePdfFromHtmlAsync(Order order, string htmlTemplate)
+        {
+            try
+            {
+                // 1. Populate HTML template with Scriban
+                var template = Template.Parse(htmlTemplate);
+                var scribanModel = new { order = order, qr_code_base64 = GenerateQrCodeBase64(order.Id) };
+                var finalHtml = await template.RenderAsync(scribanModel);
+
+                // 2. Generate PDF from HTML using Puppeteer Sharp
+                await new BrowserFetcher().DownloadAsync();
+                await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true });
+                await using var page = await browser.NewPageAsync();
+                
+                await page.SetContentAsync(finalHtml);
+                var pdfData = await page.PdfDataAsync();
+
+                return pdfData;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create PDF for Order ID {OrderId}", order.Id);
+                throw;
+            }
+        }
+
+        private string GenerateQrCodeBase64(string orderId)
+        {
+            try
+            {
+                using var qrGenerator = new QRCodeGenerator();
+                var qrCodeData = qrGenerator.CreateQrCode($"Sagrafacile_Order_{orderId}", QRCodeGenerator.ECCLevel.Q);
+                using var qrCode = new PngByteQRCode(qrCodeData);
+                var qrCodeImageBytes = qrCode.GetGraphic(20);
+                return $"data:image/png;base64,{Convert.ToBase64String(qrCodeImageBytes)}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate QR code for Order ID: {OrderId}", orderId);
+                return string.Empty; // Return empty string if QR generation fails
+            }
+        }
+    }
+}

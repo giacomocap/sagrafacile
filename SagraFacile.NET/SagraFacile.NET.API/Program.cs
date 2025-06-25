@@ -120,6 +120,7 @@ builder.Services.AddScoped<IQueueService, QueueService>(); // Add QueueService r
 builder.Services.AddScoped<IAdMediaItemService, AdMediaItemService>();
 builder.Services.AddScoped<IAdAreaAssignmentService, AdAreaAssignmentService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>(); // Register Analytics Service
+builder.Services.AddScoped<IPdfService, PdfService>(); // Register PDF Service
 builder.Services.AddScoped<IInitialDataSeeder, InitialDataSeeder>(); // Register InitialDataSeeder
 
 // Register the Background Service conditionally

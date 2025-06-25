@@ -26,13 +26,13 @@ namespace SagraFacile.NET.API.Models
         [StringLength(255)] // Sufficient for IP:Port or GUID
         public required string ConnectionString { get; set; }
 
-        [StringLength(255)] // Max length for printer names
-        public string? WindowsPrinterName { get; set; } // Required if Type is WindowsUsb
-
         public bool IsEnabled { get; set; } = true;
 
         // New property for On-Demand Printing
         public PrintMode PrintMode { get; set; } = PrintMode.Immediate; // Default to immediate printing
+
+        // New property for Standard Printers
+        public DocumentType DocumentType { get; set; } = DocumentType.EscPos; // Default to ESC/POS for backward compatibility
 
         // Navigation property for assignments
         public virtual ICollection<PrinterCategoryAssignment> CategoryAssignments { get; set; } = new List<PrinterCategoryAssignment>();

@@ -370,6 +370,11 @@ export enum PrinterType {
   WindowsUsb = 1
 }
 
+export enum DocumentType {
+  EscPos = 0,
+  HtmlPdf = 1,
+}
+
 export enum PrintMode {
   Immediate = 0,
   OnDemandWindows = 1,
@@ -388,6 +393,7 @@ export interface PrinterDto {
   connectionString: string; // IP:Port for Network, GUID for WindowsUsb
   isEnabled: boolean;
   printMode: PrintMode; // Added for On-Demand Printing
+  documentType: DocumentType;
 }
 
 export interface PrinterUpsertDto {
@@ -397,6 +403,7 @@ export interface PrinterUpsertDto {
   isEnabled: boolean;
   organizationId: number;
   printMode: PrintMode; // Added for On-Demand Printing
+  documentType: DocumentType;
 }
 
 export interface PrinterCategoryAssignmentDto {

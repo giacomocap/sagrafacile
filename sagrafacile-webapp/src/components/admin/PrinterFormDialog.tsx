@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { PrinterDto, PrinterUpsertDto, PrinterType, PrintMode } from '@/types'; // Added PrintMode
+import { PrinterDto, PrinterUpsertDto, PrinterType, PrintMode, DocumentType } from '@/types'; // Added PrintMode
 import printerService from '@/services/printerService';
 import { v4 as uuidv4, validate } from 'uuid';
 import { toast } from 'sonner';
@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 const formSchema = z.object({
   name: z.string().min(1, { message: "Il nome della stampante è obbligatorio." }),
   type: z.nativeEnum(PrinterType, { required_error: "Il tipo di stampante è obbligatorio." }),
+  documentType: z.nativeEnum(DocumentType, { required_error: "Il tipo di documento è obbligatorio." }),
   connectionString: z.string().min(1, { message: "La stringa di connessione o il GUID sono obbligatori." }),
   isEnabled: z.boolean(),
   printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }),
@@ -80,10 +81,12 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       connectionString: '',
       isEnabled: true,
       printMode: PrintMode.Immediate, // Default to Immediate
+      documentType: DocumentType.EscPos,
     },
   });
 
   const printerType = form.watch("type");
+  const documentType = form.watch("documentType");
 
   // Effetto per resettare il form quando il dialog si apre o printerToEdit cambia
   useEffect(() => {
@@ -96,6 +99,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           connectionString: printerToEdit.connectionString,
           isEnabled: printerToEdit.isEnabled,
           printMode: printerToEdit.printMode, // Set printMode in edit mode
+          documentType: printerToEdit.documentType,
         });
       } else {
         form.reset({
@@ -104,6 +108,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           connectionString: '', // Mantiene vuoto inizialmente per l'aggiunta
           isEnabled: true,
           printMode: PrintMode.Immediate, // Default for new printers
+          documentType: DocumentType.EscPos,
         });
       }
     } else {
@@ -111,6 +116,13 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       // form.reset();
     }
   }, [isOpen, printerToEdit, isEditMode, form]);
+
+  // Effetto per gestire le dipendenze tra Tipo Documento e Tipo Stampante
+  useEffect(() => {
+    if (documentType === DocumentType.HtmlPdf) {
+      form.setValue('type', PrinterType.WindowsUsb);
+    }
+  }, [documentType, form]);
 
   // Effetto per generare un GUID quando il tipo è WindowsUsb e si è in modalità aggiunta
   // e per impostare la modalità di stampa per stampanti di rete
@@ -148,6 +160,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       isEnabled: values.isEnabled,
       organizationId: orgId,
       printMode: values.printMode, // Added printMode to dataToSend
+      documentType: values.documentType,
     };
 
     try {
@@ -197,25 +210,57 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
 
             <FormField
               control={form.control}
+              name="documentType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo Documento*</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                    value={field.value !== undefined ? String(field.value) : undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona tipo documento" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={String(DocumentType.EscPos)}>ESC/POS</SelectItem>
+                      <SelectItem value={String(DocumentType.HtmlPdf)}>HTML/PDF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Scegli ESC/POS per stampanti termiche. Scegli HTML/PDF per stampanti standard (laser/inkjet).
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tipo Stampante*</FormLabel>
+                  <FormLabel>Tipo Connessione*</FormLabel>
                   <Select
                     onValueChange={(value) => field.onChange(parseInt(value, 10))}
                     value={field.value !== undefined ? String(field.value) : undefined}
                     defaultValue={field.value !== undefined ? String(field.value) : undefined}
+                    disabled={documentType === DocumentType.HtmlPdf}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleziona tipo stampante" />
+                        <SelectValue placeholder="Seleziona tipo connessione" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value={String(PrinterType.Network)}>Rete (ESC/POS tramite IP:Porta)</SelectItem>
-                      <SelectItem value={String(PrinterType.WindowsUsb)}>Windows USB (tramite Companion App)</SelectItem>
+                      <SelectItem value={String(PrinterType.WindowsUsb)}>Windows (tramite Companion App)</SelectItem>
                     </SelectContent>
                   </Select>
+                   <FormDescription>
+                    Le stampanti HTML/PDF richiedono sempre una connessione di tipo Windows.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

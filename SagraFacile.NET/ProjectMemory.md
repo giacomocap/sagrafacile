@@ -3,6 +3,40 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-25) - Implemented Standard Printer and Template Support
+**Context:** Extended the printing architecture to support standard (laser/inkjet) printers via HTML-to-PDF rendering and introduced customizable print templates for both ESC/POS and HTML/PDF outputs. This involved significant backend and Windows Companion App changes.
+**Accomplishments:**
+*   **Backend (.NET API):**
+    *   **Database Schema:**
+        *   Created new `DocumentType` enum (`EscPos`, `HtmlPdf`).
+        *   Updated `Printer` entity with `DocumentType` property (defaulting to `EscPos`).
+        *   Created new `PrintTemplate` entity (`Id`, `OrganizationId`, `Name`, `TemplateType`, `DocumentType`, `HtmlContent`, `EscPosHeader`, `EscPosFooter`, `IsDefault`).
+        *   Updated `ApplicationDbContext` to include `PrintTemplate` DbSet and configure `DocumentType` enum conversion.
+        *   Generated and applied new EF Core migration (`AddHtmlAndTemplatePrinting`).
+    *   **New Services:**
+        *   Added `PuppeteerSharp` and `Scriban` NuGet packages.
+        *   Created `IPdfService` and `PdfService` to convert HTML templates (populated with Scriban) into PDF byte arrays using a headless Chrome instance (PuppeteerSharp). Includes QR code generation for PDFs.
+    *   **Refactored `PrinterService.cs`:**
+        *   Injected `IPdfService`.
+        *   Modified `PrintOrderDocumentsAsync`, `ReprintOrderDocumentsAsync`, and `SendTestPrintAsync` to use a new helper method `GeneratePrintContentAsync`.
+        *   `GeneratePrintContentAsync` dynamically determines whether to generate ESC/POS or PDF content based on the `Printer.DocumentType` and fetches relevant `PrintTemplate` data (HTML content for PDF, header/footer for ESC/POS).
+        *   Updated `BuildReceiptDocument` and `BuildComandaDocument` to accept optional `header` and `footer` strings from templates.
+    *   **DTOs:** Updated `PrinterDto` and `PrinterUpsertDto` to include the new `DocumentType` property.
+*   **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
+    *   **`SignalRService.cs`:**
+        *   Updated `_hubConnection.On<Guid, byte[]>("PrintJob", ...)` to `_hubConnection.On<Guid, byte[], string>("PrintJob", ...)` to receive the `contentType` (e.g., "application/pdf", "application/vnd.escpos").
+        *   Modified `HandlePrintJobAsync` to check `contentType`: if "application/pdf", it saves the `rawData` to a temporary PDF file and uses `Process.Start` with the "PrintTo" verb to send it to the configured Windows printer; otherwise, it uses the existing raw printing logic.
+        *   Added `PrintPdfAsync` helper method for PDF printing, including temporary file management and error handling.
+**Key Decisions:**
+*   Adopted a hybrid printing model, allowing both raw ESC/POS and high-fidelity HTML/PDF outputs.
+*   Centralized content generation logic in `PrinterService` to abstract printer-specific formatting.
+*   Leveraged Windows native printing capabilities for PDF documents via the companion app.
+*   Ensured QR code content consistency across all print types.
+**Outcome:** The SagraFacile system now supports a wider range of printers and offers greater flexibility for document design through customizable templates.
+**Next Steps:**
+*   User to test the new printing capabilities end-to-end.
+*   Implement Admin UI for managing print templates and configuring printer document types.
+
 ## (2025-06-23) - Enhanced Order Filtering and Optional Pagination
 **Context:** Addressed feedback regarding order filtering on the waiter page and refined the pagination logic to be optional, allowing clients to fetch all items if pagination parameters are omitted.
 **Accomplishments:**

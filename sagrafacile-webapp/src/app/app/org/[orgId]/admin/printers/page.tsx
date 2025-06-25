@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { PrinterDto, PrinterType, PrintMode } from '@/types';
+import { PrinterDto, PrinterType, PrintMode, DocumentType } from '@/types';
 import printerService from '@/services/printerService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -159,6 +159,17 @@ export default function PrintersPage() {
     }
   };
 
+  const renderDocumentType = (type: DocumentType) => {
+    switch (type) {
+      case DocumentType.EscPos:
+        return 'ESC/POS';
+      case DocumentType.HtmlPdf:
+        return 'HTML/PDF';
+      default:
+        return 'Sconosciuto';
+    }
+  };
+
   // --- Render ---
   return (
     <div className="space-y-6">
@@ -179,7 +190,8 @@ export default function PrintersPage() {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <TableHead>Tipo Documento</TableHead>
+                  <TableHead>Tipo Connessione</TableHead>
                   <TableHead>Connessione</TableHead>
                   <TableHead>Modalità di Stampa</TableHead>
                   <TableHead>Abilitata</TableHead>
@@ -191,6 +203,7 @@ export default function PrintersPage() {
                   <TableRow key={printer.id}>
                     <TableCell className="font-medium">{printer.id}</TableCell>
                     <TableCell>{printer.name}</TableCell>
+                    <TableCell>{renderDocumentType(printer.documentType)}</TableCell>
                     <TableCell>{renderPrinterType(printer.type)}</TableCell>
                     <TableCell
                       className="max-w-[200px] truncate cursor-pointer hover:underline"

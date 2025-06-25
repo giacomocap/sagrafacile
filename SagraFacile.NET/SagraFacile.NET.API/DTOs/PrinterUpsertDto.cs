@@ -31,6 +31,9 @@ namespace SagraFacile.NET.API.DTOs
         [Required]
         public PrintMode PrintMode { get; set; } = PrintMode.Immediate; // Added PrintMode, defaults to Immediate
 
+        [Required]
+        public DocumentType DocumentType { get; set; } = DocumentType.EscPos;
+
         // Custom validation might be needed here, e.g., in the service/controller.
         // WindowsPrinterName is now managed by the client profile.
     }

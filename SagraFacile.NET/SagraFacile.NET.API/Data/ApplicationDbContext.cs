@@ -33,6 +33,7 @@ namespace SagraFacile.NET.API.Data
         public DbSet<AdMediaItem> AdMediaItems { get; set; }
         public DbSet<AdAreaAssignment> AdAreaAssignments { get; set; }
         public DbSet<PrintJob> PrintJobs { get; set; }
+        public DbSet<PrintTemplate> PrintTemplates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -292,6 +293,26 @@ namespace SagraFacile.NET.API.Data
             // Convert PrinterType enum to string in the database for readability
             builder.Entity<Printer>()
                 .Property(p => p.Type)
+                .HasConversion<string>();
+
+            // Convert DocumentType enum to string in the database for readability
+            builder.Entity<Printer>()
+                .Property(p => p.DocumentType)
+                .HasConversion<string>();
+
+            // -- Print Template Configuration --
+            builder.Entity<PrintTemplate>()
+                .HasOne(pt => pt.Organization)
+                .WithMany()
+                .HasForeignKey(pt => pt.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<PrintTemplate>()
+                .Property(pt => pt.TemplateType)
+                .HasConversion<string>();
+
+            builder.Entity<PrintTemplate>()
+                .Property(pt => pt.DocumentType)
                 .HasConversion<string>();
 
             // CashierStation relationships

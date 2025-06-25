@@ -12,5 +12,6 @@ namespace SagraFacile.NET.API.DTOs
         // public string? WindowsPrinterName { get; set; } // Removed
         public bool IsEnabled { get; set; }
         public PrintMode PrintMode { get; set; } // Added PrintMode
+        public DocumentType DocumentType { get; set; }
     }
 }

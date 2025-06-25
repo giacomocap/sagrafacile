@@ -35,6 +35,8 @@
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.2" />
+    <PackageReference Include="PuppeteerSharp" Version="18.0.5" />
+    <PackageReference Include="Scriban" Version="5.10.0" />
   </ItemGroup>
 
   <ItemGroup>

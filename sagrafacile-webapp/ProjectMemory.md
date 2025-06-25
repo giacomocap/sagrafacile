@@ -12,6 +12,28 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-25) - Implemented Frontend Printer Document Type Configuration
+**Context:** Extended the Admin UI to allow configuration of the `DocumentType` for printers, enabling support for both ESC/POS and HTML/PDF templates. This involved updating type definitions and modifying the printer management form and list.
+**Accomplishments:**
+*   **Type Definitions:**
+    *   Added `DocumentType` enum (`EscPos`, `HtmlPdf`) to `src/types/index.ts`.
+    *   Updated `PrinterDto` and `PrinterUpsertDto` in `src/types/index.ts` to include the `documentType` property.
+*   **Printer Form Dialog (`src/components/admin/PrinterFormDialog.tsx`):**
+    *   Added a "Tipo Documento" (Document Type) dropdown field.
+    *   Reordered fields to place "Tipo Documento" before "Tipo Connessione" for better logical flow.
+    *   Implemented conditional logic: if "Tipo Documento" is set to "HTML/PDF", the "Tipo Connessione" is automatically set to "Windows (tramite Companion App)" and disabled, as HTML/PDF printing requires the Windows Companion App.
+    *   Updated form schema, default values, and `onSubmit` logic to handle the new `documentType` field.
+*   **Printer List Page (`src/app/app/org/[orgId]/admin/printers/page.tsx`):**
+    *   Added a new column "Tipo Documento" to the printers table.
+    *   Reordered columns to match the form's new logical order (ID, Nome, Tipo Documento, Tipo Connessione, Connessione, Modalità di Stampa, Abilitata, Azioni).
+    *   Added a helper function `renderDocumentType` to display the enum value as a readable string.
+**Key Decisions:**
+*   Prioritized user experience by logically grouping related fields and enforcing dependencies (HTML/PDF implies Windows connection) directly in the UI.
+*   Ensured consistency between the printer creation/edit form and the printer list display.
+**Outcome:** The Admin UI now fully supports configuring the document type for printers, laying the groundwork for managing print templates.
+**Next Steps:**
+*   Create a new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
+
 ## (2025-06-23) - Enhanced Order Filtering and Optional Pagination (Frontend)
 **Context:** Implemented frontend changes to support the backend's new optional pagination and status filtering for orders, specifically addressing a bug where the waiter page was not distinguishing between order statuses.
 **Accomplishments:**
