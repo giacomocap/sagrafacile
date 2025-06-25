@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import { PaginatedResult, PrintTemplateDto, PrintTemplateUpsertDto } from '@/types';
+import { PaginatedResult, PrintTemplateDto, PrintTemplateUpsertDto, PreviewRequestDto } from '@/types';
 
 // Assuming the backend will have query parameters for templates
 export interface PrintTemplateQueryParameters {
@@ -33,6 +33,18 @@ const printTemplateService = {
 
   async deletePrintTemplate(orgId: string, templateId: number): Promise<void> {
     await apiClient.delete(`/organizations/${orgId}/print-templates/${templateId}`);
+  },
+
+  async restoreDefaultTemplates(orgId: string): Promise<{ message: string }> {
+    const response = await apiClient.post(`/organizations/${orgId}/print-templates/restore-defaults`);
+    return response.data;
+  },
+
+  async previewTemplate(orgId: string, data: PreviewRequestDto): Promise<Blob> {
+    const response = await apiClient.post(`/organizations/${orgId}/print-templates/preview`, data, {
+      responseType: 'blob',
+    });
+    return response.data;
   },
 };
 

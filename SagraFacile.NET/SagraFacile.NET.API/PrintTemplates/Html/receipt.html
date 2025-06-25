@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ricevuta Ordine</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10px; margin: 0; padding: 10px; width: 80mm; }
+        .container { width: 100%; margin: 0 auto; }
+        .header, .footer { text-align: center; margin-bottom: 10px; }
+        .header h1 { font-size: 14px; margin-bottom: 5px; }
+        .header p { margin: 0; }
+        .section-title { font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #ccc; padding-bottom: 2px; }
+        .item-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+        .item-name { flex-grow: 1; }
+        .item-qty-price { width: 80px; text-align: right; }
+        .item-total { width: 50px; text-align: right; }
+        .note { font-size: 9px; color: #555; margin-left: 10px; }
+        .summary-row { display: flex; justify-content: space-between; margin-top: 5px; }
+        .summary-label { font-weight: bold; }
+        .summary-value { text-align: right; }
+        .total-amount { font-size: 16px; font-weight: bold; text-align: right; margin-top: 10px; }
+        .qr-code { text-align: center; margin-top: 15px; }
+        .qr-code img { max-width: 100px; height: auto; }
+        .separator { border-top: 1px dashed #ccc; margin: 10px 0; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .emphasis { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="emphasis">{{ order.organization.name | default: "Sagrafacile" }}</h1>
+            <p>Area: {{ order.area.name | default: "N/A" }}</p>
+            {% if order.cashier_station %}
+                <p>Cassa: {{ order.cashier_station.name }}</p>
+            {% endif %}
+            <p>Ordine N. {{ order.display_order_number | default: order.id }}</p>
+            <p>{{ order.order_date_time | date: "%d/%m/%Y %H:%M:%S" }}</p>
+            {% if order.is_takeaway %}
+                <p class="emphasis" style="font-size: 14px;">ASPORTO</p>
+            {% endif %}
+            {% if order.number_of_guests > 0 and not order.is_takeaway %}
+                <p>Coperti: {{ order.number_of_guests }}</p>
+            {% endif %}
+            <p>Cliente: {{ order.customer_name | default: "Anonimo" }}</p>
+        </div>
+
+        <div class="separator"></div>
+
+        {% assign items_subtotal = 0 %}
+        {% for category_group in order.order_items | group_by: "menu_item.menu_category.name" %}
+            <div class="section-title">{{ category_group.key | upcase }}</div>
+            {% for item in category_group.items %}
+                <div class="item-row">
+                    <span class="item-name">{{ item.menu_item.name | default: "Articolo Sconosciuto" }}</span>
+                    <span class="item-qty-price">{{ item.quantity }} x {{ item.unit_price | format: "C" }}</span>
+                    <span class="item-total">{{ item.quantity * item.unit_price | format: "C" }}</span>
+                </div>
+                {% if item.note %}
+                    <div class="note">Nota: {{ item.note | trim }}</div>
+                {% endif %}
+                {% assign items_subtotal = items_subtotal + (item.quantity * item.unit_price) %}
+            {% endfor %}
+        {% endfor %}
+
+        <div class="separator"></div>
+
+        <div class="summary-row">
+            <span class="summary-label">SUBTOTALE:</span>
+            <span class="summary-value emphasis">{{ items_subtotal | format: "C" }}</span>
+        </div>
+
+        {% if order.is_takeaway and order.area.takeaway_charge > 0 %}
+            <div class="summary-row">
+                <span class="summary-label">Contributo Asporto:</span>
+                <span class="summary-value">{{ order.area.takeaway_charge | format: "C" }}</span>
+            </div>
+        {% elsif not order.is_takeaway and order.area.guest_charge > 0 and order.number_of_guests > 0 %}
+            <div class="summary-row">
+                <span class="summary-label">Coperto ({{ order.number_of_guests }} x {{ order.area.guest_charge | format: "C" }}):</span>
+                <span class="summary-value">{{ order.number_of_guests * order.area.guest_charge | format: "C" }}</span>
+            </div>
+        {% endif %}
+
+        <div class="separator"></div>
+
+        <div class="total-amount">TOTALE: {{ order.total_amount | format: "C" }}</div>
+
+        <div class="qr-code">
+            {% if qr_code_base64 %}
+                <img src="{{ qr_code_base64 }}" alt="QR Code">
+            {% else %}
+                <p>QR Code non disponibile.</p>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+                <p>Grazie e arrivederci!</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -39,12 +39,12 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [isLoadingDay, setIsLoadingDay] = useState<boolean>(true); // Start true for initial load
     const [dayError, setDayError] = useState<string | null>(null);
 
-    const isSuperAdminContext = user?.roles?.includes('SuperAdmin') ?? false;
+    const isSuperAdminContext = user?.roles?.includes('SuperAdmin') ?? false
 
-    const fetchOrganizations = async () => {
-        if (!isSuperAdminContext) {
+    const fetchOrganizations = useCallback(async () => {
+        if (!user) {
             setOrganizations([]);
-            setSelectedOrganizationId(null); // Clear selection if not SuperAdmin
+            setSelectedOrganizationId(null);
             setIsLoadingOrgs(false);
             return;
         }
@@ -55,11 +55,11 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
             const response = await apiClient.get<Organization[]>('/Organizations');
             setOrganizations(response.data);
             // Optionally set a default selection or leave null
-            // if (response.data.length > 0) {
-            //     setSelectedOrganizationId(response.data[0].id);
-            // } else {
-            //     setSelectedOrganizationId(null);
-            // }
+            if (response.data.length > 0) {
+                setSelectedOrganizationId(response.data[0].id);
+            } else {
+                setSelectedOrganizationId(null);
+            }
         } catch (err: any) {
             console.error("Failed to fetch organizations:", err);
             setOrgError(err.response?.data?.message || err.message || 'Failed to fetch organizations.');
@@ -68,7 +68,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         } finally {
             setIsLoadingOrgs(false);
         }
-    };
+    }, [user]);
 
     // Fetch current operational day
     const fetchCurrentDay = useCallback(async () => {
@@ -99,7 +99,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
             console.error("Failed to fetch current day:", err);
             // Don't set a blocking error unless it's unexpected
             if (err.response?.status !== 404) {
-                 setDayError(err.message || 'Failed to fetch current day status.');
+                setDayError(err.message || 'Failed to fetch current day status.');
             }
             setCurrentDay(null);
         } finally {
@@ -107,11 +107,10 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         }
     }, [user, isSuperAdminContext]); // Dependencies for the fetch logic
 
-    // Effect to fetch organizations when SuperAdmin status changes
+    // Effect to fetch organizations when user changes
     useEffect(() => {
         fetchOrganizations();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSuperAdminContext]); // Re-fetch org list if user becomes/stops being SuperAdmin (e.g., role change)
+    }, [fetchOrganizations]);
 
     // Effect to fetch the current day when user or selected org changes
     useEffect(() => {
@@ -129,7 +128,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
             // If user changes but is not SuperAdmin, reset selectedOrgId (it's implicit)
             // This might trigger the day fetch effect correctly
             if (!isSuperAdminContext) {
-                 setSelectedOrganizationId(null);
+                setSelectedOrganizationId(null);
             }
         }
         // We fetch day state in a separate effect based on user and selectedOrgId

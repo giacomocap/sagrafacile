@@ -185,38 +185,39 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[ ]` If `EnableCompletionConfirmation` is needed: Implement UI trigger for pickup confirmation.
 
     *   **Implement Advanced Printing Architecture (See `PrinterArchitecture.md`)**
-        *   `[~]` **Support for Standard Printers & Customizable Templates (NEW)**
-            *   `[x]` **Goal:** Support non-ESC/POS printers (laser, inkjet) via PDF generation and allow template customization for both PDF and ESC/POS outputs.
-            *   `[x]` **Backend (.NET API):**
-                *   `[x]` **Database:**
-                    *   `[x]` Add `DocumentType` (enum: `EscPos`, `HtmlPdf`) to `Printer` entity.
-                    *   `[x]` Create new `PrintTemplate` entity with fields for `DocumentType`, `HtmlContent`, `EscPosHeader`, `EscPosFooter`.
-                    *   `[x]` Create and apply EF Core migration.
-                *   `[x]` **New `PdfService`:** Implement service using Puppeteer Sharp to convert HTML to PDF.
-                *   `[x]` **New Templating Engine:** Integrate Scriban to process HTML templates.
-                *   `[x]` **Refactor `PrinterService`:**
-                    *   `[x]` Modify logic to check `Printer.DocumentType`.
-                    *   `[x]` If `HtmlPdf`, use `PdfService` to generate PDF content for the `PrintJob`.
-                    *   `[x]` If `EscPos`, use `EscPosDocumentBuilder` and apply header/footer from `PrintTemplate`.
-            *   `[x]` **Windows Companion App:**
-                *   `[x]` Enhance SignalR message to include `contentType` (`application/pdf` or `application/vnd.escpos`).
-                *   `[x]` Add logic to handle PDF jobs by saving to a temp file and printing via Windows Shell API.
-            *   `[x]` **Frontend (Admin UI):**
+    *   `[x]` **Support for Standard Printers & Customizable Templates (NEW)**
+        *   `[x]` **Goal:** Support non-ESC/POS printers (laser, inkjet) via PDF generation and allow template customization for both PDF and ESC/POS outputs.
+        *   `[x]` **Backend (.NET API):**
+            *   `[x]` **Database:**
+                *   `[x]` Add `DocumentType` (enum: `EscPos`, `HtmlPdf`) to `Printer` entity.
+                *   `[x]` Create new `PrintTemplate` entity with fields for `DocumentType`, `HtmlContent`, `EscPosHeader`, `EscPosFooter`.
+                *   `[x]` Create and apply EF Core migration.
+            *   `[x]` **New `PdfService`:** Implement service using Puppeteer Sharp to convert HTML to PDF.
+            *   `[x]` **New Templating Engine:** Integrate Scriban to process HTML templates.
+            *   `[x]` **Refactor `PrinterService`:**
+                *   `[x]` Modify logic to check `Printer.DocumentType`.
+                *   `[x]` If `HtmlPdf`, use `PdfService` to generate PDF content for the `PrintJob`.
+                *   `[x]` If `EscPos`, use `EscPosDocumentBuilder` and apply header/footer from `PrintTemplate`.
+        *   `[x]` **Windows Companion App:**
+            *   `[x]` Enhance SignalR message to include `contentType` (`application/pdf` or `application/vnd.escpos`).
+            *   `[x]` Add logic to handle PDF jobs by saving to a temp file and printing via Windows Shell API.
+        *   `[x]` **Frontend (Admin UI):**
             *   `[x]` Add "Document Type" dropdown to Printer configuration form.
             *   `[x]` Create new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
-        *   `[x]` **Implement Resilient Printing via Job Queue (NEW - TOP PRIORITY)**
-            *   `[x]` **Goal:** Rearchitect the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost.
-            *   `[x]` **Backend (.NET API):**
-                *   `[x]` **Database:** Create `PrintJob` entity and EF Core migration.
-                *   `[x]` **New Service (`PrintJobProcessor`):** Implement a `BackgroundService` to poll for pending jobs.
-                *   `[x]` **"Fast Lane" Signaling:** Implement an in-memory signaling mechanism to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
-                *   `[x]` **Refactor `PrinterService`:** Change `PrintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. Move `SendToPrinterAsync` logic to the `PrintJobProcessor`.
-                *   `[x]` **Refactor `OrderService`:** Ensure it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
-            *   `[x]` **Windows Companion App:**
-                *   `[x]` Update the app to receive a `PrintJobId` with each job.
-                *   `[x]` Implement a callback (`ReportPrintJobStatus`) via SignalR to inform the backend of print success or failure.
-            *   `[ ]` **Admin UI (Phase 2 of this feature):**
-                *   `[ ]` Create a new page (`/admin/print-jobs`) to monitor job statuses, view errors, and manually trigger retries.
+            *   `[x]` Implement "Restore Defaults" button and "Preview" functionality for templates.
+    *   `[x]` **Implement Resilient Printing via Job Queue (NEW - TOP PRIORITY)**
+        *   `[x]` **Goal:** Rearchitect the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost.
+        *   `[x]` **Backend (.NET API):**
+            *   `[x]` **Database:** Create `PrintJob` entity and EF Core migration.
+            *   `[x]` **New Service (`PrintJobProcessor`):** Implement a `BackgroundService` to poll for pending jobs.
+            *   `[x]` **"Fast Lane" Signaling:** Implement an in-memory signaling mechanism to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
+            *   `[x]` **Refactor `PrinterService`:** Change `PrintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. Move `SendToPrinterAsync` logic to the `PrintJobProcessor`.
+            *   `[x]` **Refactor `OrderService`:** Ensure it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
+        *   `[x]` **Windows Companion App:**
+            *   `[x]` Update the app to receive a `PrintJobId` with each job.
+            *   `[x]` Implement a callback (`ReportPrintJobStatus`) via SignalR to inform the backend of print success or failure.
+        *   `[x]` **Admin UI (Phase 2 of this feature):**
+            *   `[x]` Create a new page (`/admin/print-jobs`) to monitor job statuses, view errors, and manually trigger retries.
         *   `[ ]` **Backend - Schema & Config (Phase 1 - Mostly Complete):**
             *   `[x]` Define `Printer` and `PrinterCategoryAssignment` models. Update `Area` model (`ReceiptPrinterId`, `PrintComandasAtCashier`). Create migration.
             *   `[x]` Create `PrintersController` for Admin CRUD API (`/api/printers`). Update `AreasController` for new Area fields.

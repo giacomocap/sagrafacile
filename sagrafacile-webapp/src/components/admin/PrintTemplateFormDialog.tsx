@@ -124,15 +124,16 @@ export function PrintTemplateFormDialog({ isOpen, onClose, onSave, template }: P
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{template ? "Modifica Template" : "Crea Nuovo Template"}</DialogTitle>
           <DialogDescription>
             Compila i dettagli del template. Clicca Salva per confermare.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             <FormField
               control={form.control}
               name="name"
@@ -274,8 +275,9 @@ export function PrintTemplateFormDialog({ isOpen, onClose, onSave, template }: P
                 </FormItem>
               )}
             />
+            </div>
 
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0 mt-4">
               <Button type="button" variant="outline" onClick={onClose}>Annulla</Button>
               <Button type="submit">Salva</Button>
             </DialogFooter>

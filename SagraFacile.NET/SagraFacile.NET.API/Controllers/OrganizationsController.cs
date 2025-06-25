@@ -8,7 +8,7 @@ namespace SagraFacile.NET.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "SuperAdmin")] // Only SuperAdmins can manage organizations
+    [Authorize] // Require authentication for all actions
     public class OrganizationsController : ControllerBase
     {
         private readonly IOrganizationService _organizationService;
@@ -23,7 +23,7 @@ namespace SagraFacile.NET.API.Controllers
 
         // GET: api/Organizations
         [HttpGet]
-        // [AllowAnonymous] // Removed - Requires authentication now
+        // Allow all authenticated users to get the list. The service layer will filter.
         [ProducesResponseType(typeof(IEnumerable<OrganizationDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<OrganizationDto>>> GetOrganizations() // Update return type
@@ -74,6 +74,7 @@ namespace SagraFacile.NET.API.Controllers
         // POST: api/Organizations
         // Consider creating a DTO (Data Transfer Object) for input instead of using the model directly
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin")] // Only SuperAdmins can update
         [ProducesResponseType(typeof(Organization), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -103,6 +104,7 @@ namespace SagraFacile.NET.API.Controllers
         // PUT: api/Organizations/5
         // Consider creating a DTO for input
         [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin")] // Only SuperAdmins can update
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -151,6 +153,7 @@ namespace SagraFacile.NET.API.Controllers
 
         // DELETE: api/Organizations/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin")] // Only SuperAdmins can update
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

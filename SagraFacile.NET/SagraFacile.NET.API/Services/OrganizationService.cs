@@ -1,37 +1,59 @@
 using Microsoft.EntityFrameworkCore;
 using SagraFacile.NET.API.Data;
-using SagraFacile.NET.API.DTOs; // Add DTO namespace
+using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
 using SagraFacile.NET.API.Services.Interfaces;
 using System.Collections.Generic;
-using System.Linq; // Add Linq for Select
-using System.Text.RegularExpressions; // Added for slug generation
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http; // Required for IHttpContextAccessor
 
 namespace SagraFacile.NET.API.Services
 {
-    public class OrganizationService : IOrganizationService
+    public class OrganizationService : BaseService, IOrganizationService
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<OrganizationService> _logger; // Added for logging
+        private readonly ILogger<OrganizationService> _logger;
 
-        public OrganizationService(ApplicationDbContext context, ILogger<OrganizationService> logger)
+        public OrganizationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<OrganizationService> logger)
+            : base(httpContextAccessor)
         {
             _context = context;
             _logger = logger;
         }
 
-        public async Task<IEnumerable<OrganizationDto>> GetAllOrganizationsAsync() // Update return type
+        public async Task<IEnumerable<OrganizationDto>> GetAllOrganizationsAsync()
         {
-            _logger.LogInformation("Fetching all organizations.");
-            var organizations = await _context.Organizations
+            _logger.LogInformation("Fetching organizations based on user context.");
+            var (userOrgId, isSuperAdmin) = GetUserContext();
+
+            var query = _context.Organizations.AsQueryable();
+
+            if (!isSuperAdmin)
+            {
+                if (!userOrgId.HasValue)
+                {
+                    _logger.LogWarning("Non-SuperAdmin user does not have an organization ID in their claims. Returning empty list.");
+                    return new List<OrganizationDto>();
+                }
+                _logger.LogInformation("User is not SuperAdmin. Filtering organizations for OrganizationId: {OrganizationId}", userOrgId.Value);
+                query = query.Where(org => org.Id == userOrgId.Value);
+            }
+            else
+            {
+                _logger.LogInformation("User is SuperAdmin. Fetching all organizations.");
+            }
+
+            var organizations = await query
                                  .Select(org => new OrganizationDto
                                  {
                                      Id = org.Id,
                                      Name = org.Name,
-                                     Slug = org.Slug // Map Slug
+                                     Slug = org.Slug
                                  })
                                  .ToListAsync();
+
             _logger.LogInformation("Retrieved {Count} organizations.", organizations.Count);
             return organizations;
         }
@@ -39,40 +61,60 @@ namespace SagraFacile.NET.API.Services
         public async Task<Organization?> GetOrganizationByIdAsync(int id)
         {
             _logger.LogInformation("Fetching organization by ID: {OrganizationId}.", id);
+            var (userOrgId, isSuperAdmin) = GetUserContext();
+
             var organization = await _context.Organizations.FindAsync(id);
+
             if (organization == null)
             {
                 _logger.LogWarning("Organization with ID {OrganizationId} not found.", id);
+                return null;
             }
-            else
+
+            // Authorization check
+            if (!isSuperAdmin && organization.Id != userOrgId)
             {
-                _logger.LogInformation("Retrieved organization {OrganizationId}.", id);
+                _logger.LogWarning("Unauthorized access attempt: User from Org {UserOrgId} tried to access Org {OrganizationId}.", userOrgId, id);
+                return null; // Return null to signify not found or not authorized
             }
+
+            _logger.LogInformation("Successfully retrieved and authorized organization {OrganizationId}.", id);
             return organization;
         }
+
 
         // New method to get by slug
         public async Task<OrganizationDto?> GetOrganizationBySlugAsync(string slug)
         {
             _logger.LogInformation("Fetching organization by slug: {OrganizationSlug}.", slug);
-            var organizationDto = await _context.Organizations
+            var (userOrgId, isSuperAdmin) = GetUserContext();
+
+            var organization = await _context.Organizations
                                  .Where(o => o.Slug == slug)
-                                 .Select(org => new OrganizationDto
-                                 {
-                                     Id = org.Id,
-                                     Name = org.Name,
-                                     Slug = org.Slug
-                                 })
                                  .FirstOrDefaultAsync();
-            if (organizationDto == null)
+
+            if (organization == null)
             {
                 _logger.LogWarning("Organization with slug '{OrganizationSlug}' not found.", slug);
+                return null;
             }
-            else
+
+            // Authorization check
+            if (!isSuperAdmin && organization.Id != userOrgId)
             {
-                _logger.LogInformation("Retrieved organization with slug '{OrganizationSlug}'.", slug);
+                _logger.LogWarning("Unauthorized access attempt: User from Org {UserOrgId} tried to access Org {OrganizationId} via slug '{OrganizationSlug}'.", userOrgId, organization.Id, slug);
+                return null;
             }
-            return organizationDto;
+
+            _logger.LogInformation("Successfully retrieved and authorized organization with slug '{OrganizationSlug}'.", slug);
+
+            // Map to DTO
+            return new OrganizationDto
+            {
+                Id = organization.Id,
+                Name = organization.Name,
+                Slug = organization.Slug
+            };
         }
 
 

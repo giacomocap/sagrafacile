@@ -23,7 +23,7 @@ namespace SagraFacile.NET.API.Services
             {
                 // 1. Populate HTML template with Scriban
                 var template = Template.Parse(htmlTemplate);
-                var scribanModel = new { order = order, qr_code_base64 = GenerateQrCodeBase64(order.Id) };
+                var scribanModel = new {  order, qr_code_base64 = GenerateQrCodeBase64(order.Id) };
                 var finalHtml = await template.RenderAsync(scribanModel);
 
                 // 2. Generate PDF from HTML using Puppeteer Sharp

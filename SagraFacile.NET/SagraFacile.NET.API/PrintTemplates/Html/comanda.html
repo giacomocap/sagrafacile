@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Comanda</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; margin: 0; padding: 10px; width: 80mm; }
+        .container { width: 100%; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .header h1 { font-size: 20px; margin-bottom: 5px; font-weight: bold; }
+        .header p { margin: 2px 0; font-size: 14px; }
+        .item-row { margin-bottom: 8px; }
+        .item-name { font-size: 18px; font-weight: bold; }
+        .note { font-size: 16px; color: #333; margin-left: 15px; }
+        .separator { border-top: 1px dashed #000; margin: 10px 0; }
+        .emphasis { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {# The title is now passed in the scriban model #}
+            <h1>{{ title }}</h1>
+            <p>Ordine: {{ order.display_order_number | default: order.id }} - {{ order.order_date_time | date: "%H:%M" }}</p>
+            {% if order.table_number %}
+                <p>Tavolo: {{ order.table_number }}</p>
+            {% endif %}
+            {% if order.customer_name %}
+                <p>Cliente: {{ order.customer_name }}</p>
+            {% endif %}
+            {% if order.is_takeaway %}
+                <p class="emphasis">**ASPORTO**</p>
+            {% endif %}
+        </div>
+
+        <div class="separator"></div>
+
+        {% for item in items %}
+            <div class="item-row">
+                <span class="item-name">{{ item.quantity }} x {{ item.menu_item.name | default: "N/A" }}</span>
+                {% if item.note %}
+                    <div class="note">>> {{ item.note | trim }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="separator"></div>
+
+    </div>
+</body>
+</html>

@@ -40,6 +40,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="PrintTemplates\Html\*.html" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="SagraFacile.NET.API.Tests.Integration" />
   </ItemGroup>
 

@@ -431,6 +431,11 @@ export interface PrinterCategoryAssignmentDto {
   menuCategoryAreaId: number;
 }
 
+export interface PreviewRequestDto {
+  htmlContent: string;
+  templateType: TemplateType;
+}
+
 // ==================
 // Print Job
 // ==================
