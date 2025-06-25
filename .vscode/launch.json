@@ -13,7 +13,7 @@
             "name": "Next.js: debug client-side (sagrafacile-webapp)", // Added subfolder name for clarity
             "type": "chrome", // Or "msedge", "firefox" etc. depending on your browser and extension
             "request": "launch",
-            "url": "https://192.168.1.24:3000", // Make sure this port matches your Next.js dev server
+            "url": "https://192.168.1.230:3000", // Make sure this port matches your Next.js dev server
             // Specify the root directory of your web application's source files
             "webRoot": "${workspaceFolder}/sagrafacile-webapp"
         }

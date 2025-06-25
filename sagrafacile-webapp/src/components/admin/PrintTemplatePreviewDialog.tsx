@@ -59,7 +59,7 @@ export function PrintTemplatePreviewDialog({ isOpen, onClose, templateContent, t
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+            <DialogContent className="w-full max-w-[95vw] h-[95vh] flex flex-col">
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle>Anteprima Template</DialogTitle>
                 </DialogHeader>

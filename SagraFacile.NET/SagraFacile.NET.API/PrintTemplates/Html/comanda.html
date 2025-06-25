@@ -1,50 +1,119 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-    <title>Comanda</title>
+    <meta charset="UTF-8">
+    <title>Comanda Ordine {{ order.display_order_number }}</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; margin: 0; padding: 10px; width: 80mm; }
-        .container { width: 100%; margin: 0 auto; }
-        .header { text-align: center; margin-bottom: 10px; }
-        .header h1 { font-size: 20px; margin-bottom: 5px; font-weight: bold; }
-        .header p { margin: 2px 0; font-size: 14px; }
-        .item-row { margin-bottom: 8px; }
-        .item-name { font-size: 18px; font-weight: bold; }
-        .note { font-size: 16px; color: #333; margin-left: 15px; }
-        .separator { border-top: 1px dashed #000; margin: 10px 0; }
-        .emphasis { font-weight: bold; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        .comanda-container {
+            width: 100%;
+            max-width: 180mm;
+            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 36px;
+            font-weight: bold;
+        }
+        .order-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        .category-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        .item-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 20px;
+            padding: 5px;
+        }
+        .item-quantity {
+            font-size: 24px;
+            font-weight: bold;
+            min-width: 50px;
+        }
+        .item-name {
+            flex-grow: 1;
+        }
+        .item-note {
+            font-style: italic;
+            font-size: 16px;
+            margin-left: 50px;
+            color: #555;
+        }
+        .takeaway-banner {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background-color: #333;
+            color: #fff;
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="comanda-container">
         <div class="header">
-            {# The title is now passed in the scriban model #}
-            <h1>{{ title }}</h1>
-            <p>Ordine: {{ order.display_order_number | default: order.id }} - {{ order.order_date_time | date: "%H:%M" }}</p>
-            {% if order.table_number %}
-                <p>Tavolo: {{ order.table_number }}</p>
-            {% endif %}
-            {% if order.customer_name %}
-                <p>Cliente: {{ order.customer_name }}</p>
-            {% endif %}
-            {% if order.is_takeaway %}
-                <p class="emphasis">**ASPORTO**</p>
-            {% endif %}
+            <h1>COMANDA</h1>
+            <div class="order-info">
+                <span><strong>Ordine:</strong> {{ order.display_order_number }}</span>
+                <span><strong>Ora:</strong> {{ order.order_date_time | date.to_string '%H:%M' }}</span>
+            </div>
+            <div class="order-info">
+                <span><strong>Cliente:</strong> {{ if order.customer_name }}{{ order.customer_name }}{{ else }}N/D{{ end }}</span>
+                {{ if order.table_number }}
+                <span><strong>Tavolo:</strong> {{ order.table_number }}</span>
+                {{ end }}
+            </div>
         </div>
 
-        <div class="separator"></div>
+        {{ if order.is_takeaway }}
+        <div class="takeaway-banner">ASPORTO</div>
+        {{ end }}
 
-        {% for item in items %}
+        <div class="items-section">
+            {{ for category_group in items_by_category }}
+            <div class="category-title">{{ category_group.category_name }}</div>
+            
+            {{ for item in category_group.items }}
             <div class="item-row">
-                <span class="item-name">{{ item.quantity }} x {{ item.menu_item.name | default: "N/A" }}</span>
-                {% if item.note %}
-                    <div class="note">>> {{ item.note | trim }}</div>
-                {% endif %}
+                <div class="item-quantity">{{ item.quantity }}x</div>
+                <div class="item-name">{{ item.menu_item.name }}</div>
             </div>
-        {% endfor %}
-
-        <div class="separator"></div>
-
+            {{ if item.note }}
+            <div class="item-note">
+                <strong>Nota:</strong> {{ item.note }}
+            </div>
+            {{ end }}
+            {{ end }}
+            {{ end }}
+        </div>
     </div>
 </body>
 </html>

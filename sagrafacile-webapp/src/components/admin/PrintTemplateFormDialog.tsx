@@ -116,9 +116,12 @@ export function PrintTemplateFormDialog({ isOpen, onClose, onSave, template }: P
       }
       onSave(savedTemplate);
       onClose();
-    } catch (error) {
-      toast.error("Errore durante il salvataggio del template.");
-      console.error("Failed to save template", error);
+    } catch (error: any) {
+        const errorMessage = error?.response?.data || "Errore durante il salvataggio del template.";
+        toast.error("Salvataggio fallito", {
+            description: errorMessage,
+        });
+        console.error("Failed to save template", error);
     }
   };
 

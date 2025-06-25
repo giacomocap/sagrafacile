@@ -5,6 +5,7 @@ using Scriban;
 using QRCoder;
 using System.IO;
 using System;
+using System.Linq;
 
 namespace SagraFacile.NET.API.Services
 {
@@ -23,7 +24,17 @@ namespace SagraFacile.NET.API.Services
             {
                 // 1. Populate HTML template with Scriban
                 var template = Template.Parse(htmlTemplate);
-                var scribanModel = new {  order, qr_code_base64 = GenerateQrCodeBase64(order.Id) };
+                
+                var itemsByCategory = order.OrderItems
+                    .GroupBy(oi => oi.MenuItem?.MenuCategory?.Name ?? "Senza Categoria")
+                    .Select(g => new { CategoryName = g.Key, Items = g.ToList() })
+                    .ToList();
+
+                var scribanModel = new {
+                    order,
+                    items_by_category = itemsByCategory,
+                    qr_code_base64 = GenerateQrCodeBase64(order.Id)
+                };
                 var finalHtml = await template.RenderAsync(scribanModel);
 
                 // 2. Generate PDF from HTML using Puppeteer Sharp

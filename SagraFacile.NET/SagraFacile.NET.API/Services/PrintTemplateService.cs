@@ -98,6 +98,16 @@ namespace SagraFacile.NET.API.Services
                 return (false, null, "Unauthorized to create a template for this organization.");
             }
 
+            // Validate HTML content before saving
+            if (createDto.DocumentType == DocumentType.HtmlPdf && !string.IsNullOrWhiteSpace(createDto.HtmlContent))
+            {
+                var (isValid, validationError) = await IsHtmlTemplateValidAsync(createDto.HtmlContent, organizationId);
+                if (!isValid)
+                {
+                    return (false, null, validationError);
+                }
+            }
+
             if (createDto.IsDefault)
             {
                 await UnsetExistingDefaultAsync(createDto.OrganizationId, createDto.TemplateType, createDto.DocumentType);
@@ -139,6 +149,16 @@ namespace SagraFacile.NET.API.Services
             if (template.OrganizationId != organizationId)
             {
                 return (false, "Template does not belong to the specified organization.");
+            }
+
+            // Validate HTML content before saving
+            if (updateDto.DocumentType == DocumentType.HtmlPdf && !string.IsNullOrWhiteSpace(updateDto.HtmlContent))
+            {
+                var (isValid, validationError) = await IsHtmlTemplateValidAsync(updateDto.HtmlContent, organizationId);
+                if (!isValid)
+                {
+                    return (false, validationError);
+                }
             }
 
             if (updateDto.IsDefault && !template.IsDefault)
@@ -237,7 +257,24 @@ namespace SagraFacile.NET.API.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to generate PDF preview for organization {OrgId}", organizationId);
-                return (false, null, "Failed to generate PDF preview.");
+                // Return the specific error message if available
+                return (false, null, $"Failed to generate PDF preview: {ex.Message}");
+            }
+        }
+
+        private async Task<(bool IsValid, string? Error)> IsHtmlTemplateValidAsync(string htmlContent, int organizationId)
+        {
+            try
+            {
+                var sampleOrder = CreateSampleOrder(organizationId);
+                // We don't need the result, just to see if it throws
+                await _pdfService.CreatePdfFromHtmlAsync(sampleOrder, htmlContent);
+                return (true, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Template validation failed for organization {OrgId}", organizationId);
+                return (false, $"Template validation failed: {ex.Message}");
             }
         }
 

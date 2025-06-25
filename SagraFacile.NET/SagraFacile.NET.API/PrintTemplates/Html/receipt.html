@@ -1,101 +1,175 @@
 <!DOCTYPE html>
-<html>
+<html lang="it">
 <head>
-    <title>Ricevuta Ordine</title>
+    <meta charset="UTF-8">
+    <title>Scontrino Ordine {{ order.display_order_number }}</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10px; margin: 0; padding: 10px; width: 80mm; }
-        .container { width: 100%; margin: 0 auto; }
-        .header, .footer { text-align: center; margin-bottom: 10px; }
-        .header h1 { font-size: 14px; margin-bottom: 5px; }
-        .header p { margin: 0; }
-        .section-title { font-weight: bold; margin-top: 10px; margin-bottom: 5px; border-bottom: 1px dashed #ccc; padding-bottom: 2px; }
-        .item-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-        .item-name { flex-grow: 1; }
-        .item-qty-price { width: 80px; text-align: right; }
-        .item-total { width: 50px; text-align: right; }
-        .note { font-size: 9px; color: #555; margin-left: 10px; }
-        .summary-row { display: flex; justify-content: space-between; margin-top: 5px; }
-        .summary-label { font-weight: bold; }
-        .summary-value { text-align: right; }
-        .total-amount { font-size: 16px; font-weight: bold; text-align: right; margin-top: 10px; }
-        .qr-code { text-align: center; margin-top: 15px; }
-        .qr-code img { max-width: 100px; height: auto; }
-        .separator { border-top: 1px dashed #ccc; margin: 10px 0; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .emphasis { font-weight: bold; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+            background-color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        .receipt-container {
+            width: 100%;
+            max-width: 180mm; /* Suitable for A4/A5 */
+            margin: 20px auto;
+            padding: 20px;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #000;
+        }
+        .info {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .info p {
+            margin: 4px 0;
+        }
+        table.items {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table.items th, table.items td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        table.items th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .summary-section {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 2px solid #000;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        .total .summary-row {
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .qr-code {
+            text-align: center;
+            margin-top: 30px;
+        }
+        .qr-code img {
+            width: 100px;
+            height: 100px;
+        }
+        .item-note {
+            font-style: italic;
+            font-size: 12px;
+            color: #666;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 12px;
+            color: #888;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="receipt-container">
         <div class="header">
-            <h1 class="emphasis">{{ order.organization.name | default: "Sagrafacile" }}</h1>
-            <p>Area: {{ order.area.name | default: "N/A" }}</p>
-            {% if order.cashier_station %}
-                <p>Cassa: {{ order.cashier_station.name }}</p>
-            {% endif %}
-            <p>Ordine N. {{ order.display_order_number | default: order.id }}</p>
-            <p>{{ order.order_date_time | date: "%d/%m/%Y %H:%M:%S" }}</p>
-            {% if order.is_takeaway %}
-                <p class="emphasis" style="font-size: 14px;">ASPORTO</p>
-            {% endif %}
-            {% if order.number_of_guests > 0 and not order.is_takeaway %}
-                <p>Coperti: {{ order.number_of_guests }}</p>
-            {% endif %}
-            <p>Cliente: {{ order.customer_name | default: "Anonimo" }}</p>
+            <h1>{{ order.organization.name }}</h1>
+            <p>Riepilogo Ordine</p>
         </div>
 
-        <div class="separator"></div>
-
-        {% assign items_subtotal = 0 %}
-        {% for category_group in order.order_items | group_by: "menu_item.menu_category.name" %}
-            <div class="section-title">{{ category_group.key | upcase }}</div>
-            {% for item in category_group.items %}
-                <div class="item-row">
-                    <span class="item-name">{{ item.menu_item.name | default: "Articolo Sconosciuto" }}</span>
-                    <span class="item-qty-price">{{ item.quantity }} x {{ item.unit_price | format: "C" }}</span>
-                    <span class="item-total">{{ item.quantity * item.unit_price | format: "C" }}</span>
-                </div>
-                {% if item.note %}
-                    <div class="note">Nota: {{ item.note | trim }}</div>
-                {% endif %}
-                {% assign items_subtotal = items_subtotal + (item.quantity * item.unit_price) %}
-            {% endfor %}
-        {% endfor %}
-
-        <div class="separator"></div>
-
-        <div class="summary-row">
-            <span class="summary-label">SUBTOTALE:</span>
-            <span class="summary-value emphasis">{{ items_subtotal | format: "C" }}</span>
+        <div class="info">
+            <p><strong>Ordine:</strong> {{ order.display_order_number }}</p>
+            <p><strong>Data:</strong> {{ order.order_date_time | date.to_string '%d/%m/%Y %H:%M' }}</p>
+            <p><strong>Cassa:</strong> {{ order.cashier_station.name }}</p>
+            <p><strong>Cliente:</strong> {{ if order.customer_name }}{{ order.customer_name }}{{ else }}N/D{{ end }}</p>
+            {{ if order.is_takeaway }}
+            <p><strong>Modalità:</strong> ASPORTO</p>
+            {{ else }}
+            <p><strong>Coperti:</strong> {{ order.number_of_guests }}</p>
+            {{ end }}
         </div>
 
-        {% if order.is_takeaway and order.area.takeaway_charge > 0 %}
+        <table class="items">
+            <thead>
+                <tr>
+                    <th>Prodotto</th>
+                    <th class="text-right">Q.tà</th>
+                    <th class="text-right">Prezzo</th>
+                    <th class="text-right">Totale</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ for item in order.order_items }}
+                <tr>
+                    <td>
+                        {{ item.menu_item.name }}
+                        {{ if item.note }}
+                        <div class="item-note"><em>Nota: {{ item.note }}</em></div>
+                        {{ end }}
+                    </td>
+                    <td class="text-right">{{ item.quantity }}</td>
+                    <td class="text-right">{{ item.unit_price | math.format 'C' 'it-IT' }}</td>
+                    <td class="text-right">{{ item.quantity * item.unit_price | math.format 'C' 'it-IT' }}</td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+
+        <div class="summary-section">
+            {{ items_total = 0 }}
+            {{ for item in order.order_items; items_total = items_total + (item.quantity * item.unit_price); end }}
             <div class="summary-row">
-                <span class="summary-label">Contributo Asporto:</span>
-                <span class="summary-value">{{ order.area.takeaway_charge | format: "C" }}</span>
+                <span>Subtotale Prodotti</span>
+                <span>{{ items_total | math.format 'C' 'it-IT' }}</span>
             </div>
-        {% elsif not order.is_takeaway and order.area.guest_charge > 0 and order.number_of_guests > 0 %}
+            
+            {{ if order.is_takeaway && order.area.takeaway_charge > 0 }}
             <div class="summary-row">
-                <span class="summary-label">Coperto ({{ order.number_of_guests }} x {{ order.area.guest_charge | format: "C" }}):</span>
-                <span class="summary-value">{{ order.number_of_guests * order.area.guest_charge | format: "C" }}</span>
+                <span>Contributo Asporto</span>
+                <span>{{ order.area.takeaway_charge | math.format 'C' 'it-IT' }}</span>
             </div>
-        {% endif %}
+            {{ else if !order.is_takeaway && order.area.guest_charge > 0 && order.number_of_guests > 0 }}
+            {{ guest_charge_total = order.number_of_guests * order.area.guest_charge }}
+            <div class="summary-row">
+                <span>Coperto ({{ order.number_of_guests }} x {{ order.area.guest_charge | math.format 'C' 'it-IT' }})</span>
+                <span>{{ guest_charge_total | math.format 'C' 'it-IT' }}</span>
+            </div>
+            {{ end }}
+            
+            <div class="summary-row total">
+                <span>TOTALE</span>
+                <span>{{ order.total_amount | math.format 'C' 'it-IT' }}</span>
+            </div>
+        </div>
 
-        <div class="separator"></div>
-
-        <div class="total-amount">TOTALE: {{ order.total_amount | format: "C" }}</div>
-
+        {{ if qr_code_base64 && qr_code_base64 != '' }}
         <div class="qr-code">
-            {% if qr_code_base64 %}
-                <img src="{{ qr_code_base64 }}" alt="QR Code">
-            {% else %}
-                <p>QR Code non disponibile.</p>
-            {% endif %}
+            <img src="{{ qr_code_base64 }}" alt="QR Code Ordine">
         </div>
+        {{ end }}
 
         <div class="footer">
-                <p>Grazie e arrivederci!</p>
+            <p>Grazie e arrivederci!</p>
         </div>
     </div>
 </body>
