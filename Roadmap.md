@@ -185,6 +185,25 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[ ]` If `EnableCompletionConfirmation` is needed: Implement UI trigger for pickup confirmation.
 
     *   **Implement Advanced Printing Architecture (See `PrinterArchitecture.md`)**
+        *   `[ ]` **Support for Standard Printers & Customizable Templates (NEW)**
+            *   `[ ]` **Goal:** Support non-ESC/POS printers (laser, inkjet) via PDF generation and allow template customization for both PDF and ESC/POS outputs.
+            *   `[ ]` **Backend (.NET API):**
+                *   `[ ]` **Database:**
+                    *   `[ ]` Add `DocumentType` (enum: `EscPos`, `HtmlPdf`) to `Printer` entity.
+                    *   `[ ]` Create new `PrintTemplate` entity with fields for `DocumentType`, `HtmlContent`, `EscPosHeader`, `EscPosFooter`.
+                    *   `[ ]` Create and apply EF Core migration.
+                *   `[ ]` **New `PdfService`:** Implement service using Puppeteer Sharp to convert HTML to PDF.
+                *   `[ ]` **New Templating Engine:** Integrate Scriban to process HTML templates.
+                *   `[ ]` **Refactor `PrinterService`:**
+                    *   `[ ]` Modify logic to check `Printer.DocumentType`.
+                    *   `[ ]` If `HtmlPdf`, use `PdfService` to generate PDF content for the `PrintJob`.
+                    *   `[ ]` If `EscPos`, use `EscPosDocumentBuilder` and apply header/footer from `PrintTemplate`.
+            *   `[ ]` **Windows Companion App:**
+                *   `[ ]` Enhance SignalR message to include `contentType` (`application/pdf` or `application/vnd.escpos`).
+                *   `[ ]` Add logic to handle PDF jobs by saving to a temp file and printing via Windows Shell API.
+            *   `[ ]` **Frontend (Admin UI):**
+                *   `[ ]` Add "Document Type" dropdown to Printer configuration form.
+                *   `[ ]` Create new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
         *   `[x]` **Implement Resilient Printing via Job Queue (NEW - TOP PRIORITY)**
             *   `[x]` **Goal:** Rearchitect the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost.
             *   `[x]` **Backend (.NET API):**

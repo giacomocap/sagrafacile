@@ -287,7 +287,123 @@ graph TD
         3.  **Log and Alert:** Log the failure prominently and alert an administrator, requiring manual intervention.
         *   The chosen strategy should be configurable or at least well-defined.
 
-## 7. On-Demand Printing for Windows Companion App (Future Enhancement)
+## 7. Support for Standard Printers (Laser/Inkjet) via HTML/PDF Rendering
+
+To support a wider range of non-ESC/POS printers (e.g., standard A4/A5 laser or inkjet printers), the architecture will be extended to include an HTML-to-PDF rendering pipeline. This allows for highly customizable, high-fidelity documents that can be printed on any standard printer managed by the Windows OS.
+
+### 7.1. Core Principles
+
+*   **Document Type Differentiation:** The system will distinguish between printers that accept raw ESC/POS commands and those that require a standard document format like PDF.
+*   **HTML Templating:** Administrators will be able to create and edit HTML templates for receipts and comandas. This provides maximum flexibility for layout, branding, and content.
+*   **Backend PDF Generation:** The backend API will be responsible for rendering these HTML templates into PDF documents, which are then sent as print jobs.
+*   **Leveraging Windows Printing:** The `SagraFacile.WindowsPrinterService` will be enhanced to handle incoming PDF jobs, leveraging the native Windows printing system to send them to any configured printer (USB or Network).
+
+### 7.2. Architectural Changes
+
+#### 7.2.1. Database Schema Updates
+
+*   **`Printer` Entity Update:**
+    *   `DocumentType` (enum: `EscPos`, `HtmlPdf`): A new field to specify the type of data the printer expects. Defaults to `EscPos` for backward compatibility.
+    *   The `Type` enum (`Network`, `WindowsUsb`) will be conceptually updated. `WindowsUsb` will be treated as `WindowsManaged`, meaning any printer (USB or Network) configured in the Windows OS and managed by the companion app.
+
+*   **New `PrintTemplate` Entity:**
+    *   `Id` (PK)
+    *   `OrganizationId` (FK)
+    *   `Name` (string, e.g., "Default A5 Receipt", "Kitchen Comanda")
+    *   `TemplateType` (enum: `Receipt`, `Comanda`)
+    *   `DocumentType` (enum: `EscPos`, `HtmlPdf`): Specifies if this template is for ESC/POS or HTML.
+    *   `HtmlContent` (string, nullable): Contains the full HTML template if `DocumentType` is `HtmlPdf`.
+    *   `EscPosHeader` (string, nullable): Custom text for the header of an ESC/POS receipt.
+    *   `EscPosFooter` (string, nullable): Custom text for the footer of an ESC/POS receipt.
+    *   `IsDefault` (bool)
+
+#### 7.2.2. Backend Service Enhancements
+
+*   **`EscPosDocumentBuilder` Updates:**
+    *   The methods for building receipts (`BuildReceiptDocument`) will be updated to accept optional `header` and `footer` strings from a `PrintTemplate`.
+    *   If provided, these strings will be printed at the beginning and end of the receipt, allowing for customizable messages, greetings, or promotional text.
+
+*   **New `PdfService` (`IPdfService`):**
+    *   **Responsibility:** Convert an HTML string into a PDF byte array.
+    *   **Technology:** Will use a library like **Puppeteer Sharp**, which controls a headless Chrome instance for perfect HTML rendering.
+    *   **Workflow:**
+        1.  Receives data (e.g., an `Order` object) and an HTML template.
+        2.  Uses a templating engine (e.g., **Scriban**) to populate the HTML template with data. Placeholders like `{{ order.customer_name }}` will be replaced.
+        3.  Generates a QR code and embeds it as a Base64 `<img>` tag within the HTML.
+        4.  Passes the final HTML to Puppeteer Sharp to generate the PDF `byte[]`.
+
+*   **`PrinterService` Updates:**
+    *   The `PrintOrderDocumentsAsync` method will check the `printer.DocumentType`.
+    *   If `EscPos`, it uses the existing `EscPosDocumentBuilder`.
+    *   If `EscPos`, it will fetch the relevant `PrintTemplate` (if any) and pass the custom `EscPosHeader` and `EscPosFooter` to the `EscPosDocumentBuilder`.
+    *   If `HtmlPdf`, it fetches the appropriate `PrintTemplate`, calls the new `PdfService` to generate the PDF `byte[]` from the `HtmlContent`, and then creates the `PrintJob` with this content.
+
+#### 7.2.3. Windows Companion App (`SagraFacile.WindowsPrinterService`) Updates
+
+*   **SignalR Message:** The `PrintJob` message from the backend will be enhanced to include the content type: `("PrintJob", jobId, byte[] rawData, string contentType)`. `contentType` will be `"application/vnd.escpos"` or `"application/pdf"`.
+*   **Printing Logic:**
+    *   If `contentType` is `escpos`, it sends the raw bytes to the printer as it does now.
+    *   If `contentType` is `pdf`, it will:
+        1.  Save the `byte[]` to a temporary file (e.g., `C:\Temp\printjob-xyz.pdf`).
+        2.  Use the Windows Shell API (`Process.Start` with the `print` verb) to print the file to the designated printer. This leverages the robust Windows printing subsystem.
+        3.  Delete the temporary file after printing.
+
+### 7.3. New Architectural Flow Diagram
+
+```mermaid
+graph TD
+    subgraph "Backend API"
+        A[OrderService] -- Triggers Print --> B(PrinterService);
+        B -- Fetches --> P[Printer Config];
+        
+        subgraph "Decision"
+            P -- DocumentType? --> D{ };
+        end
+
+        D -- "EscPos" --> E(EscPosDocumentBuilder);
+        E -- byte[] --> F{PrintJob};
+        
+        D -- "HtmlPdf" --> G(HtmlTemplateEngine);
+        G -- Fetches --> T[(PrintTemplate DB)];
+        G -- HTML --> H(PdfService - Puppeteer);
+        H -- PDF byte[] --> F;
+
+        F -- Saves to --> DB[(Database)];
+        F -- Notifies --> PJ(PrintJobProcessor);
+    end
+
+    subgraph "Async Processing"
+        PJ -- Fetches Job --> DB;
+        PJ -- Sends Job Data + ContentType --> R{Physical Printer};
+    end
+
+    subgraph "Physical Printer"
+        subgraph "ESC/POS Printer"
+            R1[Network Thermal];
+            R2[USB Thermal via Companion App];
+        end
+        
+        subgraph "Standard Printer (Laser/Inkjet)"
+            R3[USB/Network via Companion App];
+        end
+    end
+
+    PJ --> R1;
+    PJ -- SignalR Msg (escpos) --> R2;
+    PJ -- SignalR Msg (pdf) --> R3;
+
+    style B fill:#cde4ff
+    style H fill:#cde4ff
+```
+
+### 7.4. Admin UI Changes
+
+*   **Printer Management:** The printer form will include a "Document Type" dropdown (`ESC/POS` or `HTML/PDF`).
+*   **New Template Editor:** A new admin page (`/admin/print-templates`) will be created for CRUD management of templates.
+    *   When editing an `HtmlPdf` template, it will show a rich text editor for the `HtmlContent`.
+    *   When editing an `EscPos` template, it will show simple text areas for `EscPosHeader` and `EscPosFooter`.
+
+## 8. On-Demand Printing for Windows Companion App (Future Enhancement)
 
 This section outlines a planned enhancement for the `SagraFacile.WindowsPrinterService` to support on-demand printing of comandas, where jobs are queued locally and printed manually by staff at the print station.
 
