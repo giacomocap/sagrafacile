@@ -20,7 +20,10 @@ import {
   ExternalLink,
   Utensils,
   ChefHat,
-  Wallet
+  Wallet,
+  FileText,
+  ClipboardList,
+  ArrowRight
 } from 'lucide-react';
 import { DashboardKPIs } from '@/components/charts/dashboard/DashboardKPIs';
 
@@ -46,11 +49,18 @@ export default function AdminDashboardPage() {
       color: 'bg-green-500'
     },
     {
-      title: 'Menu',
-      description: 'Categorie e voci di menu',
+      title: 'Categorie Menu',
+      description: 'Gestisci le categorie del menu',
       icon: MenuIcon,
       href: `/app/org/${currentOrgId}/admin/menu/categories`,
       color: 'bg-orange-500'
+    },
+    {
+      title: 'Voci di Menu',
+      description: 'Gestisci piatti e bevande',
+      icon: ClipboardList,
+      href: `/app/org/${currentOrgId}/admin/menu/items`,
+      color: 'bg-yellow-500'
     },
     {
       title: 'Ordini',
@@ -74,6 +84,13 @@ export default function AdminDashboardPage() {
       color: 'bg-gray-500'
     },
     {
+      title: 'Template di Stampa',
+      description: 'Personalizza scontrini e comande',
+      icon: FileText,
+      href: `/app/org/${currentOrgId}/admin/print-templates`,
+      color: 'bg-slate-500'
+    },
+    {
       title: 'Monitoraggio Stampe',
       description: 'Visualizza stato processi di stampa',
       icon: Monitor,
@@ -88,8 +105,8 @@ export default function AdminDashboardPage() {
       color: 'bg-indigo-500'
     },
     {
-      title: 'Configurazioni',
-      description: 'Impostazioni avanzate',
+      title: 'SagraPreOrdine',
+      description: 'Configura la sincronizzazione cloud',
       icon: Settings,
       href: `/app/org/${currentOrgId}/admin/sync`,
       color: 'bg-teal-500'
@@ -147,6 +164,14 @@ export default function AdminDashboardPage() {
           organizationId={currentOrgId} 
           dayId={currentDay?.id}
         />
+        <div className="flex justify-end">
+          <Link href={`/app/org/${currentOrgId}/admin/analytics`}>
+            <Button variant="outline" size="sm">
+              Dashboard Completa
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Management Section */}

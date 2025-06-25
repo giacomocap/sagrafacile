@@ -32,7 +32,44 @@
 *   Ensured consistency between the printer creation/edit form and the printer list display.
 **Outcome:** The Admin UI now fully supports configuring the document type for printers, laying the groundwork for managing print templates.
 **Next Steps:**
-*   Create a new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
+*   (Future Phase) Implement real-time alerts and notifications for print job failures.
+
+## (2025-06-25) - Implemented Frontend Print Template Management
+**Context:** Developed a new Admin UI page for managing print templates, including conditional form fields based on document type, and integrated it into the application's navigation.
+**Accomplishments:**
+*   **Type Definitions (`src/types/index.ts`):**
+    *   Added `TemplateType` enum (`Receipt`, `Comanda`).
+    *   Added `PrintTemplateDto` and `PrintTemplateUpsertDto` interfaces.
+    *   Corrected `PrintTemplateUpsertDto` to be a type alias (`type PrintTemplateUpsertDto = Omit<PrintTemplateDto, 'id'>;`) to resolve linter warnings.
+*   **Print Template Service (`src/services/printTemplateService.ts`):**
+    *   Created a new service with CRUD operations for `PrintTemplate` entities (get all, get by ID, create, update, delete).
+*   **Print Template Form Dialog (`src/components/admin/PrintTemplateFormDialog.tsx`):**
+    *   Created a reusable dialog component for creating and editing print templates.
+    *   Implemented conditional rendering of form fields:
+        *   If `DocumentType` is `HtmlPdf`, displays a `Textarea` for `htmlContent`.
+        *   If `DocumentType` is `EscPos`, displays `Textarea`s for `escPosHeader` and `escPosFooter`.
+    *   Integrated `react-hook-form` and `zod` for form handling and validation.
+    *   Used `useOrganization` context to get the current organization ID for API calls.
+*   **Print Templates List Page (`src/app/app/org/[orgId]/admin/print-templates/page.tsx`):**
+    *   Created the main admin page to display a paginated list of print templates.
+    *   Utilized the existing `PaginatedTable` component for data display, sorting, and pagination.
+    *   Implemented functions to render `TemplateType` and `DocumentType` enum values as readable strings.
+    *   Integrated "Crea Template" button and "Modifica"/"Elimina" actions for each row.
+    *   Ensured correct data fetching and state management for the table and dialog.
+*   **Navigation & Dashboard Integration:**
+    *   Updated `src/components/admin/AdminNavigation.tsx` to include a new link "Template di Stampa" in the sidebar.
+    *   Updated `src/app/app/org/[orgId]/admin/page.tsx` (Admin Dashboard) to:
+        *   Add a new card for "Template di Stampa".
+        *   Rename "Configurazioni" card to "SagraPreOrdine".
+        *   Rename "Menu" card to "Categorie Menu" and added a new card for "Voci di Menu".
+        *   Add a "Dashboard Completa" button to the Analytics section, linking to the full analytics page.
+**Key Decisions:**
+*   Followed existing project patterns for component structure, API services, and UI/UX (e.g., `PaginatedTable`, `react-hook-form`, `zod`).
+*   Prioritized conditional UI logic in the form to provide a tailored user experience for different template types.
+*   Ensured consistent Italian localization for new UI elements.
+**Outcome:** The SagraFacile web application now has a fully functional and integrated system for managing print templates, enhancing the flexibility of document generation.
+**Next Steps:**
+*   User to test the new print template management functionality end-to-end.
 
 ## (2025-06-23) - Enhanced Order Filtering and Optional Pagination (Frontend)
 **Context:** Implemented frontend changes to support the backend's new optional pagination and status filtering for orders, specifically addressing a bug where the waiter page was not distinguishing between order statuses.

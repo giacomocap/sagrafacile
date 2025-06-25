@@ -406,6 +406,24 @@ export interface PrinterUpsertDto {
   documentType: DocumentType;
 }
 
+export enum TemplateType {
+  Receipt = 0,
+  Comanda = 1,
+}
+
+export interface PrintTemplateDto {
+  id: number;
+  name: string;
+  templateType: TemplateType;
+  documentType: DocumentType; // Reuse existing enum
+  htmlContent: string | null;
+  escPosHeader: string | null;
+  escPosFooter: string | null;
+  isDefault: boolean;
+}
+
+export type PrintTemplateUpsertDto = Omit<PrintTemplateDto, 'id'>;
+
 export interface PrinterCategoryAssignmentDto {
   printerId: number;
   menuCategoryId: number;

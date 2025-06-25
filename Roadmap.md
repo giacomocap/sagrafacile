@@ -201,9 +201,9 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[x]` **Windows Companion App:**
                 *   `[x]` Enhance SignalR message to include `contentType` (`application/pdf` or `application/vnd.escpos`).
                 *   `[x]` Add logic to handle PDF jobs by saving to a temp file and printing via Windows Shell API.
-            *   `[ ]` **Frontend (Admin UI):**
+            *   `[x]` **Frontend (Admin UI):**
             *   `[x]` Add "Document Type" dropdown to Printer configuration form.
-            *   `[ ]` Create new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
+            *   `[x]` Create new Admin page (`/admin/print-templates`) for managing templates with conditional UI for HTML vs. ESC/POS fields.
         *   `[x]` **Implement Resilient Printing via Job Queue (NEW - TOP PRIORITY)**
             *   `[x]` **Goal:** Rearchitect the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost.
             *   `[x]` **Backend (.NET API):**
