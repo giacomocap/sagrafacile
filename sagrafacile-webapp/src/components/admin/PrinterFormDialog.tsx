@@ -185,7 +185,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg overflow-y-scroll max-h-screen">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Modifica Stampante' : 'Aggiungi Nuova Stampante'}</DialogTitle>
           <DialogDescription>

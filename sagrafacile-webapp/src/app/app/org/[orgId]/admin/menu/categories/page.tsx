@@ -102,7 +102,7 @@ export default function MenuCategoriesPage() {
                   Aggiungi Nuova Categoria
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
                 <DialogHeader>
                   <DialogTitle>Aggiungi Nuova Categoria Menu</DialogTitle>
                   <DialogDescription>
@@ -201,7 +201,7 @@ export default function MenuCategoriesPage() {
 
       {/* Edit Category Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
           <DialogHeader>
             <DialogTitle>Modifica Categoria Menu</DialogTitle>
             <DialogDescription>

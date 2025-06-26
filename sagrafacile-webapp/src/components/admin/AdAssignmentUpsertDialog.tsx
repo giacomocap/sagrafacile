@@ -133,7 +133,7 @@ export default function AdAssignmentUpsertDialog({ isOpen, onOpenChange, assignm
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg overflow-y-scroll max-h-screen">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Modifica Assegnazione' : 'Assegna Media ad Area'}</DialogTitle>
           <DialogDescription>

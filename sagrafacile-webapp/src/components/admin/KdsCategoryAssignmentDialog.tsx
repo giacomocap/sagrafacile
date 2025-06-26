@@ -151,7 +151,7 @@ export const KdsCategoryAssignmentDialog: React.FC<KdsCategoryAssignmentDialogPr
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg"> {/* Increased width */}
+            <DialogContent className="sm:max-w-lg overflow-y-scroll max-h-screen"> {/* Increased width */}
                 <DialogHeader>
                     <DialogTitle>Assegna Categorie a "{station?.name}"</DialogTitle>
                     <DialogDescription>

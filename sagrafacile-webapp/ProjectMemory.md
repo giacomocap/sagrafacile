@@ -12,6 +12,26 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-26) - Addressed Dialog Overflow Issues Across Admin UI
+**Context:** Identified and resolved UI overflow issues in various dialog components within the admin interface, where content and action buttons became inaccessible on smaller or vertically constrained screens.
+**Accomplishments:**
+*   **Frontend (Next.js WebApp):**
+    *   Applied `overflow-y-scroll` and `max-h-screen` (or `max-h-[95vh]`) classes to the `DialogContent` of the following components/pages to ensure vertical scrolling and prevent content overflow:
+        *   `sagrafacile-webapp/src/components/admin/PrinterFormDialog.tsx`
+        *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/areas/page.tsx` (Add and Edit dialogs)
+        *   `sagrafacile-webapp/src/components/admin/AdUpsertDialog.tsx`
+        *   `sagrafacile-webapp/src/components/admin/AdAssignmentUpsertDialog.tsx`
+        *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/cashier-stations/page.tsx` (Add and Edit dialogs)
+        *   `sagrafacile-webapp/src/components/admin/KdsCategoryAssignmentDialog.tsx`
+        *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/menu/categories/page.tsx` (Add and Edit dialogs)
+        *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/menu/items/page.tsx` (Add and Edit dialogs)
+        *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx` (Add User, Edit User, and Manage Roles dialogs)
+    *   Reviewed `sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/ads/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/analytics/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/days/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/kds/page.tsx`, `sagrafacile-webapp/src/components/admin/KdsStationFormDialog.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/orders/page.tsx`, `sagrafacile-webapp/src/components/ReceiptDialog.tsx`, `sagrafacile-webapp/src/components/shared/ResponsiveDialog.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-templates/page.tsx`, `sagrafacile-webapp/src/components/admin/PrintTemplateFormDialog.tsx`, `sagrafacile-webapp/src/components/admin/PrintTemplatePreviewDialog.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/printer-assignments/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/printers/page.tsx`, `sagrafacile-webapp/src/app/app/org/[orgId]/admin/public-links/page.tsx`, and `sagrafacile-webapp/src/app/app/org/[orgId]/admin/sync/page.tsx` and determined no changes were needed for dialog overflow in these files.
+**Key Decisions:**
+*   Standardized the approach to handling dialog overflow by applying `overflow-y-scroll` and `max-h-screen` to `DialogContent` components, ensuring consistent behavior across the application.
+*   Prioritized user accessibility by making sure all form fields and action buttons within dialogs are reachable.
+**Outcome:** The admin interface now provides a more robust and user-friendly experience, preventing content from being cut off in dialogs on various screen sizes.
+
 ## (2025-06-25) - Implemented Print Template Management & UI Enhancements
 **Context:** Implemented the full CRUD, default restoration, and preview functionality for print templates, including backend API, service logic, and frontend UI. Also addressed dialog overflow issues.
 **Accomplishments:**
@@ -368,7 +388,7 @@ Current session paused debugging of USB thermal printer due to `SagraFacile.Wind
 *   **Outcome:** New public and staff interfaces for order pickup. Backend investigation for data fetching issue prioritized. The "Planned Public Order Pickup Display" session's items were incorporated.
 
 ## Customer Queue System - UI & Real-time (Frontend - "Previous Date" prior to 2025-05-29)
-*   **Summary:** Integrated Customer Queue System UI into `CashierOrderPanel` (props for state/actions, conditional display, "NOW SERVING"/"NEXT", "Call Next", "Call Specific", "Ripeti Ultimo" buttons). Enhanced Cashier Page (`/cashier/.../page.tsx`) with state for queue, initial fetch, and SignalR integration (`useSignalRHub` for `Area-{areaId}` group, listeners for `QueueNumberCalled`, `QueueReset`, `QueueStateUpdated` to update local state). Action handlers call `queueService` and rely on SignalR for UI updates. Created Public Queue Display page (`/qdisplay/...`) with initial fetch, SignalR, audio, and TTS. Corrected SignalR DTOs/event names (PascalCase).
+*   **Summary:** Integrated Customer Queue System UI into `CashierOrderPanel` (props for state/actions, conditional display, "NOW SERVING"/"NEXT", "Call Specific", "Ripeti Ultimo" buttons). Enhanced Cashier Page (`/cashier/.../page.tsx`) with state for queue, initial fetch, and SignalR integration (`useSignalRHub` for `Area-{areaId}` group, listeners for `QueueNumberCalled`, `QueueReset`, `QueueStateUpdated` to update local state). Action handlers call `queueService` and rely on SignalR for UI updates. Created Public Queue Display page (`/qdisplay/...`) with initial fetch, SignalR, audio, and TTS. Corrected SignalR DTOs/event names (PascalCase).
 *   **Key Decisions:** Queue UI in `CashierOrderPanel`. SignalR for real-time updates. PascalCase event names. Explicit group joining.
 *   **Identified Issues:** Resolved SignalR event name/group joining issues. Resolved `useEffect` dependency issue causing handler re-registration. Cashier `lastCalledNumber` display issue remained under investigation.
 *   **Outcome:** Cashier and Public Display UIs for queue system with real-time updates. Debugging of Cashier UI display ongoing.

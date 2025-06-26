@@ -339,7 +339,7 @@ export default function UserManagementPage() {
                     <DialogTrigger asChild>
                         <Button onClick={() => setRegisterError(null)}>Aggiungi Utente</Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
                         <DialogHeader>
                             <DialogTitle>Aggiungi Nuovo Utente</DialogTitle>
                             <DialogDescription>
@@ -453,7 +453,7 @@ export default function UserManagementPage() {
             {/* Edit User Dialog */}
             {editForm && (
                 <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                    <DialogContent className="sm:max-w-[425px]">
+                    <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
                         <DialogHeader>
                             <DialogTitle>Modifica Utente</DialogTitle>
                             <DialogDescription>
@@ -523,7 +523,7 @@ export default function UserManagementPage() {
              {/* Manage Roles Dialog */}
             {userToManageRoles && (
                 <Dialog open={isRolesDialogOpen} onOpenChange={setIsRolesDialogOpen}>
-                    <DialogContent>
+                    <DialogContent className="overflow-y-scroll max-h-screen">
                         <DialogHeader>
                             <DialogTitle>Gestisci Ruoli per {userToManageRoles.firstName}</DialogTitle>
                             <DialogDescription>

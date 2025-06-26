@@ -361,7 +361,7 @@ export default function MenuItemsPage() {
                 <DialogTrigger asChild>
                   <Button size="sm" onClick={handleOpenAddDialog} disabled={!selectedAreaId || categories.length === 0}>Aggiungi Nuovo Prodotto</Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
                   <DialogHeader><DialogTitle>Aggiungi Nuovo Prodotto Menu</DialogTitle></DialogHeader>
                   {/* Add Item Form */}
                   <div className="grid gap-4 py-4">
@@ -531,7 +531,7 @@ export default function MenuItemsPage() {
 
       {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
           <DialogHeader><DialogTitle>Modifica Prodotto Menu</DialogTitle></DialogHeader>
           {/* Edit Item Form */}
           <div className="grid gap-4 py-4">

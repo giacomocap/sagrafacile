@@ -309,7 +309,7 @@ export default function AreasPage() {
                         <DialogTrigger asChild>
                             <Button size="sm" onClick={handleOpenAddDialog}>Aggiungi Nuova Area</Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
+                        <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
                             <DialogHeader><DialogTitle>Aggiungi Nuova Area</DialogTitle></DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid grid-cols-4 items-center gap-4">
@@ -460,7 +460,7 @@ export default function AreasPage() {
 
             {/* Edit Area Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) setEditingArea(null); setIsEditDialogOpen(open); }}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="sm:max-w-lg overflow-y-scroll max-h-screen">
                     <DialogHeader><DialogTitle>Modifica Area: {editingArea?.name}</DialogTitle></DialogHeader>
                     <div className="grid gap-6 py-4">
                         {/* Name Input */}

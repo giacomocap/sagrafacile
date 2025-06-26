@@ -113,7 +113,7 @@ export default function AdUpsertDialog({ isOpen, onOpenChange, adToEdit, onSaveS
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg overflow-y-scroll max-h-screen">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Modifica Media' : 'Aggiungi Nuovo Media'}</DialogTitle>
           <DialogDescription>

@@ -432,7 +432,7 @@ export default function CashierStationsPage() {
                                 Aggiungi Nuova Postazione
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md">
+                        <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
                             <DialogHeader>
                                 <DialogTitle>Aggiungi Nuova Postazione Cassa</DialogTitle>
                                 <DialogDescription>Configura i dettagli per la nuova postazione.</DialogDescription>
@@ -512,7 +512,7 @@ export default function CashierStationsPage() {
 
             {/* Edit Dialog */}
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
                     <DialogHeader>
                         <DialogTitle>Modifica Postazione Cassa</DialogTitle>
                         <DialogDescription>Aggiorna i dettagli per "{editingStation?.name}".</DialogDescription>
