@@ -132,8 +132,7 @@ static class Program
                     string profilesDir = Path.Combine(appDataFolder, "profiles");
                     return new SettingsForm(null, profilesDir); 
                 });
-                services.AddTransient<PrintStationForm>(); 
-                services.AddTransient<InputDialogForm>((sp) => new InputDialogForm("Default Title", "Default Prompt"));
+                services.AddTransient<PrintStationForm>();
 
 
                 // Pass ProfileSettings to ApplicationLifetimeService

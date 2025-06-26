@@ -108,7 +108,7 @@ namespace SagraFacile.WindowsPrinterService
         {
             using (var settingsForm = new SettingsForm(null, _profilesDirectory)) // Pass null for new profile
             {
-                if (settingsForm.ShowDialog() == DialogResult.OK)
+                if (settingsForm.ShowDialog(this) == DialogResult.OK)
                 {
                     LoadProfilesToListBox(); // Refresh list
                 }
@@ -126,7 +126,7 @@ namespace SagraFacile.WindowsPrinterService
             
             using (var settingsForm = new SettingsForm(profileName, _profilesDirectory))
             {
-                if (settingsForm.ShowDialog() == DialogResult.OK)
+                if (settingsForm.ShowDialog(this) == DialogResult.OK)
                 {
                     LoadProfilesToListBox(); // Refresh list
                 }

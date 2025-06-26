@@ -81,6 +81,9 @@ namespace SagraFacile.WindowsPrinterService
 
         private void PopulateControlsFromSettings()
         {
+            // Populate profile name
+            txtProfileName.Text = _currentSettings.ProfileName ?? string.Empty;
+
             if (!string.IsNullOrEmpty(_currentSettings.SelectedPrinter) && comboBoxPrinters.Items.Contains(_currentSettings.SelectedPrinter))
             {
                 comboBoxPrinters.SelectedItem = _currentSettings.SelectedPrinter;
@@ -141,37 +144,34 @@ namespace SagraFacile.WindowsPrinterService
 
         private bool SaveProfileSettings()
         {
-            string? profileNameToSave = _currentProfileName;
+            // Get profile name from the text field
+            string? profileNameToSave = txtProfileName.Text?.Trim();
 
-            if (string.IsNullOrEmpty(profileNameToSave))
+            if (string.IsNullOrWhiteSpace(profileNameToSave))
             {
-                using (var inputDialog = new InputDialogForm("Inserisci Nome Profilo", "Nome del Profilo:"))
+                MessageBox.Show("Il nome del profilo non può essere vuoto.", "Nome Profilo Richiesto", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtProfileName.Focus();
+                return false;
+            }
+
+            // Clean the profile name for use as filename
+            profileNameToSave = string.Join("_", profileNameToSave.Split(Path.GetInvalidFileNameChars()));
+
+            // Check if we're creating a new profile or editing an existing one
+            bool isNewProfile = string.IsNullOrEmpty(_currentProfileName);
+            bool isRenamingProfile = !isNewProfile && !string.Equals(_currentProfileName, profileNameToSave, StringComparison.OrdinalIgnoreCase);
+
+            // Check for duplicate profile names (only if creating new or renaming)
+            if (isNewProfile || isRenamingProfile)
+            {
+                string existingProfilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
+                if (File.Exists(existingProfilePath))
                 {
-                    if (inputDialog.ShowDialog(this) == DialogResult.OK) // Pass 'this' as owner
-                    {
-                        profileNameToSave = inputDialog.UserInput;
-                        if (string.IsNullOrWhiteSpace(profileNameToSave))
-                        {
-                            MessageBox.Show("Il nome del profilo non può essere vuoto.", "Nome Profilo Richiesto", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return false;
-                        }
-                        
-                        profileNameToSave = string.Join("_", profileNameToSave.Split(Path.GetInvalidFileNameChars()));
-                        string existingProfilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
-                        if (File.Exists(existingProfilePath))
-                        {
-                             MessageBox.Show($"Un profilo con nome '{profileNameToSave}' esiste già. Scegli un nome diverso.", "Nome Profilo Duplicato", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return false;
-                        }
-                    }
-                    else
-                    {
-                        return false; 
-                    }
+                    MessageBox.Show($"Un profilo con nome '{profileNameToSave}' esiste già. Scegli un nome diverso.", "Nome Profilo Duplicato", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    txtProfileName.Focus();
+                    return false;
                 }
             }
-            
-            if (string.IsNullOrWhiteSpace(profileNameToSave)) return false;
 
             string? hubHostAndPort = null, instanceGuid = null;
             if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHostCtrl) hubHostAndPort = txtHubHostCtrl.Text;
@@ -190,6 +190,16 @@ namespace SagraFacile.WindowsPrinterService
             string profilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
             try
             {
+                // If we're renaming a profile, delete the old file
+                if (isRenamingProfile && !string.IsNullOrEmpty(_currentProfileName))
+                {
+                    string oldProfilePath = Path.Combine(_profilesDirectory, $"{_currentProfileName}.json");
+                    if (File.Exists(oldProfilePath))
+                    {
+                        File.Delete(oldProfilePath);
+                    }
+                }
+
                 string json = JsonSerializer.Serialize(settingsToSave, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(profilePath, json);
                 _currentSettings = settingsToSave; 
@@ -217,6 +227,14 @@ namespace SagraFacile.WindowsPrinterService
 
         private async void ButtonSave_Click(object? sender, EventArgs e)
         {
+            // Validate profile name
+            if (string.IsNullOrWhiteSpace(txtProfileName.Text))
+            {
+                MessageBox.Show("Il nome del profilo non può essere vuoto.", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                txtProfileName.Focus();
+                return;
+            }
+
             if (this.Controls.Find("txtHubUrl", true).FirstOrDefault() is TextBox txtHubHostCtrl && string.IsNullOrWhiteSpace(txtHubHostCtrl.Text))
             {
                 MessageBox.Show("L'URL Base del Server non può essere vuoto.", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);

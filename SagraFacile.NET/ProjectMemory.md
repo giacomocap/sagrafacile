@@ -3,6 +3,27 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-26) - Integrated Profile Name Field in Windows Printer Service Settings
+**Context:** Modified the Windows Printer Service to include the profile name as a field within the settings form instead of using a separate dialog window, improving the user experience by providing a unified interface.
+**Accomplishments:**
+*   **Windows Printer Service (`SagraFacile.WindowsPrinterService`):**
+    *   **`SettingsForm.Designer.cs`:** Added a new "Nome Profilo" label and text field at the top of the form, repositioned all other controls accordingly, and increased the form height to accommodate the new field.
+    *   **`SettingsForm.cs`:**
+        *   Updated `PopulateControlsFromSettings()` to populate the profile name field from the current settings.
+        *   Completely refactored `SaveProfileSettings()` to get the profile name from the text field instead of using `InputDialogForm`.
+        *   Added validation for empty profile names with proper focus management.
+        *   Added logic to handle profile renaming (automatically deletes old profile file when name changes).
+        *   Updated `ButtonSave_Click()` to validate the profile name field before proceeding with save.
+    *   **`ProfileSelectionForm.cs`:** Minor updates to pass the parent form as owner when opening SettingsForm dialogs for better modal behavior.
+    *   **`Program.cs`:** Removed the unnecessary `InputDialogForm` registration from the dependency injection container since it's no longer used.
+*   **Removed Dependencies:** The `InputDialogForm` is no longer used anywhere in the application, eliminating the separate dialog approach entirely.
+**Key Decisions:**
+*   Unified the profile management interface by integrating the profile name field directly into the main settings form.
+*   Implemented proper validation and error handling for profile names, including duplicate name detection.
+*   Added support for profile renaming with automatic cleanup of old profile files.
+*   Maintained backward compatibility with existing profile files while improving the user experience.
+**Outcome:** The Windows Printer Service now provides a streamlined, single-form interface for all profile settings, eliminating the need for separate dialogs and improving the overall user experience. Profile creation, editing, and renaming are now handled seamlessly within the unified settings interface.
+
 ## (2025-06-25) - Implemented Print Template Management & UI
 **Context:** Implemented the full CRUD, default restoration, and preview functionality for print templates, including backend API, service logic, and frontend UI. Also addressed dialog overflow issues.
 **Accomplishments:**
