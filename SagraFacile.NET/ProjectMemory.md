@@ -3,6 +3,35 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-26) - Added Paper Size Configuration for Standard Printers (Backend & Companion App)
+**Context:** A user reported that test prints on A5 paper from a standard laser printer were cut off, indicating a paper size mismatch. This required adding paper size configuration to both the Windows Printer Service (for local tests) and the backend API (for server-generated PDF documents).
+**Accomplishments:**
+*   **Windows Printer Service (`SagraFacile.WindowsPrinterService`):**
+    *   **`Models/ProfileSettings.cs`:** Added a `PaperSize` string property to store the selected paper size for a profile.
+    *   **`SettingsForm.cs`:**
+        *   Added a "Paper Size" ComboBox that is dynamically populated with the supported paper sizes of the currently selected printer.
+        *   The selected paper size is now saved to and loaded from the profile's JSON file.
+        *   The "Test Print" functionality now passes the selected paper size to the printing logic.
+    *   **`Services/SignalRService.cs`:**
+        *   Updated `TestPrintAsync` to accept a `paperSize` parameter.
+        *   The `PrintStandardTestPageAsync` method now sets the `DefaultPageSettings.PaperSize` on the `PrintDocument` before printing, ensuring the test page is formatted correctly for the selected paper size.
+*   **Backend (.NET API):**
+    *   **`Models/Printer.cs`:** Added a nullable `PaperSize` string property to the `Printer` entity.
+    *   **Database Migration:** Created and applied the `AddPaperSizeToPrinter` migration to update the database schema.
+    *   **DTOs:** Added the `PaperSize` property to `PrinterDto.cs` and `PrinterUpsertDto.cs`.
+    *   **`Services/PrinterService.cs`:** Updated the service to handle the `PaperSize` property during CRUD operations and to pass it to the `PdfService`.
+    *   **`Services/Interfaces/IPdfService.cs`:** Updated the interface to accept an optional `paperSize` parameter.
+    *   **`Services/PdfService.cs`:**
+        *   The `CreatePdfFromHtmlAsync` method now accepts the `paperSize` parameter.
+        *   Added logic to convert the paper size string (e.g., "A5") into the corresponding `PaperFormat` enum required by PuppeteerSharp.
+        *   The generated PDF now uses the specified paper size, resolving the original printing issue.
+*   **Troubleshooting:**
+    *   Resolved a `HostAbortedException` during `dotnet ef` tool execution by temporarily commenting out Serilog and Puppeteer download logic in `Program.cs` to isolate the issue, which was related to the tool's interaction with the application host builder. The migration was successfully applied once the root cause was managed.
+**Key Decisions:**
+*   Paper size is now a configurable option for both local test prints (via Windows profiles) and server-side PDF generation (via Admin UI).
+*   The system gracefully handles unsupported paper sizes by logging a warning and using the default.
+**Outcome:** The application now correctly handles different paper sizes for standard printers, ensuring that documents like receipts and comandas are printed correctly without being cut off.
+
 ## (2025-06-26) - Integrated Profile Name Field in Windows Printer Service Settings
 **Context:** Modified the Windows Printer Service to include the profile name as a field within the settings form instead of using a separate dialog window, improving the user experience by providing a unified interface.
 **Accomplishments:**

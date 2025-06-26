@@ -52,6 +52,22 @@
 *   Implemented client-side dialogs with proper flexbox and overflow handling to prevent UI elements from becoming unreachable with long content.
 **Outcome:** The system now provides a comprehensive and user-friendly interface for managing and previewing print templates, with improved UI stability for dialogs.
 
+## (2025-06-26) - Implemented Frontend Printer Paper Size Configuration
+**Context:** Extended the Admin UI to allow configuration of the `PaperSize` for printers, specifically for HTML/PDF document types, to ensure correct rendering on standard printers.
+**Accomplishments:**
+*   **Type Definitions:**
+    *   Updated `PrinterDto` and `PrinterUpsertDto` in `src/types/index.ts` to include the `paperSize: string | null;` property.
+*   **Printer Form Dialog (`src/components/admin/PrinterFormDialog.tsx`):**
+    *   Added a "Formato Carta" (Paper Size) dropdown field with common paper sizes (A4, A5, Letter, Legal, Tabloid).
+    *   Implemented conditional rendering: the "Paper Size" field is only visible when "Document Type" is set to "HTML/PDF".
+    *   Added `zod` validation to make `paperSize` mandatory when `documentType` is `HtmlPdf`.
+    *   Updated form schema, default values, and `onSubmit` logic to handle the new `paperSize` field, ensuring `null` is sent if the field is empty.
+**Key Decisions:**
+*   Used a dropdown for paper size to provide a better user experience and ensure valid inputs, rather than a free-text field.
+*   Maintained conditional rendering to keep the UI clean and relevant to the selected printer document type.
+*   Ensured frontend types align with backend DTOs for seamless data transfer.
+**Outcome:** The Admin UI now allows administrators to specify the paper size for HTML/PDF printers, which is crucial for correct document generation by the backend PDF service.
+
 ## (2025-06-25) - Implemented Frontend Printer Document Type Configuration
 **Context:** Extended the Admin UI to allow configuration of the `DocumentType` for printers, enabling support for both ESC/POS and HTML/PDF templates. This involved updating type definitions and modifying the printer management form and list.
 **Accomplishments:**
@@ -63,7 +79,7 @@
     *   Reordered fields to place "Tipo Documento" before "Tipo Connessione" for better logical flow.
     *   Implemented conditional logic: if "Tipo Documento" is set to "HTML/PDF", the "Tipo Connessione" is automatically set to "Windows (tramite Companion App)" and disabled, as HTML/PDF printing requires the Windows Companion App.
     *   Updated form schema, default values, and `onSubmit` logic to handle the new `documentType` field.
-*   **Printer List Page (`src/app/app/org/[orgId]/admin/printers/page.tsx`):**
+*   **Printer List Page (`src/app/app/org/[orgId]/admin/printers/page.tsx`):
     *   Added a new column "Tipo Documento" to the printers table.
     *   Reordered columns to match the form's new logical order (ID, Nome, Tipo Documento, Tipo Connessione, Connessione, Modalità di Stampa, Abilitata, Azioni).
     *   Added a helper function `renderDocumentType` to display the enum value as a readable string.

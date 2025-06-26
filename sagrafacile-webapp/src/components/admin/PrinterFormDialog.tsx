@@ -37,8 +37,17 @@ const formSchema = z.object({
   type: z.nativeEnum(PrinterType, { required_error: "Il tipo di stampante è obbligatorio." }),
   documentType: z.nativeEnum(DocumentType, { required_error: "Il tipo di documento è obbligatorio." }),
   connectionString: z.string().min(1, { message: "La stringa di connessione o il GUID sono obbligatori." }),
+  paperSize: z.string().optional(),
   isEnabled: z.boolean(),
   printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }),
+}).refine(data => {
+    if (data.documentType === DocumentType.HtmlPdf && (!data.paperSize || data.paperSize.trim() === '')) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Il formato carta (es. A4, A5) è obbligatorio per il tipo di documento HTML/PDF.",
+    path: ["paperSize"],
 }).refine(data => {
   if (data.type === PrinterType.Network) {
     // Validazione di base: controlla il pattern qualcosa:numero
@@ -79,6 +88,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       name: '',
       type: undefined,
       connectionString: '',
+      paperSize: '',
       isEnabled: true,
       printMode: PrintMode.Immediate, // Default to Immediate
       documentType: DocumentType.EscPos,
@@ -97,6 +107,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: printerToEdit.name,
           type: printerToEdit.type,
           connectionString: printerToEdit.connectionString,
+          paperSize: printerToEdit.paperSize,
           isEnabled: printerToEdit.isEnabled,
           printMode: printerToEdit.printMode, // Set printMode in edit mode
           documentType: printerToEdit.documentType,
@@ -106,6 +117,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: '',
           type: undefined,
           connectionString: '', // Mantiene vuoto inizialmente per l'aggiunta
+          paperSize: '',
           isEnabled: true,
           printMode: PrintMode.Immediate, // Default for new printers
           documentType: DocumentType.EscPos,
@@ -161,6 +173,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       organizationId: orgId,
       printMode: values.printMode, // Added printMode to dataToSend
       documentType: values.documentType,
+      paperSize: values.paperSize ?? null,
     };
 
     try {
@@ -290,6 +303,40 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
                 </FormItem>
               )}
             />
+
+            {documentType === DocumentType.HtmlPdf && (
+              <FormField
+                control={form.control}
+                name="paperSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Formato Carta*</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                      defaultValue={field.value ?? undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona un formato carta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="A4">A4</SelectItem>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="Letter">Letter</SelectItem>
+                        <SelectItem value="Legal">Legal</SelectItem>
+                        <SelectItem value="Tabloid">Tabloid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Specifica il formato della carta per la stampante. Obbligatorio per HTML/PDF.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {/* Render condizionale per Modalità di Stampa */}
             {printerType === PrinterType.WindowsUsb && (

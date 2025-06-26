@@ -32,7 +32,8 @@ namespace SagraFacile.WindowsPrinterService
             // Ensure profiles directory exists (it should, but good practice)
             Directory.CreateDirectory(_profilesDirectory);
 
-            PopulatePrinters(); 
+            PopulatePrinters();
+            PopulatePrinterTypeComboBox();
             _currentSettings = LoadProfileSettings(_currentProfileName);
             PopulateControlsFromSettings();
 
@@ -45,11 +46,6 @@ namespace SagraFacile.WindowsPrinterService
                 this.Text = $"Modifica Profilo: {profileName}";
             }
 
-            if (this.Controls.Find("btnGenerateGuid", true).FirstOrDefault() is Button btnGenGuid)
-            {
-                btnGenGuid.Click += BtnGenerateGuid_Click;
-            }
-
             buttonSave.Click += ButtonSave_Click;
             buttonCancel.Click += ButtonCancel_Click;
 
@@ -58,6 +54,7 @@ namespace SagraFacile.WindowsPrinterService
                 btnTest.Click += BtnTestPrinter_Click;
             }
             this.Load += SettingsForm_Load;
+            this.comboBoxPrinters.SelectedIndexChanged += new System.EventHandler(this.comboBoxPrinters_SelectedIndexChanged);
         }
 
         private void SettingsForm_Load(object? sender, EventArgs e)
@@ -76,6 +73,54 @@ namespace SagraFacile.WindowsPrinterService
             foreach (string printer in PrinterSettings.InstalledPrinters)
             {
                 comboBoxPrinters.Items.Add(printer);
+            }
+        }
+
+        private void PopulatePrinterTypeComboBox()
+        {
+            cboPrinterType.DataSource = Enum.GetValues(typeof(LocalPrinterType))
+                .Cast<LocalPrinterType>()
+                .Select(p => new { Name = p.ToString(), Value = p })
+                .ToList();
+            cboPrinterType.DisplayMember = "Name";
+            cboPrinterType.ValueMember = "Value";
+        }
+
+        private void comboBoxPrinters_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            PopulatePaperSizes();
+        }
+
+        private void PopulatePaperSizes()
+        {
+            string? selectedPrinterName = comboBoxPrinters.SelectedItem?.ToString();
+            var cboPaperSize = this.Controls.Find("cboPaperSize", true).FirstOrDefault() as ComboBox;
+
+            if (string.IsNullOrEmpty(selectedPrinterName) || cboPaperSize == null)
+            {
+                cboPaperSize?.Items.Clear();
+                return;
+            }
+
+            string? currentSelection = cboPaperSize.SelectedItem?.ToString();
+            cboPaperSize.Items.Clear();
+            try
+            {
+                PrintDocument pd = new PrintDocument();
+                pd.PrinterSettings.PrinterName = selectedPrinterName;
+                foreach (PaperSize ps in pd.PrinterSettings.PaperSizes)
+                {
+                    cboPaperSize.Items.Add(ps.PaperName);
+                }
+
+                if (cboPaperSize.Items.Contains(currentSelection))
+                {
+                    cboPaperSize.SelectedItem = currentSelection;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Could not get paper sizes for printer '{selectedPrinterName}': {ex.Message}");
             }
         }
 
@@ -108,6 +153,21 @@ namespace SagraFacile.WindowsPrinterService
             if (this.Controls.Find("chkAutoStart", true).FirstOrDefault() is CheckBox chkAutoStartCtrl)
             {
                 chkAutoStartCtrl.Checked = _currentSettings.AutoStartEnabled;
+            }
+
+            // Populate printer type
+            cboPrinterType.SelectedValue = _currentSettings.PrinterType;
+
+            // Populate paper sizes based on selected printer and set saved value
+            PopulatePaperSizes();
+            var cboPaperSize = this.Controls.Find("cboPaperSize", true).FirstOrDefault() as ComboBox;
+            if (cboPaperSize != null && !string.IsNullOrEmpty(_currentSettings.PaperSize) && cboPaperSize.Items.Contains(_currentSettings.PaperSize))
+            {
+                cboPaperSize.SelectedItem = _currentSettings.PaperSize;
+            }
+            else if (cboPaperSize != null && cboPaperSize.Items.Count > 0)
+            {
+                cboPaperSize.SelectedIndex = 0; // Select the first item if no saved size or saved size not found
             }
         }
 
@@ -184,7 +244,9 @@ namespace SagraFacile.WindowsPrinterService
                 HubHostAndPort = hubHostAndPort,
                 InstanceGuid = instanceGuid,
                 // Assuming chkAutoStart is the name of the CheckBox added in the designer
-                AutoStartEnabled = (this.Controls.Find("chkAutoStart", true).FirstOrDefault() is CheckBox chkAutoStartCtrl) && chkAutoStartCtrl.Checked
+                AutoStartEnabled = (this.Controls.Find("chkAutoStart", true).FirstOrDefault() is CheckBox chkAutoStartCtrl) && chkAutoStartCtrl.Checked,
+                PrinterType = (LocalPrinterType)(cboPrinterType.SelectedValue ?? LocalPrinterType.Standard),
+                PaperSize = (this.Controls.Find("cboPaperSize", true).FirstOrDefault() as ComboBox)?.SelectedItem?.ToString()
             };
 
             string profilePath = Path.Combine(_profilesDirectory, $"{profileNameToSave}.json");
@@ -273,14 +335,6 @@ namespace SagraFacile.WindowsPrinterService
             this.Close();
         }
 
-        private void BtnGenerateGuid_Click(object? sender, EventArgs e)
-        {
-            if (this.Controls.Find("txtInstanceGuid", true).FirstOrDefault() is TextBox txtInstanceGuid)
-            {
-                txtInstanceGuid.Text = Guid.NewGuid().ToString();
-            }
-        }
-
         private async void BtnTestPrinter_Click(object? sender, EventArgs e)
         {
             string? selectedPrinter = comboBoxPrinters.SelectedItem?.ToString();
@@ -307,7 +361,10 @@ namespace SagraFacile.WindowsPrinterService
 
             try
             {
-                bool success = await SignalRServiceInstance.TestPrintAsync(selectedPrinter, testData);
+                var printerType = (LocalPrinterType)(cboPrinterType.SelectedValue ?? LocalPrinterType.Standard);
+                var cboPaperSize = this.Controls.Find("cboPaperSize", true).FirstOrDefault() as ComboBox;
+                string? paperSize = cboPaperSize?.SelectedItem?.ToString();
+                bool success = await SignalRServiceInstance.TestPrintAsync(selectedPrinter, testData, printerType, paperSize);
                 if (success)
                 {
                     MessageBox.Show($"Test di stampa inviato con successo a '{selectedPrinter}'.", "Test Stampa", MessageBoxButtons.OK, MessageBoxIcon.Information);

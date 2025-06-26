@@ -13,5 +13,6 @@ namespace SagraFacile.NET.API.DTOs
         public bool IsEnabled { get; set; }
         public PrintMode PrintMode { get; set; } // Added PrintMode
         public DocumentType DocumentType { get; set; }
+        public string? PaperSize { get; set; }
     }
 }

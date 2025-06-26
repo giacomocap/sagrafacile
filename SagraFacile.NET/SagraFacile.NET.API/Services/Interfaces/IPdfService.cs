@@ -4,6 +4,6 @@ namespace SagraFacile.NET.API.Services.Interfaces
 {
     public interface IPdfService
     {
-        Task<byte[]> CreatePdfFromHtmlAsync(Order order, string htmlTemplate);
+        Task<byte[]> CreatePdfFromHtmlAsync(Order order, string htmlTemplate, string? paperSize = null);
     }
 }

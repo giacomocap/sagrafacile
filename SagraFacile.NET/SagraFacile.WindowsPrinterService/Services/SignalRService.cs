@@ -12,6 +12,7 @@ using System.Text.Json.Serialization; // For JsonStringEnumConverter
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Drawing.Printing;
 // using SagraFacile.WindowsPrinterService; // No longer needed directly if SettingsForm doesn't expose static config methods
 
 namespace SagraFacile.WindowsPrinterService.Services
@@ -501,7 +502,61 @@ namespace SagraFacile.WindowsPrinterService.Services
             }
             if (_hubConnection != null)
             {
-                await _hubConnection.StopAsync(); 
+                await _hubConnection.StopAsync();
+            }
+        }
+
+        private Task<bool> PrintStandardTestPageAsync(string printerName, string testData, string? paperSizeName)
+        {
+            try
+            {
+                var printDoc = new PrintDocument();
+                printDoc.PrinterSettings.PrinterName = printerName;
+                printDoc.DocumentName = "SagraFacile Test Print";
+
+                if (!string.IsNullOrEmpty(paperSizeName))
+                {
+                    bool paperSizeFound = false;
+                    foreach (PaperSize ps in printDoc.PrinterSettings.PaperSizes)
+                    {
+                        if (ps.PaperName == paperSizeName)
+                        {
+                            printDoc.DefaultPageSettings.PaperSize = ps;
+                            paperSizeFound = true;
+                            break;
+                        }
+                    }
+                    if (!paperSizeFound)
+                    {
+                        _logger.LogWarning($"Paper size '{paperSizeName}' not found for printer '{printerName}'. Using printer default.");
+                    }
+                }
+
+                string contentToPrint = testData;
+
+                printDoc.PrintPage += (sender, e) =>
+                {
+                    if (e.Graphics == null) return;
+                    using (var font = new Font("Arial", 12))
+                    using (var brush = new SolidBrush(Color.Black))
+                    {
+                        e.Graphics.DrawString(
+                            contentToPrint,
+                            font,
+                            brush,
+                            new PointF(50, 50)
+                        );
+                    }
+                };
+
+                printDoc.Print();
+                _logger.LogInformation($"Successfully spooled GDI test print job to standard printer {printerName}.");
+                return Task.FromResult(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to print test page to standard printer {printerName}.");
+                return Task.FromResult(false);
             }
         }
 
@@ -526,13 +581,13 @@ namespace SagraFacile.WindowsPrinterService.Services
         public async Task RestartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"SignalRService restarting... (Profilo: {_activeProfileSettings?.ProfileName})");
-            OnConnectionStatusChanged("Riavvio del servizio in corso..."); 
-            await StopAsync(); 
-            await Task.Delay(500, cancellationToken); 
+            OnConnectionStatusChanged("Riavvio del servizio in corso...");
+            await StopAsync();
+            await Task.Delay(500, cancellationToken);
             await StartAsync(cancellationToken);
         }
 
-        public async Task<bool> TestPrintAsync(string printerName, string testData)
+        public async Task<bool> TestPrintAsync(string printerName, string testData, LocalPrinterType printerType, string? paperSize)
         {
             if (string.IsNullOrWhiteSpace(printerName))
             {
@@ -545,23 +600,37 @@ namespace SagraFacile.WindowsPrinterService.Services
                 return false;
             }
 
-            _logger.LogInformation($"Attempting test print to printer: {printerName} (Profilo: {_activeProfileSettings?.ProfileName})");
+            _logger.LogInformation($"Attempting test print to printer: {printerName} (Profilo: {_activeProfileSettings?.ProfileName}, Tipo: {printerType})");
+
             try
             {
-                bool success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(testData)); 
-                if (success)
+                bool success;
+                if (printerType == LocalPrinterType.Standard)
                 {
-                    _logger.LogInformation($"Test print sent successfully to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogInformation("Using standard GDI printing method for local test print.");
+                    success = await PrintStandardTestPageAsync(printerName, testData, paperSize);
                 }
                 else
                 {
-                    _logger.LogError($"Failed to send test print to printer {printerName}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogInformation("Using raw ESC/POS printing method for local test print.");
+                    // Ensure test data for ESC/POS includes cut command if needed
+                    string escPosTestData = testData + "\n\n\n\n\x1D\x56\x00"; // Add paper cut command
+                    success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(escPosTestData));
+                }
+
+                if (success)
+                {
+                    _logger.LogInformation($"Test print sent successfully to printer {printerName}.");
+                }
+                else
+                {
+                    _logger.LogError($"Failed to send test print to printer {printerName}.");
                 }
                 return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Exception during test print to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogError(ex, $"Exception during test print to printer {printerName}.");
                 return false;
             }
         }

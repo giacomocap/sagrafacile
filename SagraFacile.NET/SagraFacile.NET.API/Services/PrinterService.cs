@@ -126,7 +126,8 @@ namespace SagraFacile.NET.API.Services
                 IsEnabled = printerDto.IsEnabled,
                 OrganizationId = printerDto.OrganizationId,
                 PrintMode = printerDto.PrintMode,
-                DocumentType = printerDto.DocumentType
+                DocumentType = printerDto.DocumentType,
+                PaperSize = printerDto.PaperSize
             };
 
             _context.Printers.Add(printer);
@@ -184,6 +185,7 @@ namespace SagraFacile.NET.API.Services
             existingPrinter.IsEnabled = printerDto.IsEnabled;
             existingPrinter.PrintMode = printerDto.PrintMode;
             existingPrinter.DocumentType = printerDto.DocumentType;
+            existingPrinter.PaperSize = printerDto.PaperSize;
 
             try
             {
@@ -265,7 +267,8 @@ namespace SagraFacile.NET.API.Services
                 IsEnabled = printer.IsEnabled,
                 OrganizationId = printer.OrganizationId,
                 PrintMode = printer.PrintMode,
-                DocumentType = printer.DocumentType
+                DocumentType = printer.DocumentType,
+                PaperSize = printer.PaperSize
             };
         }
 
@@ -518,7 +521,7 @@ namespace SagraFacile.NET.API.Services
                     return Array.Empty<byte>();
                 }
 
-                return await _pdfService.CreatePdfFromHtmlAsync(order, template.HtmlContent);
+                return await _pdfService.CreatePdfFromHtmlAsync(order, template.HtmlContent, printer.PaperSize);
             }
             else // Default to EscPos
             {

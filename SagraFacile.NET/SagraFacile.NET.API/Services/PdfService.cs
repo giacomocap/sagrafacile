@@ -6,6 +6,7 @@ using QRCoder;
 using System.IO;
 using System;
 using System.Linq;
+using PuppeteerSharp.Media;
 
 namespace SagraFacile.NET.API.Services
 {
@@ -18,7 +19,7 @@ namespace SagraFacile.NET.API.Services
             _logger = logger;
         }
 
-        public async Task<byte[]> CreatePdfFromHtmlAsync(Order order, string htmlTemplate)
+        public async Task<byte[]> CreatePdfFromHtmlAsync(Order order, string htmlTemplate, string? paperSize = null)
         {
             try
             {
@@ -38,12 +39,27 @@ namespace SagraFacile.NET.API.Services
                 var finalHtml = await template.RenderAsync(scribanModel);
 
                 // 2. Generate PDF from HTML using Puppeteer Sharp
-                await new BrowserFetcher().DownloadAsync();
-                await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true });
+                // The browser fetch should be done at startup, not per-request.
+                await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions { Headless = true, Args = new[] { "--no-sandbox" } });
                 await using var page = await browser.NewPageAsync();
                 
                 await page.SetContentAsync(finalHtml);
-                var pdfData = await page.PdfDataAsync();
+
+                var pdfOptions = new PdfOptions();
+                if (!string.IsNullOrEmpty(paperSize))
+                {
+                    var format = GetPaperFormat(paperSize);
+                    if (format is not null)
+                    {
+                        pdfOptions.Format = format;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Unsupported paper size '{PaperSize}'. Using default.", paperSize);
+                    }
+                }
+
+                var pdfData = await page.PdfDataAsync(pdfOptions);
 
                 return pdfData;
             }
@@ -69,6 +85,25 @@ namespace SagraFacile.NET.API.Services
                 _logger.LogError(ex, "Failed to generate QR code for Order ID: {OrderId}", orderId);
                 return string.Empty; // Return empty string if QR generation fails
             }
+        }
+
+        private static PaperFormat? GetPaperFormat(string paperSize)
+        {
+            return paperSize.ToLowerInvariant() switch
+            {
+                "a4" => PaperFormat.A4,
+                "a5" => PaperFormat.A5,
+                "letter" => PaperFormat.Letter,
+                "legal" => PaperFormat.Legal,
+                "tabloid" => PaperFormat.Tabloid,
+                "ledger" => PaperFormat.Ledger,
+                "a0" => PaperFormat.A0,
+                "a1" => PaperFormat.A1,
+                "a2" => PaperFormat.A2,
+                "a3" => PaperFormat.A3,
+                "a6" => PaperFormat.A6,
+                _ => null,
+            };
         }
     }
 }
