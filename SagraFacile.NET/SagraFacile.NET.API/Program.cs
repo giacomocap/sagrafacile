@@ -12,23 +12,23 @@ using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Models.Enums;
 using PuppeteerSharp; // Added for Puppeteer
-// using Serilog; // Added for Serilog
+using Serilog; // Added for Serilog
 
 // Ensure extended encodings are available
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // --- Serilog Bootstrap Logger ---
-// Log.Logger = new LoggerConfiguration()
-//     .MinimumLevel.Debug() // More verbose for bootstrap
-//     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components during bootstrap
-//     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
-//     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information)
-//     .Enrich.FromLogContext()
-//     .Enrich.WithMachineName()
-//     .Enrich.WithThreadId()
-//     .WriteTo.Console(outputTemplate: // Structured console output for Docker
-//         "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
-//     .CreateBootstrapLogger();
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug() // More verbose for bootstrap
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components during bootstrap
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithThreadId()
+    .WriteTo.Console(outputTemplate: // Structured console output for Docker
+        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
+    .CreateBootstrapLogger();
 // --- End Serilog Bootstrap Logger ---
 
 try // Added for Serilog try-finally block
@@ -38,15 +38,15 @@ try // Added for Serilog try-finally block
     var builder = WebApplication.CreateBuilder(args);
 
     // --- Configure Serilog for WebApplicationBuilder ---
-    // builder.Host.UseSerilog((context, services, configuration) => configuration
-    //     .MinimumLevel.Debug() // More verbose for general logging
-    //     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components
-    //     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information) // Explicitly set EF command logs to Information
-    //     .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
-    //     .ReadFrom.Services(services)
-    //     .Enrich.FromLogContext()
-    //     .Enrich.WithMachineName()
-    //     .Enrich.WithThreadId());
+    builder.Host.UseSerilog((context, services, configuration) => configuration
+        .MinimumLevel.Debug() // More verbose for general logging
+        .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information) // Explicitly set EF command logs to Information
+        .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
+        .ReadFrom.Services(services)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId());
     // --- End Configure Serilog for WebApplicationBuilder ---
 
     // Define CORS policy name

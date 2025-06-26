@@ -3,6 +3,26 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-26) - Implemented HTML/PDF Test Print & Fixed SignalR Message Format
+**Context:** Addressed an issue where test prints for HTML/PDF printers were failing due to missing templates and an incorrect SignalR message format to the Windows Printer Service.
+**Accomplishments:**
+*   **Created Test Print HTML Template:**
+    *   Added `SagraFacile.NET/SagraFacile.NET.API/PrintTemplates/Html/test-print.html`.
+    *   This template provides a detailed, professional-looking test document for HTML/PDF printers.
+*   **Enhanced `PrinterService.cs`:**
+    *   Implemented `GenerateTestHtmlContent()` method to dynamically load and populate the new `test-print.html` template using Scriban.
+    *   Added `GenerateFallbackTestHtml()` for robustness if the embedded template is not found.
+    *   Introduced `CreateSampleOrderForTest()` to provide necessary sample data for PDF generation during test prints.
+    *   Modified `GeneratePrintContentAsync()` to correctly use these new methods for `PrintJobType.TestPrint` when `DocumentType.HtmlPdf` is selected.
+*   **Fixed SignalR Message Format:**
+    *   Updated the `SendToPrinterAsync()` method to include the `contentType` parameter in the SignalR `PrintJob` message sent to the Windows Printer Service. The message now sends `(jobId, data, contentType)`, where `contentType` is either `"application/pdf"` or `"application/vnd.escpos"` based on the printer's `DocumentType`.
+    *   Added detailed logging to `SendToPrinterAsync()` to confirm the SignalR message parameters being sent.
+**Key Decisions:**
+*   Reused the existing embedded resource and Scriban templating approach for the new test print HTML, maintaining consistency.
+*   Ensured the SignalR message format aligns with the documented expectations for the Windows Printer Service, enabling proper content type handling on the client side.
+*   Provided a robust fallback mechanism for the test print HTML template.
+**Outcome:** The backend API now correctly generates HTML/PDF test prints and sends them with the appropriate content type via SignalR. The next step is to ensure the Windows Printer Service correctly receives and processes this enhanced message.
+
 ## (2025-06-26) - Added Paper Size Configuration for Standard Printers (Backend & Companion App)
 **Context:** A user reported that test prints on A5 paper from a standard laser printer were cut off, indicating a paper size mismatch. This required adding paper size configuration to both the Windows Printer Service (for local tests) and the backend API (for server-generated PDF documents).
 **Accomplishments:**
@@ -222,275 +242,6 @@
 *   **Testing:** Write Integration Tests (`SagraFacile.NET.API.Tests.Integration`) for API endpoints and service logic. Manual testing by the user is also crucial for workflow validation. Aim for comprehensive integration test coverage.
 *   **Memory:** Update this `ProjectMemory.md` file at the end of each session, summarizing accomplishments, key decisions, identified issues, and agreed-upon next steps. Reference `DataStructures.md` and `ApiRoutes.md` when discussing models or endpoints.
 *   **Code Style:** Follow standard C# and ASP.NET Core conventions. Use dependency injection throughout.
-
----
-# Session Summaries (Newest First)
-
-## (2025-06-16) - Completed Backend Implementation for Charts & Analytics
-**Context:** Completed Phase 9 (Backend) for the Charts & Analytics Dashboard feature as outlined in `docs/ChartsAnalyticsArchitecture.md` and `Roadmap.md`.
-**Accomplishments:**
-*   **DTOs Finalized:** All Data Transfer Objects for analytics are in place, including the new `OrderStatusTimelineEventDto.cs`. `SalesTrendDataDto.cs` and `AverageOrderValueTrendDto.cs` were updated to use nullable `DayId`.
-*   **Service Layer (`IAnalyticsService` and `AnalyticsService.cs`):**
-    *   The `IAnalyticsService.cs` interface was updated to include `GetOrderStatusTimelineAsync`.
-    *   The `AnalyticsService.cs` was fully implemented with data querying and business logic for all defined analytics methods:
-        *   `GetDashboardKPIsAsync`
-        *   `GetSalesTrendAsync`
-        *   `GetOrderStatusDistributionAsync`
-        *   `GetTopMenuItemsAsync`
-        *   `GetOrdersByHourAsync`
-        *   `GetPaymentMethodDistributionAsync`
-        *   `GetAverageOrderValueTrendAsync`
-        *   `GetOrderStatusTimelineAsync` (Note: This implementation is simplified due to the `Order` model lacking individual status transition timestamps. It currently provides one event per order based on `OrderDateTime`.)
-    *   Implemented a helper method `GetTargetDayAsync` for consistent operational day resolution.
-    *   Corrected minor bugs related to nullable types and string checks.
-*   **Report Generation:**
-    *   `GenerateDailySummaryReportAsync` and `GenerateAreaPerformanceReportAsync` now produce basic text-based reports. PDF/Excel generation remains a future enhancement.
-*   **Controller (`AnalyticsController.cs`):** Endpoints defined in the previous session now have corresponding service logic.
-**Key Decisions & Notes:**
-*   The `GetOrderStatusTimelineAsync` method's detail is limited by the current `Order` model. For a more granular timeline, the `Order` model would need to be augmented with specific timestamps for each status change, or a dedicated `OrderStatusHistory` table would be required.
-*   Report generation is currently text-based. Integration of a PDF/Excel library is a separate future task if richer report formats are needed.
-*   All queries consider relevant order statuses (e.g., excluding PreOrder, Pending, Cancelled for sales analytics).
-**Next Steps:**
-*   Proceed with Phase 9.3: Frontend foundation setup for charts and analytics.
-*   User to review and test the implemented backend analytics endpoints.
-
-## (2025-06-16) - Implemented Backend Foundation for Charts & Analytics
-**Context:** Initiated Phase 9: Charts & Analytics Dashboard, focusing on the backend foundational structure as per `docs/ChartsAnalyticsArchitecture.md`.
-**Accomplishments:**
-*   **DTOs Created:** All necessary Data Transfer Objects for analytics were created in `SagraFacile.NET.API/DTOs/Analytics/`:
-    *   `DashboardKPIsDto.cs`
-    *   `SalesTrendDataDto.cs`
-    *   `OrderStatusDistributionDto.cs`
-    *   `TopMenuItemDto.cs`
-    *   `OrdersByHourDto.cs`
-    *   `PaymentMethodDistributionDto.cs`
-    *   `AverageOrderValueTrendDto.cs`
-*   **Service Layer:**
-    *   Created `IAnalyticsService.cs` interface in `SagraFacile.NET.API/Services/` defining all required methods.
-    *   Created a skeleton implementation `AnalyticsService.cs` in `SagraFacile.NET.API/Services/`, adhering to the existing `BaseService` pattern (injecting `ApplicationDbContext`, `IHttpContextAccessor`, `ILogger`) and including authorization checks.
-*   **Controller:**
-    *   Created `AnalyticsController.cs` in `SagraFacile.NET.API/Controllers/` with all API endpoints as specified in the architecture.
-    *   Ensured controller patterns (error handling, response types) align with other controllers like `AreasController.cs`.
-    *   Applied `[Authorize(Roles = "Admin,SuperAdmin")]` to protect all analytics endpoints.
-*   **Dependency Injection:**
-    *   Registered `IAnalyticsService` and `AnalyticsService` in `SagraFacile.NET.API/Program.cs`.
-**Key Decisions:**
-*   Organized analytics DTOs into a dedicated `Analytics` subfolder.
-*   Ensured the new service and controller adhere to established project patterns for consistency, including how `BaseService` is utilized for user context and authorization.
-*   Controller-level logging was initially added then removed from `AnalyticsController` to maintain consistency with other controllers where logging is primarily handled in the service layer.
-**Next Steps:**
-*   Implement the actual data querying and business logic within each method of `AnalyticsService.cs`.
-*   Begin frontend implementation for Phase 9.
-
-## (2025-06-15) - Fixed Printer Character Encoding for Euro & Accented Characters
-**Context:** Euro symbol (€) and accented characters (à, è, ì, ò, ù, etc.) were printing incorrectly on thermal receipts and comandas. The printer manual indicated support for an IBM code page at index 14.
-**Accomplishments:**
-*   **Identified Correct Code Page:** User confirmed via printer manual that code page 14 (likely a variant of IBM CP858) was the correct one for their printer.
-*   **`EscPosDocumentBuilder.cs` Update:**
-    *   Modified the constructor and `InitializePrinter()` method to default to `(CodePage)14`. This ensures all documents (receipts, comandas, test prints) use this code page by default.
-*   **`PrinterService.cs` Update:**
-    *   Removed an explicit selection of `CodePage.PC858_EURO` (which corresponds to code page 19) from the receipt generation logic in `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync`. This allows the builder's new default (CP 14) to be used consistently.
-    *   The `SendTestPrintAsync` method was initially updated to test CP14, and this explicit selection remains for clarity during test prints, though it's now redundant with the builder's default.
-**Key Decisions:**
-*   Standardized on Code Page 14 for all ESC/POS document generation based on printer manual and successful testing.
-*   Made Code Page 14 the default in `EscPosDocumentBuilder` for system-wide consistency.
-**Outcome:** Euro symbol and accented characters now print correctly on all thermal printer outputs.
-
-## (2025-06-15) - Refactored Windows Printer Name Handling
-**Context:** The `WindowsPrinterName` for `WindowsUsb` type printers was previously managed and stored in the backend database and sent to the Windows Printer Service companion app. This created redundancy as the companion app already manages the specific Windows printer to use via its local profiles (`SelectedPrinter` in `ProfileSettings`).
-**Accomplishments:**
-*   **Backend (`SagraFacile.NET.API`):**
-    *   Removed `WindowsPrinterName` from the `Printer` entity/model (implicitly, by no longer using it in services).
-    *   Removed `WindowsPrinterName` from `PrinterDto` and `PrinterUpsertDto`.
-    *   `PrinterService.cs`:
-        *   Modified `CreatePrinterAsync` and `UpdatePrinterAsync` to no longer handle `WindowsPrinterName`.
-        *   `MapPrinterToDto` no longer maps `WindowsPrinterName`.
-        *   `SendToPrinterAsync` for `WindowsUsb` printers no longer sends `WindowsPrinterName` as an argument in the SignalR `PrintJob` message to the companion app. The message now only contains `jobId` and `byte[] rawData`.
-        *   `GetPrinterConfigAsync` (called by companion app) now only returns `PrintMode`. The companion app is responsible for knowing its own target printer name from its profile.
-        *   `SendTestPrintAsync` no longer includes `WindowsPrinterName` in the generated test print slip.
-    *   `IPrinterService.cs`: Updated `GetPrinterConfigAsync` signature to return `Task<PrintMode?>`.
-    *   `PrintersController.cs`:
-        *   Adjusted `GetPrinterConfig` endpoint to reflect the new return type from the service and now returns only `PrintMode` to the companion app.
-        *   Adjusted `PostPrinter` to correctly map `PrintMode` to `PrinterDto` and no longer map `WindowsPrinterName`.
-*   **Windows Printer Service (`SagraFacile.WindowsPrinterService`):**
-    *   `SignalRService.cs`:
-        *   `FetchPrinterConfigurationAsync`: Now retrieves only `PrintMode` from the backend. `_configuredWindowsPrinterName` is now set using the `_activeProfileSettings.SelectedPrinter` (the printer name selected in the companion app's profile).
-        *   The SignalR `PrintJob` message handler registration (`_hubConnection.On`) was updated to expect only `jobId` and `rawData` from the backend.
-        *   `HandlePrintJobAsync` method signature updated accordingly. It now uses `_configuredWindowsPrinterName` (derived from the active profile) to determine the target printer for `_rawPrinter.PrintRawAsync`.
-        *   `PrintQueuedJobAsync` now uses `_configuredWindowsPrinterName` (or `_activeProfileSettings.SelectedPrinter`) instead of a printer name from the `PrintJobItem`.
-    *   `Models/PrinterConfigDto.cs`: Removed `WindowsPrinterName` property, as it's no longer sent by the backend.
-    *   `Models/PrintJobItem.cs`: Removed `TargetWindowsPrinterName` property and updated constructor. The printer to use is determined by the active profile in `SignalRService`.
-**Key Decisions:**
-*   Centralized the responsibility of knowing the specific Windows printer name to the Windows Printer Service companion app's profile system.
-*   Simplified the backend by removing `WindowsPrinterName` from its storage and DTOs for `WindowsUsb` printers.
-*   Reduced data transfer between backend and companion app.
-**Outcome:** The companion app now solely relies on its local profile settings (`SelectedPrinter`) to determine which Windows printer to use for print jobs received via SignalR. The backend no longer manages or dictates this specific Windows printer name.
-
-## (2025-06-15) - Resolved Docker Permissions for API Media Uploads
-**Context:** The .NET API service, when running in Docker, encountered `System.UnauthorizedAccessException` when attempting to save uploaded ad media to `/app/wwwroot/media/promo`. This was due to the application user (`$APP_UID`) lacking write permissions to the target directory.
-**Accomplishments:**
-*   **Diagnosed Permission Issue:** Identified that the non-root user specified in the API's Dockerfile (`USER $APP_UID`) did not have write access to the `wwwroot/media` directory after it was copied during the image build.
-*   **Dockerfile Modification (`SagraFacile.NET/SagraFacile.NET.API/Dockerfile`):**
-    *   The `final` stage was updated to correctly prepare the media directory.
-    *   Added `USER root` before creating the `/app/wwwroot/media/promo` directory and setting its ownership to `$APP_UID:$APP_UID` and permissions to `755`.
-    *   Switched back to `USER $APP_UID` after these operations to ensure the application runs with the intended non-root user. This resolved a build failure where `mkdir` was denied permission when run as `$APP_UID`.
-*   **Docker Compose Update (`docker-compose.yml`):**
-    *   Removed the temporary `user: root` directive from the `api` service definition, as the permission issue is now correctly handled within the Docker image build process.
-**Key Decisions:**
-*   Prioritized running the API service as a non-root user for security.
-*   Ensured that directory creation and permission settings within the Dockerfile are executed by a user with sufficient privileges (`root`) before switching to the less privileged application user.
-**Outcome:** The .NET API can now successfully save uploaded ad media files within the Docker container without requiring the service to run as root. The Docker image builds successfully with the corrected permission setup.
-
-## (2025-06-15) - Resolved Next.js Image Optimization Issue in Docker Environment
-**Context:** The SagraFacile frontend was experiencing "400 Bad Request - The requested resource isn't a valid image" errors when using Next.js image optimization (`/_next/image`) in the Docker production environment. While direct image access worked, Next.js's internal image fetcher was receiving HTML responses instead of image content, indicating a circular routing issue through Caddy.
-**Accomplishments:**
-*   **Root Cause Identified:** The issue was that Next.js was trying to fetch images using the public domain URL (`https://app.sagrafacile.it/media/...`) from within the frontend container, creating a circular routing path: frontend → host-gateway → Caddy → frontend. This caused Caddy to return HTML responses instead of the actual image content.
-*   **Environment-Aware Solution Implemented:** Created a comprehensive solution that maintains full Next.js image optimization while fixing the Docker networking issue:
-    *   **Frontend Changes:** Updated `sagrafacile-webapp/next.config.ts` to include internal API service patterns and local development backend patterns. Created `sagrafacile-webapp/src/lib/imageUtils.ts` with environment-aware URL transformation functions.
-    *   **URL Transformation Logic:** Implemented smart URL handling that uses internal Docker network URLs (`http://api:8080/media/...`) in production and backend API URLs in local development.
-    *   **Image Component Updates:** Modified admin ads page and queue display components to use the new utility functions for proper image optimization.
-*   **Docker Networking Fix:** The solution allows Next.js to fetch images directly from the API service within the Docker network, bypassing Caddy's reverse proxy for internal image requests and eliminating the circular routing issue.
-**Key Decisions:**
-*   Maintained full Next.js image optimization capabilities (resizing, format conversion, quality adjustment) rather than disabling optimization entirely.
-*   Implemented environment-aware URL handling to ensure compatibility with both local development and Docker production environments.
-*   Used internal Docker network communication for image fetching in production while preserving public URL access for direct requests.
-**Outcome:** Next.js image optimization now works correctly in both local development and Docker production environments. Images load properly with full optimization benefits, and the 400 "invalid image" errors have been resolved.
-
-
-## (2025-06-13) - Post-Deployment Fixes: Caddy API Routing & Windows Printer Service URL
-**Context:** After successfully deploying the application on a home server using Docker Compose with Caddy and Let's Encrypt, two issues arose: API calls were resulting in 404 errors, and the Windows Printer Service was failing to connect to SignalR due to URL parsing.
-**Accomplishments:**
-*   **Caddyfile API Routing Fix:**
-    *   **Issue:** API calls (e.g., to `/api/accounts/login`) were returning 404. This was because Caddy's `handle_path /api/*` directive was stripping the `/api/` prefix before proxying the request to the backend, while the .NET API routes expect the full `/api/...` path.
-    *   **Solution:** Modified the `Caddyfile` to use `reverse_proxy /api/* api:8080` directly. This configuration correctly matches requests starting with `/api/` and proxies them to the `api` service (listening on port 8080) *without* stripping the `/api/` prefix. This resolved the 404 errors.
-*   **Windows Printer Service URL Normalization:**
-    *   **Issue:** The `SagraFacile.WindowsPrinterService` was logging an error "URL Base Hub 'app.sagrafacile.it/api' non valido" and failing to connect. The service's logic for constructing the full SignalR hub URL (`https://[base_url]/api/orderhub`) was not correctly handling cases where the base URL provided in settings might already contain a path (like `/api`) or lack a scheme.
-    *   **Solution:** Updated `SagraFacile.NET/SagraFacile.WindowsPrinterService/Services/SignalRService.cs`. The `StartAsync` method now includes logic to normalize the `_hubHostAndPort` value read from settings. This normalization ensures:
-        1.  A scheme (`https://` by default, or `http://` if the host is `localhost` or `127.0.0.1`) is present.
-        2.  Any existing path components are removed from the stored base URL.
-        For example, an input like `app.sagrafacile.it/api` or `app.sagrafacile.it` would be normalized to `https://app.sagrafacile.it`. The service then correctly appends `/api/orderhub` or `/api/printers/config/{guid}` to this clean base URL.
-**Key Decisions:**
-*   For Caddy, switched from `handle_path` to a direct `reverse_proxy` with path matching for API routes to ensure the backend receives the expected path.
-*   Implemented robust URL normalization in the Windows Printer Service to make it more resilient to variations in how the server's base address is entered in its settings.
-**Next Steps:**
-*   User to test the Windows Printer Service with the updated URL normalization logic to confirm it connects successfully to the SignalR hub.
-
-## (2025-06-13) - Implemented Multi-Instance Support for Windows Printer Service via Profiles
-**Context:** Modified the `SagraFacile.WindowsPrinterService` to allow multiple instances to run on the same PC, each managing a different printer. This was achieved by introducing a profile-based configuration system.
-**Accomplishments:**
-*   **`Models/ProfileSettings.cs` Created:** Defined a class to hold settings for each printer profile (ProfileName, SelectedPrinter, HubHostAndPort, InstanceGuid).
-*   **`ProfileSelectionForm.cs` & `ProfileSelectionForm.Designer.cs` Created:**
-    *   A new form that appears on application startup.
-    *   Lists existing profiles from `AppData\Local\SagraFacilePrinterService\profiles\*.json`.
-    *   Allows users to load an existing profile, or create, edit, and delete profiles.
-    *   Each profile is stored as a separate JSON file (e.g., `KitchenPrinter.json`).
-*   **`InputDialogForm.cs` & `InputDialogForm.Designer.cs` Created:** A simple dialog to get user input, used for naming new profiles.
-*   **`SettingsForm.cs` Modified:**
-    *   Constructor now accepts a profile name and the profiles directory.
-    *   Loads and saves settings to individual profile JSON files instead of a single global `settings.json`.
-    *   Uses `InputDialogForm` to prompt for a name when creating a new profile.
-    *   The static `GetSignalRConfig()` method was removed.
-*   **`SignalRService.cs` Modified:**
-    *   Now holds an `_activeProfileSettings` field.
-    *   `StartAsync` is initiated after a profile is selected and its settings are passed via a new `SetActiveProfile()` method.
-    *   Uses `HubHostAndPort` and `InstanceGuid` from the active profile.
-    *   Logging and status messages now often include the profile name for clarity.
-*   **`Program.cs` Modified:**
-    *   Launches `ProfileSelectionForm` at startup.
-    *   If a profile is selected, its settings are retrieved and stored in `Program.SelectedProfile`.
-    *   These settings are then used to configure and start the `SignalRService` and `ApplicationLifetimeService`.
-    *   The application exits if no profile is selected.
-*   **`ApplicationLifetimeService.cs` Modified:**
-    *   Accepts `ProfileSettings` via constructor injection.
-    *   Displays the active profile name in the `PrintStationForm` title and tray icon tooltips/menu items.
-    *   Correctly passes profile context when opening `SettingsForm`.
-**Key Decisions:**
-*   Adopted a profile-based system for multi-instance capability, where each instance is launched by selecting a distinct configuration profile.
-*   Profile settings are stored in individual JSON files in a dedicated `profiles` subdirectory within the application's local data folder.
-*   The application presents a profile selection dialog on startup, making it user-friendly to manage and launch different printer configurations.
-**Next Steps:**
-*   User to build and test the `SagraFacile.WindowsPrinterService`:
-    *   Verify the `ProfileSelectionForm` appears on startup.
-    *   Test creating new profiles, ensuring they are saved correctly.
-    *   Test loading different profiles and confirming that each instance connects with its correct `InstanceGuid` and uses the correct settings.
-    *   Test editing and deleting profiles.
-    *   Confirm that UI elements (tray icon, PrintStationForm title) reflect the active profile.
-
-## (2025-06-23) - Implemented Resilient Printing via Job Queue
-**Context:** Rearchitected the printing system to be asynchronous and fault-tolerant, ensuring no print jobs are lost due to temporary printer or network failures. This involved implementing a persistent job queue in the database and a hybrid processing model for performance.
-**Accomplishments:**
-*   **Backend (.NET API):**
-    *   **Database:** Created `PrintJob` entity and applied EF Core migrations (`AddPrintJobQueue`, `MakePrintJobAreaIdNullable`).
-    *   **New Service (`PrintJobProcessor.cs`):** Implemented a `BackgroundService` to poll for pending jobs and process them.
-    *   **"Fast Lane" Signaling:** Implemented an in-memory `SemaphoreSlim` to trigger the `PrintJobProcessor` instantly for high-priority jobs (e.g., receipts).
-    *   **Refactored `PrinterService.cs`:** Changed `PrintOrderDocumentsAsync` and `ReprintOrderDocumentsAsync` to create and save `PrintJob` entities to the database instead of printing directly. The `SendToPrinterAsync` logic was adapted to be called by the `PrintJobProcessor`.
-    *   **Refactored `OrderService.cs`:** Ensured it calls the new `PrinterService` methods correctly and handles the fast, asynchronous response.
-    *   **`OrderHub.cs`:** Added a `ReportPrintJobStatus` method to receive status updates from the companion app.
-*   **Windows Companion App (`SagraFacile.WindowsPrinterService`):**
-    *   **`SignalRService.cs`:** Updated to receive `JobId` as `Guid` and to call the `ReportPrintJobStatus` hub method after a print attempt (success or failure), completing the confirmation loop.
-    *   **`PrintJobItem.cs`:** Updated `JobId` to `Guid` to match backend.
-**Key Decisions:**
-*   Implemented a hybrid "Fast Lane" model to balance reliability (job queue) with performance (instant processing for critical jobs).
-*   Ensured end-to-end confirmation for Windows USB printers via SignalR callbacks.
-*   Made `AreaId` nullable in `PrintJob` to accommodate test prints not associated with a specific area.
-**Outcome:** The printing system is now significantly more robust, with guaranteed delivery, automatic retries, and comprehensive status monitoring capabilities.
-**Next Steps:**
-*   User to test the new resilient printing system as per the provided instructions.
-*   (Future) Implement Admin UI for monitoring print job statuses.
-
-## (2025-06-23) - Implemented Admin UI for Print Job Monitoring
-**Context:** Implemented the Admin UI for monitoring print jobs, providing visibility into the resilient printing system's operations. This builds upon the previously implemented backend job queue and processing.
-**Accomplishments:**
-*   **Backend (.NET API):**
-    *   Created `PrintJobQueryParameters.cs`, `PrintJobDto.cs`, and `PaginatedResult.cs` DTOs for data transfer and pagination.
-    *   Implemented `IPrintJobService.cs` and `PrintJobService.cs` to encapsulate business logic for fetching paginated and sortable print jobs, and for manually retrying failed jobs.
-    *   Registered `IPrintJobService` and `PrintJobService` for dependency injection in `Program.cs`.
-    *   Created `PrintJobsController.cs` with `GET /api/PrintJobs` (for paginated list) and `POST /api/PrintJobs/{jobId}/retry` (for manual retry) endpoints, secured with `Admin,SuperAdmin` roles.
-*   **Frontend (Next.js WebApp):**
-    *   Updated `sagrafacile-webapp/src/services/printerService.ts` to include `getPrintJobs` and `retryPrintJob` methods.
-    *   Added `PrintJobStatus`, `PrintJobType`, `PrintJobDto`, `PrintJobQueryParameters`, and `PaginatedResult` TypeScript types to `sagrafacile-webapp/src/types/index.ts`.
-    *   Created the new Admin UI page `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx`. This page displays a table of print jobs with columns for ID, JobType, Status, CreatedAt, LastAttemptAt, RetryCount, ErrorMessage, OrderId, and PrinterName.
-    *   Implemented client-side pagination and sorting for the print jobs table.
-    *   Added a "Retry Manually" action for failed print jobs, which triggers the backend retry endpoint.
-    *   Ensured date formatting uses vanilla JavaScript `Date` methods for consistency.
-    *   Added a link to "Monitoraggio Stampe" in `sagrafacile-webapp/src/components/admin/AdminNavigation.tsx`.
-    *   Added a new card for "Monitoraggio Stampe" to the main Admin Dashboard page (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`).
-**Key Decisions:**
-*   Implemented server-side pagination and sorting for print jobs to optimize performance for large datasets.
-*   Provided a manual retry mechanism for failed jobs, complementing the automatic retry logic in the `PrintJobProcessor`.
-*   Used vanilla JavaScript for date formatting in the frontend as per user preference.
-*   Integrated the new page into the existing admin navigation and dashboard for easy access.
-**Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
-**Next Steps:**
-*   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
-
-## (2025-06-23) - Refactored Orders Page with Reusable Paginated Table
-**Context:** Refactored the admin "Storico Ordini" page to use a new reusable, paginated table component, enhancing performance and code reuse.
-**Accomplishments:**
-*   **Backend (.NET API):**
-    *   Implemented server-side pagination and sorting for the `GET /api/Orders` endpoint.
-    *   Created `OrderQueryParameters.cs` DTO to handle pagination, sorting, and filtering (by `AreaId`, `DayId`, `OrganizationId`).
-    *   Updated `IOrderService.cs` and `OrderService.cs` to replace the old `GetOrdersAsync` with a new method that accepts `OrderQueryParameters` and returns a `PaginatedResult<OrderDto>`.
-    *   Installed `System.Linq.Dynamic.Core` to enable dynamic sorting based on string property names.
-    *   Updated `OrdersController.cs` to use the new service method and DTO.
-*   **Frontend (Next.js WebApp):**
-    *   Created a generic, reusable `PaginatedTable.tsx` component in `src/components/common/`. This component handles table rendering, sorting, pagination controls, and a page size selector. It also persists page size settings to `localStorage`.
-    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/print-jobs/page.tsx` to use the new `PaginatedTable` component, simplifying its code significantly.
-    *   Refactored `sagrafacile-webapp/src/app/app/org/[orgId]/admin/orders/page.tsx`:
-        *   Replaced the old static `OrderTable.tsx` with the new `PaginatedTable.tsx`.
-        *   Integrated the `AdminAreaSelector.tsx` component for area filtering.
-        *   Added `orderService.ts` to fetch paginated order data.
-        *   Updated `types/index.ts` with `OrderQueryParameters`.
-    *   Deleted the now-redundant `OrderTable.tsx` component.
-**Key Decisions:**
-*   Abstracted table logic into a reusable `PaginatedTable` component to be used across different admin pages.
-*   Implemented server-side pagination for the Orders API to handle potentially large datasets efficiently.
-*   Leveraged `localStorage` in the `PaginatedTable` component to provide a better user experience by remembering page size preferences.
-**Outcome:** The Orders and Print Jobs admin pages are now more performant and maintainable. The new `PaginatedTable` component can be easily reused for other data tables in the application.
-
-## (Next Session) - Planned Work
-*   **Summary:** Current session paused USB thermal printer debugging due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.
-
 
 ---
 # Historical Sessions (Condensed)
