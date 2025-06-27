@@ -37,8 +37,17 @@ const formSchema = z.object({
   type: z.nativeEnum(PrinterType, { required_error: "Il tipo di stampante è obbligatorio." }),
   documentType: z.nativeEnum(DocumentType, { required_error: "Il tipo di documento è obbligatorio." }),
   connectionString: z.string().min(1, { message: "La stringa di connessione o il GUID sono obbligatori." }),
+  paperSize: z.string().optional(),
   isEnabled: z.boolean(),
   printMode: z.nativeEnum(PrintMode, { required_error: "La modalità di stampa è obbligatoria." }),
+}).refine(data => {
+  if (data.documentType === DocumentType.HtmlPdf && (!data.paperSize || data.paperSize.trim() === '')) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Il formato carta (es. A4, A5) è obbligatorio per il tipo di documento HTML/PDF.",
+  path: ["paperSize"],
 }).refine(data => {
   if (data.type === PrinterType.Network) {
     // Validazione di base: controlla il pattern qualcosa:numero
@@ -50,14 +59,14 @@ const formSchema = z.object({
   message: "La Stringa di Connessione di Rete deve essere nel formato Indirizzo_IP:Porta (es. 192.168.1.100:9100).",
   path: ["connectionString"],
 }).refine(data => {
-    if (data.type === PrinterType.WindowsUsb) {
-        // Usa uuid.validate() per la validazione
-        return validate(data.connectionString);
-    }
-    return true;
+  if (data.type === PrinterType.WindowsUsb) {
+    // Usa uuid.validate() per la validazione
+    return validate(data.connectionString);
+  }
+  return true;
 }, {
-    message: "La Stringa di Connessione deve essere un GUID valido per le stampanti Windows USB.",
-    path: ["connectionString"],
+  message: "La Stringa di Connessione deve essere un GUID valido per le stampanti Windows USB.",
+  path: ["connectionString"],
 });
 
 interface PrinterFormDialogProps {
@@ -68,7 +77,7 @@ interface PrinterFormDialogProps {
   orgId: number;
 }
 
-export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit, onSaveSuccess,orgId }: PrinterFormDialogProps) {
+export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit, onSaveSuccess, orgId }: PrinterFormDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const isEditMode = !!printerToEdit;
@@ -79,6 +88,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       name: '',
       type: undefined,
       connectionString: '',
+      paperSize: '',
       isEnabled: true,
       printMode: PrintMode.Immediate, // Default to Immediate
       documentType: DocumentType.EscPos,
@@ -97,6 +107,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: printerToEdit.name,
           type: printerToEdit.type,
           connectionString: printerToEdit.connectionString,
+          paperSize: printerToEdit.paperSize!,
           isEnabled: printerToEdit.isEnabled,
           printMode: printerToEdit.printMode, // Set printMode in edit mode
           documentType: printerToEdit.documentType,
@@ -106,6 +117,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
           name: '',
           type: undefined,
           connectionString: '', // Mantiene vuoto inizialmente per l'aggiunta
+          paperSize: '',
           isEnabled: true,
           printMode: PrintMode.Immediate, // Default for new printers
           documentType: DocumentType.EscPos,
@@ -161,6 +173,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
       organizationId: orgId,
       printMode: values.printMode, // Added printMode to dataToSend
       documentType: values.documentType,
+      paperSize: values.paperSize ?? null,
     };
 
     try {
@@ -258,7 +271,7 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
                       <SelectItem value={String(PrinterType.WindowsUsb)}>Windows (tramite Companion App)</SelectItem>
                     </SelectContent>
                   </Select>
-                   <FormDescription>
+                  <FormDescription>
                     Le stampanti HTML/PDF richiedono sempre una connessione di tipo Windows.
                   </FormDescription>
                   <FormMessage />
@@ -291,65 +304,99 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
               )}
             />
 
+            {documentType === DocumentType.HtmlPdf && (
+              <FormField
+                control={form.control}
+                name="paperSize"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Formato Carta*</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                      defaultValue={field.value ?? undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona un formato carta" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="A4">A4</SelectItem>
+                        <SelectItem value="A5">A5</SelectItem>
+                        <SelectItem value="Letter">Letter</SelectItem>
+                        <SelectItem value="Legal">Legal</SelectItem>
+                        <SelectItem value="Tabloid">Tabloid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Specifica il formato della carta per la stampante. Obbligatorio per HTML/PDF.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             {/* Render condizionale per Modalità di Stampa */}
             {printerType === PrinterType.WindowsUsb && (
-                <FormField
-                  control={form.control}
-                  name="printMode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Modalità di Stampa*</FormLabel>
-                      <Select
-                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                        value={field.value !== undefined ? String(field.value) : undefined}
-                        defaultValue={field.value !== undefined ? String(field.value) : undefined}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleziona modalità di stampa" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
-                          <SelectItem value={String(PrintMode.OnDemandWindows)}>Su Richiesta (in coda sull'app Windows)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Seleziona "Su Richiesta" solo per stampanti collegate a un PC con l'app SagraFacile Windows Printer Service.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="printMode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Modalità di Stampa*</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                      value={field.value !== undefined ? String(field.value) : undefined}
+                      defaultValue={field.value !== undefined ? String(field.value) : undefined}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona modalità di stampa" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
+                        <SelectItem value={String(PrintMode.OnDemandWindows)}>Su Richiesta (in coda sull'app Windows)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Seleziona "Su Richiesta" solo per stampanti collegate a un PC con l'app SagraFacile Windows Printer Service.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
             {printerType === PrinterType.Network && (
-                 <FormField
-                 control={form.control}
-                 name="printMode"
-                 render={() => (
-                   <FormItem>
-                     <FormLabel>Modalità di Stampa*</FormLabel>
-                     <Select
-                       value={String(PrintMode.Immediate)} // Sempre Immediata per Network
-                       disabled={true} // Disabilitato
-                     >
-                       <FormControl>
-                         <SelectTrigger>
-                           <SelectValue />
-                         </SelectTrigger>
-                       </FormControl>
-                       <SelectContent>
-                         <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
-                       </SelectContent>
-                     </Select>
-                     <FormDescription>
-                       Per le stampanti di rete, la modalità è sempre "Immediata".
-                     </FormDescription>
-                     <FormMessage />
-                   </FormItem>
-                 )}
-               />
+              <FormField
+                control={form.control}
+                name="printMode"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Modalità di Stampa*</FormLabel>
+                    <Select
+                      value={String(PrintMode.Immediate)} // Sempre Immediata per Network
+                      disabled={true} // Disabilitato
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={String(PrintMode.Immediate)}>Immediata (stampa subito)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Per le stampanti di rete, la modalità è sempre "Immediata".
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
 
             <FormField
@@ -376,12 +423,12 @@ export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit,
             {error && <p className="text-sm font-medium text-destructive">{error}</p>}
 
             <DialogFooter>
-                <DialogClose asChild>
-                    <Button type="button" variant="outline">Annulla</Button>
-                </DialogClose>
-                <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Salvataggio..." : "Salva Stampante"}
-                </Button>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Annulla</Button>
+              </DialogClose>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Salvataggio..." : "Salva Stampante"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

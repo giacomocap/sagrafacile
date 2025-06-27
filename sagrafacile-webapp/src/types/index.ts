@@ -394,6 +394,7 @@ export interface PrinterDto {
   isEnabled: boolean;
   printMode: PrintMode; // Added for On-Demand Printing
   documentType: DocumentType;
+  paperSize: string | null;
 }
 
 export interface PrinterUpsertDto {
@@ -404,6 +405,7 @@ export interface PrinterUpsertDto {
   organizationId: number;
   printMode: PrintMode; // Added for On-Demand Printing
   documentType: DocumentType;
+  paperSize: string | null;
 }
 
 export enum TemplateType {

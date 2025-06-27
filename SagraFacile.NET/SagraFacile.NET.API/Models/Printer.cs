@@ -34,6 +34,9 @@ namespace SagraFacile.NET.API.Models
         // New property for Standard Printers
         public DocumentType DocumentType { get; set; } = DocumentType.EscPos; // Default to ESC/POS for backward compatibility
 
+        [StringLength(50)]
+        public string? PaperSize { get; set; } // e.g., "A4", "A5", "Letter"
+
         // Navigation property for assignments
         public virtual ICollection<PrinterCategoryAssignment> CategoryAssignments { get; set; } = new List<PrinterCategoryAssignment>();
 

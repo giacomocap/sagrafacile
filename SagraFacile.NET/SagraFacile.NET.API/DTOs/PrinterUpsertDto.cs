@@ -34,6 +34,9 @@ namespace SagraFacile.NET.API.DTOs
         [Required]
         public DocumentType DocumentType { get; set; } = DocumentType.EscPos;
 
+        [StringLength(50)]
+        public string? PaperSize { get; set; }
+
         // Custom validation might be needed here, e.g., in the service/controller.
         // WindowsPrinterName is now managed by the client profile.
     }

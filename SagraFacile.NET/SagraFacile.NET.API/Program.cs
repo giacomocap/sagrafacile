@@ -11,6 +11,7 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Models.Enums;
+using PuppeteerSharp; // Added for Puppeteer
 using Serilog; // Added for Serilog
 
 // Ensure extended encodings are available
@@ -248,21 +249,38 @@ try // Added for Serilog try-finally block
     await app.SeedDatabaseAsync();
     // --- End Seed Database ---
 
+    // --- Download Chromium for Puppeteer ---
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        try
+        {
+            var logger = app.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("Checking for Puppeteer browser revision...");
+            var browserFetcher = new BrowserFetcher();
+            var revisionInfo = await browserFetcher.DownloadAsync();
+            logger.LogInformation("Puppeteer browser revision {Revision} is available at {Path}", revisionInfo.Platform, revisionInfo.GetExecutablePath());
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Could not download or verify Puppeteer browser. PDF generation may fail.");
+        }
+    }
+    // --- End Download Chromium ---
 
     // --- Serilog Request Logging ---
-    app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
+    // app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
                                     // --- End Serilog Request Logging ---
 
     app.Run();
 } // Added for Serilog try-finally block
 catch (Exception ex) // Added for Serilog try-finally block
 {
-    Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
+    // Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
     Console.WriteLine($"FATAL ERROR: SagraFacile.NET.API host terminated unexpectedly. Exception: {ex}"); // Replaced Log.Fatal
 }
 finally // Added for Serilog try-finally block
 {
-    Log.CloseAndFlush();
+    // Log.CloseAndFlush();
 }
 
 

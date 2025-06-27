@@ -12,6 +12,7 @@ using System.Text.Json.Serialization; // For JsonStringEnumConverter
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Drawing.Printing;
 // using SagraFacile.WindowsPrinterService; // No longer needed directly if SettingsForm doesn't expose static config methods
 
 namespace SagraFacile.WindowsPrinterService.Services
@@ -31,34 +32,31 @@ namespace SagraFacile.WindowsPrinterService.Services
 
         private PrintMode _currentPrintMode = PrintMode.Immediate;
         private string? _configuredWindowsPrinterName; 
-        private readonly ConcurrentQueue<PrintJobItem> _onDemandPrintQueue = new ConcurrentQueue<PrintJobItem>();
-        private static readonly HttpClient _httpClient; 
-        private static readonly JsonSerializerOptions _jsonSerializerOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
-        };
-
-        static SignalRService() 
-        {
-            var httpClientHandler = new HttpClientHandler();
-            httpClientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
-            {
-                Console.WriteLine("[WARN] SOLO SVILUPPO: Validazione certificato SSL bypassata per HttpClient (recupero configurazione stampante). NON USARE IN PRODUZIONE.");
-                return true;
-            };
-            _httpClient = new HttpClient(httpClientHandler);
-        }
 
         public event EventHandler<string>? ConnectionStatusChanged;
         public event EventHandler<int>? OnDemandQueueCountChanged;
 
-        public SignalRService(ILogger<SignalRService> logger, IRawPrinter rawPrinter)
+        private readonly IPdfPrintingService _pdfPrintingService;
+        private readonly IPrinterConfigurationService _printerConfigurationService;
+        private readonly IPrintJobManager _printJobManager;
+
+        public SignalRService(
+            ILogger<SignalRService> logger, 
+            IRawPrinter rawPrinter,
+            IPdfPrintingService pdfPrintingService,
+            IPrinterConfigurationService printerConfigurationService,
+            IPrintJobManager printJobManager)
         {
             _logger = logger;
             _rawPrinter = rawPrinter;
+            _pdfPrintingService = pdfPrintingService;
+            _printerConfigurationService = printerConfigurationService;
+            _printJobManager = printJobManager;
             _lastStatusMessage = "Servizio non avviato (nessun profilo caricato)";
             _lastStatusColor = Color.Gray;
+
+            // Subscribe to print job manager events
+            _printJobManager.QueueCountChanged += (sender, count) => OnDemandQueueCountChanged?.Invoke(this, count);
         }
 
         public void SetActiveProfile(ProfileSettings profileSettings)
@@ -237,73 +235,14 @@ namespace SagraFacile.WindowsPrinterService.Services
         
         private async Task FetchPrinterConfigurationAsync(string hubHostAndPort, string instanceGuid, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(hubHostAndPort) || string.IsNullOrWhiteSpace(instanceGuid))
-            {
-                _logger.LogError($"Impossibile recuperare la configurazione della stampante per profilo '{_activeProfileSettings?.ProfileName}': URL Base Hub o GUID Istanza mancanti.");
-                _currentPrintMode = PrintMode.Immediate;
-                _configuredWindowsPrinterName = null;
-                return;
-            }
+            var (printMode, printerName) = await _printerConfigurationService.FetchConfigurationAsync(
+                hubHostAndPort, 
+                instanceGuid, 
+                _activeProfileSettings?.SelectedPrinter, 
+                cancellationToken);
 
-            if (!Uri.TryCreate(hubHostAndPort.Trim(), UriKind.Absolute, out Uri? baseUri) ||
-                (baseUri.Scheme != Uri.UriSchemeHttp && baseUri.Scheme != Uri.UriSchemeHttps))
-            {
-                _logger.LogError($"URL Base Hub '{hubHostAndPort}' (Profilo: {_activeProfileSettings?.ProfileName}) non valido durante il recupero della configurazione.");
-                _currentPrintMode = PrintMode.Immediate;
-                _configuredWindowsPrinterName = null;
-                return;
-            }
-
-            string configUrl = new Uri(baseUri, $"/api/printers/config/{instanceGuid}").ToString();
-            _logger.LogInformation($"Recupero configurazione stampante per profilo '{_activeProfileSettings?.ProfileName}' da: {configUrl}");
-
-            try
-            {
-                // The DTO from backend now only contains PrintMode
-                var backendConfig = await _httpClient.GetFromJsonAsync<PrinterConfigDto>(configUrl, _jsonSerializerOptions, cancellationToken);
-
-                if (backendConfig != null)
-                {
-                    _currentPrintMode = backendConfig.PrintMode;
-                    // WindowsPrinterName is now sourced from the local profile
-                    _configuredWindowsPrinterName = _activeProfileSettings?.SelectedPrinter; 
-                    _logger.LogInformation($"Configurazione stampante recuperata per profilo '{_activeProfileSettings?.ProfileName}': PrintMode={_currentPrintMode}. WindowsPrinterName (da profilo)='{_configuredWindowsPrinterName}'");
-                }
-                else
-                {
-                    _logger.LogWarning($"Configurazione PrintMode non trovata o vuota dal backend per profilo '{_activeProfileSettings?.ProfileName}'. Utilizzo PrintMode.Immediate. PrinterName da profilo.");
-                    _currentPrintMode = PrintMode.Immediate;
-                    _configuredWindowsPrinterName = _activeProfileSettings?.SelectedPrinter;
-                }
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, $"Errore HTTP durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
-                _currentPrintMode = PrintMode.Immediate; 
-                _configuredWindowsPrinterName = null;
-                OnConnectionStatusChanged($"Errore Config: {ex.StatusCode}");
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogError(ex, $"Errore JSON durante il parsing della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
-                _currentPrintMode = PrintMode.Immediate; 
-                _configuredWindowsPrinterName = null;
-                OnConnectionStatusChanged("Errore Config: JSON Invalido");
-            }
-            catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
-            {
-                _logger.LogError(ex, $"Timeout durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
-                _currentPrintMode = PrintMode.Immediate; 
-                _configuredWindowsPrinterName = null;
-                OnConnectionStatusChanged("Errore Config: Timeout");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Errore generico durante il recupero della configurazione della stampante da {configUrl} (Profilo: {_activeProfileSettings?.ProfileName}).");
-                _currentPrintMode = PrintMode.Immediate; 
-                _configuredWindowsPrinterName = null;
-                OnConnectionStatusChanged("Errore Config: Generico");
-            }
+            _currentPrintMode = printMode;
+            _configuredWindowsPrinterName = printerName;
         }
 
         private async Task RegisterClientAsync()
@@ -358,102 +297,18 @@ namespace SagraFacile.WindowsPrinterService.Services
 
             if (_currentPrintMode == PrintMode.OnDemandWindows)
             {
-                // TODO: Update PrintJobItem to store contentType if on-demand PDF printing is needed.
-                // For now, assuming on-demand is for ESC/POS comandas.
-                var printJobItem = new PrintJobItem(jobId, rawData);
-                _onDemandPrintQueue.Enqueue(printJobItem);
-                _logger.LogInformation($"Job {jobId} queued. Queue count: {_onDemandPrintQueue.Count}");
-                OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
+                // Create print job item with content type and paper size from profile
+                var printJobItem = new PrintJobItem(jobId, rawData, contentType, _activeProfileSettings?.PaperSize);
+                _printJobManager.EnqueueJob(printJobItem);
             }
             else // Immediate mode
             {
-                string? errorMessage = null;
-                bool success = false;
-                try
-                {
-                    if (contentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
-                    {
-                        success = await PrintPdfAsync(printerToUse, rawData, jobId);
-                    }
-                    else // Default to raw/escpos
-                    {
-                        success = await _rawPrinter.PrintRawAsync(printerToUse, rawData);
-                    }
-
-                    if (success)
-                    {
-                        _logger.LogInformation($"Immediate print job {jobId} ({contentType}) sent successfully to printer {printerToUse}.");
-                    }
-                    else
-                    {
-                        errorMessage = $"Failed to print job {jobId} ({contentType}) to '{printerToUse}'. See logs for details.";
-                        _logger.LogError(errorMessage);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    errorMessage = $"Exception while printing job {jobId} ({contentType}) to '{printerToUse}': {ex.Message}";
-                    _logger.LogError(ex, errorMessage);
-                    success = false;
-                }
-                await ReportStatusToServerAsync(jobId, success, errorMessage);
+                var printJobItem = new PrintJobItem(jobId, rawData, contentType, _activeProfileSettings?.PaperSize);
+                bool success = await _printJobManager.ProcessJobAsync(printJobItem, printerToUse, contentType);
+                await ReportStatusToServerAsync(jobId, success, success ? null : "Print job processing failed");
             }
         }
 
-        private async Task<bool> PrintPdfAsync(string printerName, byte[] pdfData, Guid jobId)
-        {
-            string tempFilePath = Path.Combine(Path.GetTempPath(), $"sagrafacile-printjob-{jobId}.pdf");
-            try
-            {
-                await File.WriteAllBytesAsync(tempFilePath, pdfData);
-                _logger.LogInformation($"PDF for job {jobId} saved to temporary file: {tempFilePath}");
-
-                var processStartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = tempFilePath,
-                    Verb = "PrintTo",
-                    ArgumentList = { printerName },
-                    CreateNoWindow = true,
-                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                    UseShellExecute = true
-                };
-
-                using (var process = System.Diagnostics.Process.Start(processStartInfo))
-                {
-                    if (process == null)
-                    {
-                        _logger.LogError($"Failed to start printing process for job {jobId}. Process.Start returned null.");
-                        return false;
-                    }
-                    
-                    // Wait for a reasonable time for the print job to be spooled.
-                    // This doesn't guarantee printing is complete, but that the OS has taken over.
-                    await process.WaitForExitAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(30));
-                    _logger.LogInformation($"Print process for job {jobId} has been dispatched.");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error printing PDF for job {jobId} to printer {printerName}.");
-                return false;
-            }
-            finally
-            {
-                if (File.Exists(tempFilePath))
-                {
-                    try
-                    {
-                        File.Delete(tempFilePath);
-                        _logger.LogInformation($"Temporary PDF file {tempFilePath} deleted.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, $"Failed to delete temporary PDF file: {tempFilePath}");
-                    }
-                }
-            }
-        }
 
         protected virtual void OnConnectionStatusChanged(string status)
         {
@@ -501,7 +356,61 @@ namespace SagraFacile.WindowsPrinterService.Services
             }
             if (_hubConnection != null)
             {
-                await _hubConnection.StopAsync(); 
+                await _hubConnection.StopAsync();
+            }
+        }
+
+        private Task<bool> PrintStandardTestPageAsync(string printerName, string testData, string? paperSizeName)
+        {
+            try
+            {
+                var printDoc = new PrintDocument();
+                printDoc.PrinterSettings.PrinterName = printerName;
+                printDoc.DocumentName = "SagraFacile Test Print";
+
+                if (!string.IsNullOrEmpty(paperSizeName))
+                {
+                    bool paperSizeFound = false;
+                    foreach (PaperSize ps in printDoc.PrinterSettings.PaperSizes)
+                    {
+                        if (ps.PaperName == paperSizeName)
+                        {
+                            printDoc.DefaultPageSettings.PaperSize = ps;
+                            paperSizeFound = true;
+                            break;
+                        }
+                    }
+                    if (!paperSizeFound)
+                    {
+                        _logger.LogWarning($"Paper size '{paperSizeName}' not found for printer '{printerName}'. Using printer default.");
+                    }
+                }
+
+                string contentToPrint = testData;
+
+                printDoc.PrintPage += (sender, e) =>
+                {
+                    if (e.Graphics == null) return;
+                    using (var font = new Font("Arial", 12))
+                    using (var brush = new SolidBrush(Color.Black))
+                    {
+                        e.Graphics.DrawString(
+                            contentToPrint,
+                            font,
+                            brush,
+                            new PointF(50, 50)
+                        );
+                    }
+                };
+
+                printDoc.Print();
+                _logger.LogInformation($"Successfully spooled GDI test print job to standard printer {printerName}.");
+                return Task.FromResult(true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to print test page to standard printer {printerName}.");
+                return Task.FromResult(false);
             }
         }
 
@@ -526,13 +435,13 @@ namespace SagraFacile.WindowsPrinterService.Services
         public async Task RestartAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation($"SignalRService restarting... (Profilo: {_activeProfileSettings?.ProfileName})");
-            OnConnectionStatusChanged("Riavvio del servizio in corso..."); 
-            await StopAsync(); 
-            await Task.Delay(500, cancellationToken); 
+            OnConnectionStatusChanged("Riavvio del servizio in corso...");
+            await StopAsync();
+            await Task.Delay(500, cancellationToken);
             await StartAsync(cancellationToken);
         }
 
-        public async Task<bool> TestPrintAsync(string printerName, string testData)
+        public async Task<bool> TestPrintAsync(string printerName, string testData, LocalPrinterType printerType, string? paperSize)
         {
             if (string.IsNullOrWhiteSpace(printerName))
             {
@@ -545,87 +454,63 @@ namespace SagraFacile.WindowsPrinterService.Services
                 return false;
             }
 
-            _logger.LogInformation($"Attempting test print to printer: {printerName} (Profilo: {_activeProfileSettings?.ProfileName})");
+            _logger.LogInformation($"Attempting test print to printer: {printerName} (Profilo: {_activeProfileSettings?.ProfileName}, Tipo: {printerType})");
+
             try
             {
-                bool success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(testData)); 
-                if (success)
+                bool success;
+                if (printerType == LocalPrinterType.Standard)
                 {
-                    _logger.LogInformation($"Test print sent successfully to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogInformation("Using standard GDI printing method for local test print.");
+                    success = await PrintStandardTestPageAsync(printerName, testData, paperSize);
                 }
                 else
                 {
-                    _logger.LogError($"Failed to send test print to printer {printerName}. Check RawPrinter logs. (Profilo: {_activeProfileSettings?.ProfileName})");
+                    _logger.LogInformation("Using raw ESC/POS printing method for local test print.");
+                    // Ensure test data for ESC/POS includes cut command if needed
+                    string escPosTestData = testData + "\n\n\n\n\x1D\x56\x00"; // Add paper cut command
+                    success = await _rawPrinter.PrintRawAsync(printerName, System.Text.Encoding.UTF8.GetBytes(escPosTestData));
+                }
+
+                if (success)
+                {
+                    _logger.LogInformation($"Test print sent successfully to printer {printerName}.");
+                }
+                else
+                {
+                    _logger.LogError($"Failed to send test print to printer {printerName}.");
                 }
                 return success;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Exception during test print to printer {printerName}. (Profilo: {_activeProfileSettings?.ProfileName})");
+                _logger.LogError(ex, $"Exception during test print to printer {printerName}.");
                 return false;
             }
         }
 
         public PrintJobItem? DequeuePrintJob()
         {
-            if (_onDemandPrintQueue.TryDequeue(out PrintJobItem? jobItem))
-            {
-                _logger.LogInformation($"Dequeued job {jobItem.JobId} (Profilo: {_activeProfileSettings?.ProfileName}). Remaining in queue: {_onDemandPrintQueue.Count}");
-                OnDemandQueueCountChanged?.Invoke(this, _onDemandPrintQueue.Count);
-                return jobItem;
-            }
-            _logger.LogInformation($"Attempted to dequeue job, but queue is empty. (Profilo: {_activeProfileSettings?.ProfileName})");
-            return null;
+            return _printJobManager.DequeueJob();
         }
 
         public int GetOnDemandQueueCount()
         {
-            return _onDemandPrintQueue.Count;
+            return _printJobManager.GetQueueCount();
         }
 
         public async Task<bool> PrintQueuedJobAsync(PrintJobItem jobItem)
         {
-            if (jobItem == null)
-            {
-                _logger.LogError("PrintQueuedJobAsync called with null jobItem.");
-                return false;
-            }
-
             string? printerToUse = _configuredWindowsPrinterName ?? _activeProfileSettings?.SelectedPrinter;
-            string? errorMessage = null;
-            bool success = false;
-
-            _logger.LogInformation($"Attempting to print queued job {jobItem.JobId} to profile printer '{printerToUse}'.");
-
             if (string.IsNullOrWhiteSpace(printerToUse))
             {
-                errorMessage = $"Cannot print job {jobItem.JobId}: No target printer name configured in profile '{_activeProfileSettings?.ProfileName}'.";
-                _logger.LogError(errorMessage);
-                await ReportStatusToServerAsync(jobItem.JobId, false, errorMessage);
+                await ReportStatusToServerAsync(jobItem.JobId, false, "No printer configured in profile.");
                 return false;
             }
 
-            try
-            {
-                success = await _rawPrinter.PrintRawAsync(printerToUse, jobItem.RawData);
-                if (success)
-                {
-                    _logger.LogInformation($"Successfully printed queued job {jobItem.JobId} to {printerToUse}.");
-                }
-                else
-                {
-                    errorMessage = $"Failed to print queued job {jobItem.JobId} to {printerToUse}.";
-                    _logger.LogError(errorMessage);
-                }
-            }
-            catch (Exception ex)
-            {
-                errorMessage = $"Exception while printing queued job {jobItem.JobId}: {ex.Message}";
-                _logger.LogError(ex, errorMessage);
-                success = false;
-            }
-
-            await ReportStatusToServerAsync(jobItem.JobId, success, errorMessage);
+            // Use ESC/POS content type for queued jobs (typically comandas)
+            bool success = await _printJobManager.ProcessJobAsync(jobItem, printerToUse, "application/vnd.escpos");
+            await ReportStatusToServerAsync(jobItem.JobId, success, success ? null : "Print job processing failed");
             return success;
         }
 

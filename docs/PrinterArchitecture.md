@@ -91,6 +91,7 @@ graph TD
         *   For `WindowsUsb`: A unique GUID identifying the specific `SagraFacile.WindowsPrinterService` instance managing this printer.
     *   `WindowsPrinterName` (string, nullable): **Required if `Type` is `WindowsUsb`**. The exact name of the printer recognized by the Windows OS hosting the companion service (e.g., "EPSON TM-T20II Receipt").
     *   `IsEnabled` (bool): Whether the printer is active.
+    *   `PaperSize` (string, nullable): **Required if `DocumentType` is `HtmlPdf`**. The standard paper size (e.g., "A4", "A5", "Letter") used for PDF generation.
     
 *   **`CashierStation` Entity:** Represents a distinct point of sale within an Area.
     *   `Id` (int, PK)
@@ -193,9 +194,9 @@ graph TD
                 *   Print immediately on order creation/payment if `CashierStation.PrintComandasAtThisStation` or `Area.PrintComandasAtCashier` is true.
                 *   Print on waiter confirmation (`ConfirmOrderPreparationAsync`) *only if a comanda was not printed initially* and the workflow step requires it (e.g., order moves to `Preparing` for KDS, or directly to completion if KDS is skipped).
             *   Fetches relevant printers and calls `SendToPrinterAsync`.
-        *   `Task SendToPrinterAsync(Printer printer, string formattedEscPosData)`: Handles the actual sending.
+        *   `Task SendToPrinterAsync(Printer printer, byte[] data, PrintJobType jobType)`: Handles the actual sending.
             *   If `printer.Type == PrinterType.Network`: Parse `ConnectionString`, open TCP socket, send data, close socket. Handle errors (log, potentially retry based on error type).
-            *   If `printer.Type == PrinterType.WindowsUsb`: Look up the SignalR `ConnectionId` for the `printer.ConnectionString` (GUID) from the `OrderHub`'s registry. Send a targeted SignalR message `("PrintJob", printer.WindowsPrinterName, formattedEscPosData)` to that connection. Handle errors (e.g., companion app offline, SignalR send failure - log, notify admin if critical).
+            *   If `printer.Type == PrinterType.WindowsUsb`: Look up the SignalR `ConnectionId` for the `printer.ConnectionString` (GUID) from the `OrderHub`'s registry. Send a targeted SignalR message `("PrintJob", jobId, byte[] rawData, string contentType)` to that connection. Handle errors (e.g., companion app offline, SignalR send failure - log, notify admin if critical).
 
 *   **`OrderHub` (SignalR):**
     *   **Companion App Registration:**

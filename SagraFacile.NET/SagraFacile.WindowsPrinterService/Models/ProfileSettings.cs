@@ -7,5 +7,7 @@ namespace SagraFacile.WindowsPrinterService.Models
         public string? HubHostAndPort { get; set; }
         public string? InstanceGuid { get; set; }
         public bool AutoStartEnabled { get; set; } = false;
+        public LocalPrinterType PrinterType { get; set; } = LocalPrinterType.Standard;
+        public string? PaperSize { get; set; }
     }
 }

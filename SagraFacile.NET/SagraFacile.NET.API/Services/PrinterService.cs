@@ -16,6 +16,9 @@ using SagraFacile.NET.API.Hubs;
 using SagraFacile.NET.API.Utils;
 using ESCPOS_NET.Emitters;
 using SagraFacile.NET.API.BackgroundServices;
+using System.Reflection;
+using System.IO;
+using Scriban;
 
 namespace SagraFacile.NET.API.Services
 {
@@ -126,7 +129,8 @@ namespace SagraFacile.NET.API.Services
                 IsEnabled = printerDto.IsEnabled,
                 OrganizationId = printerDto.OrganizationId,
                 PrintMode = printerDto.PrintMode,
-                DocumentType = printerDto.DocumentType
+                DocumentType = printerDto.DocumentType,
+                PaperSize = printerDto.PaperSize
             };
 
             _context.Printers.Add(printer);
@@ -184,6 +188,7 @@ namespace SagraFacile.NET.API.Services
             existingPrinter.IsEnabled = printerDto.IsEnabled;
             existingPrinter.PrintMode = printerDto.PrintMode;
             existingPrinter.DocumentType = printerDto.DocumentType;
+            existingPrinter.PaperSize = printerDto.PaperSize;
 
             try
             {
@@ -265,7 +270,8 @@ namespace SagraFacile.NET.API.Services
                 IsEnabled = printer.IsEnabled,
                 OrganizationId = printer.OrganizationId,
                 PrintMode = printer.PrintMode,
-                DocumentType = printer.DocumentType
+                DocumentType = printer.DocumentType,
+                PaperSize = printer.PaperSize
             };
         }
 
@@ -333,7 +339,13 @@ namespace SagraFacile.NET.API.Services
                             return (false, "Could not find a processing job to send.");
                         }
                         
-                        await _orderHubContext.Clients.Client(connectionId).SendAsync("PrintJob", job.Id, data);
+                        // Determine content type based on printer document type
+                        string contentType = printer.DocumentType == DocumentType.HtmlPdf ? "application/pdf" : "application/vnd.escpos";
+                        
+                        _logger.LogInformation("Sending SignalR message to Windows app. JobId: {JobId}, ContentType: {ContentType}, DataSize: {DataSize} bytes", 
+                            job.Id, contentType, data.Length);
+                        
+                        await _orderHubContext.Clients.Client(connectionId).SendAsync("PrintJob", job.Id, data, contentType);
                         return (true, null);
                     }
                     else
@@ -501,6 +513,14 @@ namespace SagraFacile.NET.API.Services
         {
             if (printer.DocumentType == DocumentType.HtmlPdf)
             {
+                // Handle test prints for HTML/PDF printers with a simple test HTML
+                if (jobType == PrintJobType.TestPrint)
+                {
+                    var testHtml = await GenerateTestHtmlContent(printer);
+                    var sampleOrder = CreateSampleOrderForTest(printer.OrganizationId);
+                    return await _pdfService.CreatePdfFromHtmlAsync(sampleOrder, testHtml, printer.PaperSize);
+                }
+
                 var template = await _context.PrintTemplates
                     .Where(t => t.OrganizationId == printer.OrganizationId && t.TemplateType == jobType && t.DocumentType == DocumentType.HtmlPdf && t.IsDefault)
                     .FirstOrDefaultAsync();
@@ -510,15 +530,14 @@ namespace SagraFacile.NET.API.Services
                     _logger.LogWarning("No default HTML template found for JobType {JobType} and Organization {OrgId}. Cannot generate PDF.", jobType, printer.OrganizationId);
                     return Array.Empty<byte>();
                 }
-                
-                // For test prints, we can't generate a full PDF without an order.
-                // We could create a simple test HTML here, but for now, we'll just return an empty array.
-                if (order == null) {
-                    _logger.LogInformation("HTML/PDF test print not yet implemented. Returning empty content.");
+
+                if (order == null)
+                {
+                    _logger.LogWarning("Cannot generate HTML/PDF content for JobType {JobType} without an order.", jobType);
                     return Array.Empty<byte>();
                 }
 
-                return await _pdfService.CreatePdfFromHtmlAsync(order, template.HtmlContent);
+                return await _pdfService.CreatePdfFromHtmlAsync(order, template.HtmlContent, printer.PaperSize);
             }
             else // Default to EscPos
             {
@@ -778,6 +797,103 @@ namespace SagraFacile.NET.API.Services
 
             _logger.LogInformation("Returning configuration for printer {PrinterName} (GUID: {InstanceGuid}): PrintMode={PrintMode}", printer.Name, instanceGuid, printer.PrintMode);
             return printer.PrintMode;
+        }
+
+        private async Task<string> GenerateTestHtmlContent(Printer printer)
+        {
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                var testTemplateName = "SagraFacile.NET.API.PrintTemplates.Html.test-print.html";
+                await using var stream = assembly.GetManifestResourceStream(testTemplateName);
+                if (stream == null)
+                {
+                    _logger.LogWarning("Embedded test print template not found: {TemplateName}", testTemplateName);
+                    return GenerateFallbackTestHtml(printer);
+                }
+                using var reader = new StreamReader(stream);
+                var templateHtml = await reader.ReadToEndAsync();
+
+                // Parse the template with Scriban and populate with printer data
+                var template = Template.Parse(templateHtml);
+                var model = new
+                {
+                    printer = new
+                    {
+                        name = printer.Name,
+                        id = printer.Id,
+                        type = printer.Type.ToString(),
+                        document_type = printer.DocumentType.ToString(),
+                        connection_string = printer.ConnectionString,
+                        paper_size = printer.PaperSize
+                    },
+                    test_datetime = DateTime.Now
+                };
+
+                return await template.RenderAsync(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate test HTML content for printer {PrinterId}", printer.Id);
+                return GenerateFallbackTestHtml(printer);
+            }
+        }
+
+        private string GenerateFallbackTestHtml(Printer printer)
+        {
+            return $@"
+<!DOCTYPE html>
+<html lang='it'>
+<head>
+    <meta charset='UTF-8'>
+    <title>Test Stampa - {printer.Name}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; padding: 20px; text-align: center; }}
+        .test-container {{ max-width: 400px; margin: 0 auto; padding: 20px; border: 2px solid #000; }}
+        .header {{ font-size: 24px; font-weight: bold; margin-bottom: 20px; }}
+        .info {{ text-align: left; margin: 10px 0; padding: 10px; background-color: #f8f8f8; }}
+    </style>
+</head>
+<body>
+    <div class='test-container'>
+        <div class='header'>🖨️ TEST STAMPA</div>
+        <div class='info'><strong>Stampante:</strong> {printer.Name} (ID: {printer.Id})</div>
+        <div class='info'><strong>Tipo:</strong> {printer.Type}</div>
+        <div class='info'><strong>Documento:</strong> {printer.DocumentType}</div>
+        <div class='info'><strong>Connessione:</strong> {printer.ConnectionString}</div>
+        <div class='info'><strong>Data Test:</strong> {DateTime.Now:dd/MM/yyyy HH:mm:ss}</div>
+        <p>✅ Test di stampa completato con successo!</p>
+    </div>
+</body>
+</html>";
+        }
+
+        private Order CreateSampleOrderForTest(int organizationId)
+        {
+            var orderId = $"TEST_{Guid.NewGuid().ToString().Substring(0, 8)}";
+            return new Order
+            {
+                Id = orderId,
+                DisplayOrderNumber = "T-001",
+                OrganizationId = organizationId,
+                Organization = new Organization { Name = "Test Organization" },
+                Area = new Area { Name = "Test Area", GuestCharge = 1.0m, TakeawayCharge = 0.5m },
+                CashierStation = new CashierStation { Name = "Test Cassa" },
+                OrderDateTime = DateTime.Now,
+                CustomerName = "Test Customer",
+                NumberOfGuests = 1,
+                TotalAmount = 10.00m,
+                IsTakeaway = false,
+                OrderItems = new List<OrderItem>
+                {
+                    new OrderItem
+                    {
+                        MenuItem = new MenuItem { Name = "Test Item", MenuCategory = new MenuCategory { Name = "Test Category" } },
+                        Quantity = 1,
+                        UnitPrice = 10.00m
+                    }
+                }
+            };
         }
     }
 }
