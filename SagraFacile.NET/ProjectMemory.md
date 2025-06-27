@@ -3,6 +3,46 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-06-26) - Refactored SignalRService Architecture & Fixed PDF Printing Issues
+**Context:** Addressed a critical PDF printing issue where webapp test prints to HTML/PDF printers were failing, and completely refactored the SignalRService which had grown to over 600 lines and violated the Single Responsibility Principle.
+**Accomplishments:**
+*   **Fixed PDF Printing Issue:**
+    *   **Root Cause:** The previous `PdfPrintingService` relied on unreliable external processes (Adobe Reader, Windows shell execute) to print PDFs, leading to "file not found" errors and print failures. Additionally, the `SignalRService` was missing the `contentType` parameter when sending print jobs.
+    *   **Solution:**
+        *   **Windows Printer Service:** Replaced the fragile external process approach in `PdfPrintingService.cs` with direct, programmatic PDF printing using the `PdfiumViewer` library. This involved adding `PdfiumViewer` and `PdfiumViewer.Native.x86_64.v8-xfa` NuGet packages to `SagraFacile.WindowsPrinterService.csproj`. The `PrintPdfAsync` method now loads PDF data from a memory stream and prints it directly, honoring specified paper sizes.
+        *   **Backend API:** Ensured `PrinterService.cs` correctly includes the `contentType` parameter (`"application/pdf"` or `"application/vnd.escpos"`) in the SignalR `PrintJob` message sent to the Windows Printer Service.
+    *   **Result:** Resolved the "Nessuna applicazione associata al file specificato per questa operazione" error and enabled reliable PDF printing from the webapp.
+*   **Major SignalRService Refactoring:**
+    *   **Created Three New Specialized Services:**
+        *   **`PdfPrintingService`** - Now handles all PDF printing logic using `PdfiumViewer` for robust, direct printing.
+        *   **`PrinterConfigurationService`** - Manages fetching printer configuration from the backend API with proper error handling and SSL bypass for development.
+        *   **`PrintJobManager`** - Manages the print job queue for on-demand printing, including queue operations and job processing.
+    *   **Refactored SignalRService:**
+        *   Updated constructor to inject the three new services via dependency injection.
+        *   Replaced configuration fetching logic to use `PrinterConfigurationService.FetchConfigurationAsync()`.
+        *   Updated print job handling to use `PrintJobManager.EnqueueJob()` and `PrintJobManager.ProcessJobAsync()`.
+        *   Delegated queue management to use `PrintJobManager.DequeueJob()` and `PrintJobManager.GetQueueCount()`.
+        *   Removed over 200 lines of duplicate code including old PDF printing methods, static HttpClient, and local queue management.
+    *   **Enhanced PrintJobItem Model:**
+        *   Added `ContentType` property to support both ESC/POS and PDF content types.
+        *   Added `PaperSize` property to use profile-configured paper sizes for PDF printing.
+        *   Updated all PrintJobItem creation to pass content type and paper size from profile settings.
+    *   **Updated Dependency Injection:**
+        *   Registered all new services in `Program.cs` with proper singleton patterns where appropriate for shared state.
+**Key Decisions:**
+*   Prioritized robustness and reliability for PDF printing by adopting `PdfiumViewer` for direct programmatic control.
+*   Applied SOLID principles to break down the monolithic SignalRService into focused, single-responsibility services.
+*   Maintained backward compatibility while improving code organization and testability.
+*   Used profile-configured paper sizes for PDF printing to ensure proper document formatting.
+*   Implemented proper error handling and logging throughout the new service architecture.
+**Outcome:** 
+*   **PDF printing issue resolved** - Webapp test prints to HTML/PDF printers now work correctly and reliably.
+*   **Significantly improved architecture** - The codebase now follows SOLID principles with better separation of concerns.
+*   **Enhanced maintainability** - Each service has a clear purpose and can be modified independently.
+*   **Better testability** - Services can be unit tested in isolation.
+*   **Improved extensibility** - Easy to add new printing methods or configuration sources.
+*   **Reduced code duplication** - Eliminated redundant PDF printing logic and queue management code.
+
 ## (2025-06-26) - Implemented HTML/PDF Test Print & Fixed SignalR Message Format
 **Context:** Addressed an issue where test prints for HTML/PDF printers were failing due to missing templates and an incorrect SignalR message format to the Windows Printer Service.
 **Accomplishments:**

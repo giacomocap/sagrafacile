@@ -112,8 +112,13 @@ static class Program
                 services.AddLogging(configure => configure.AddConsole().AddDebug());
                 services.AddTransient<IRawPrinter, RawPrinterHelperService>();
                 
+                // Register new services for better separation of concerns
+                services.AddSingleton<IPdfPrintingService, PdfPrintingService>();
+                services.AddSingleton<IPrinterConfigurationService, PrinterConfigurationService>();
+                services.AddSingleton<IPrintJobManager, PrintJobManager>();
+                
                 // SignalRService is singleton, its active profile is set before host.Run()
-                services.AddSingleton<SignalRService>(); 
+                services.AddSingleton<SignalRService>();
                 
                 // Forms
                 // SettingsForm constructor now requires profileName and profilesDirectory.
