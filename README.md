@@ -330,4 +330,14 @@ This ensures consistency and clear versioning for all releases.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE.txt).
+This project is licensed under the **Elastic License 2.0**. A copy of the license is available in the [LICENSE.txt](LICENSE.txt) file.
+
+In simple terms, this license allows you to:
+*   **Freely use, modify, and distribute** the software for your own purposes or within your organization.
+*   **Create derivative works**.
+
+However, it **restricts** you from:
+*   **Providing the software as a managed service** to third parties (i.e., you cannot offer a competing SaaS version of SagraFacile).
+*   **Reselling or sublicensing** the software.
+
+This "Source Available" model ensures the project remains free and open for community use and self-hosting, while protecting the project's ability to offer a sustainable, official cloud version.

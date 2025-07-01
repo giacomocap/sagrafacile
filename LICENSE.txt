@@ -1,21 +1,30 @@
-MIT License
+Elastic License 2.0
 
-Copyright (c) [year] [fullname]
+This Agreement is between the entity licensing the Software (“you”) and Elastic B.V. (“Elastic”).
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Acceptance
+By using the Software, you agree to all of the terms and conditions of this Agreement. If you do not agree, do not use the Software.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Copyright License
+Subject to the terms and conditions of this Agreement, Elastic grants you a non-exclusive, worldwide, non-transferable, non-sublicensable, royalty-free, perpetual license to use, copy, display, distribute, and prepare derivative works of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Use Limitation
+You may not provide the Software to third parties as a hosted or managed service, where the service provides users with access to any substantial set of the features or functionality of the Software.
+
+You may not move, change, disable, or circumvent the license key functionality in the Software, and you may not remove or obscure any functionality in the Software that is protected by the license key.
+
+You may not alter, remove, or obscure any licensing, copyright, or other notices of Elastic or its licensors in the Software. Any use of the Software or the trademarks of Elastic is subject to the trademark policy located at https://www.elastic.co/legal/trademarks.
+
+Notices
+Elastic B.V.
+Keizersgracht 281, 1016 ED Amsterdam, The Netherlands
+info@elastic.co
+
+Trademarks
+Elasticsearch, Kibana, Logstash, and Beats are trademarks of Elastic B.V., registered in the U.S. and in other countries.
+
+Disclaimer of Warranty
+THE SOFTWARE IS PROVIDED “AS IS,” WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+Limitation of Liability
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

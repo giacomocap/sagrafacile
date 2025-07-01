@@ -1,0 +1,37 @@
+# fly.toml file for sagrafacile-webapp
+# This configuration tells Fly.io how to deploy the Next.js frontend.
+
+# The name of the application. This MUST match the name in our Terraform file.
+app = "sagrafacile-webapp"
+primary_region = "ams" # Should be the same region as the backend for low latency.
+
+# This section tells Fly how to build the application.
+# We're pointing it to the existing Dockerfile in this directory.
+[build]
+  image = "ghcr.io/giacomocap/sagrafacile-frontend:main" # We can use the pre-built image directly
+
+# This section defines the public-facing service.
+# This is what users will access in their browsers.
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000 # The port the Next.js app listens on inside the container.
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true # Redirect all HTTP traffic to HTTPS.
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 200
+    soft_limit = 150
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "5s" # Give Next.js a bit more time to start up.
