@@ -9,7 +9,7 @@ namespace SagraFacile.NET.API.Models
         public int Id { get; set; }
 
         [Required]
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         [ForeignKey("OrganizationId")]
         public Organization Organization { get; set; }
 
@@ -33,4 +33,4 @@ namespace SagraFacile.NET.API.Models
         [Required]
         public bool IsEnabled { get; set; } = true;
     }
-} 
+}

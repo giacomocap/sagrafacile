@@ -19,7 +19,7 @@ public abstract class BaseService
     /// <returns>A tuple containing the nullable OrganizationId and a boolean indicating if the user is a SuperAdmin.</returns>
     /// <exception cref="UnauthorizedAccessException">Thrown if the user is not authenticated or essential claims are missing.</exception>
     /// <exception cref="InvalidOperationException">Thrown if an authenticated non-SuperAdmin user lacks a valid organizationId claim.</exception>
-    protected (int? OrganizationId, bool IsSuperAdmin) GetUserContext()
+    protected (Guid? OrganizationId, bool IsSuperAdmin) GetUserContext()
     {
         var user = _httpContextAccessor.HttpContext?.User;
         if (user == null || !user.Identity!.IsAuthenticated)
@@ -37,7 +37,7 @@ public abstract class BaseService
             return (null, true);
         }
 
-        if (int.TryParse(orgIdClaim, out var orgId))
+        if (Guid.TryParse(orgIdClaim, out var orgId))
         {
             return (orgId, false);
         }

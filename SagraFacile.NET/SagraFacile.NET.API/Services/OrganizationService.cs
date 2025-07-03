@@ -58,7 +58,7 @@ namespace SagraFacile.NET.API.Services
             return organizations;
         }
 
-        public async Task<Organization?> GetOrganizationByIdAsync(int id)
+        public async Task<Organization?> GetOrganizationByIdAsync(Guid id)
         {
             _logger.LogInformation("Fetching organization by ID: {OrganizationId}.", id);
             var (userOrgId, isSuperAdmin) = GetUserContext();
@@ -138,7 +138,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        public async Task<bool> UpdateOrganizationAsync(int id, Organization organization)
+        public async Task<bool> UpdateOrganizationAsync(Guid id, Organization organization)
         {
             _logger.LogInformation("Attempting to update organization ID: {OrganizationId}.", id);
             if (id != organization.Id)
@@ -192,7 +192,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        public async Task<bool> DeleteOrganizationAsync(int id)
+        public async Task<bool> DeleteOrganizationAsync(Guid id)
         {
             _logger.LogInformation("Attempting to delete organization ID: {OrganizationId}.", id);
             var organization = await _context.Organizations.FindAsync(id);
@@ -218,7 +218,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        public async Task<bool> OrganizationExistsAsync(int id)
+        public async Task<bool> OrganizationExistsAsync(Guid id)
         {
             _logger.LogDebug("Checking if organization ID {OrganizationId} exists.", id);
             return await _context.Organizations.AnyAsync(e => e.Id == id);

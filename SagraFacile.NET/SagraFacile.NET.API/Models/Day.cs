@@ -16,7 +16,7 @@ namespace SagraFacile.NET.API.Models
         public int Id { get; set; }
 
         [Required]
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         [ForeignKey("OrganizationId")]
         public Organization Organization { get; set; } = null!;
 

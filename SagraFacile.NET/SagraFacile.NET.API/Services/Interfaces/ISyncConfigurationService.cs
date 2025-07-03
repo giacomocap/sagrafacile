@@ -9,7 +9,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// </summary>
         /// <param name="organizationId">The organization ID</param>
         /// <returns>The sync configuration, or null if not configured</returns>
-        Task<SyncConfiguration?> GetSyncConfigurationAsync(int organizationId);
+        Task<SyncConfiguration?> GetSyncConfigurationAsync(Guid organizationId);
 
         /// <summary>
         /// Creates or updates the sync configuration for an organization
@@ -23,6 +23,6 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// </summary>
         /// <param name="organizationId">The organization ID</param>
         /// <returns>True if deleted, false if not found</returns>
-        Task<bool> DeleteSyncConfigurationAsync(int organizationId);
+        Task<bool> DeleteSyncConfigurationAsync(Guid organizationId);
     }
 }

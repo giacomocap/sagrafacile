@@ -29,7 +29,7 @@ namespace SagraFacile.NET.API.Services
             _logger = logger;
         }
 
-        public async Task<DayDto?> GetCurrentOpenDayAsync(int organizationId)
+        public async Task<DayDto?> GetCurrentOpenDayAsync(Guid organizationId)
         {
             // Authorization check: Ensure the requesting user has access to this organization
             var (userOrganizationId, isSuperAdmin) = GetUserContext();
@@ -54,7 +54,7 @@ namespace SagraFacile.NET.API.Services
             return MapDayToDto(openDay);
         }
 
-        public async Task<DayDto?> GetPublicCurrentOpenDayAsync(int organizationId)
+        public async Task<DayDto?> GetPublicCurrentOpenDayAsync(Guid organizationId)
         {
             var openDay = await _context.Days
                 .Include(d => d.OpenedByUser)
@@ -211,7 +211,7 @@ namespace SagraFacile.NET.API.Services
             return MapDayToDto(dayToClose);
         }
 
-        public async Task<IEnumerable<DayDto>> GetDaysAsync(int organizationId, DateTime? startDate, DateTime? endDate, ClaimsPrincipal user) // Keep user param here as it's passed from controller/other services
+        public async Task<IEnumerable<DayDto>> GetDaysAsync(Guid organizationId, DateTime? startDate, DateTime? endDate, ClaimsPrincipal user) // Keep user param here as it's passed from controller/other services
         {
             // BaseService methods GetUserContext() and GetUserId() use HttpContextAccessor, no user param needed
             var (userOrganizationId, isSuperAdmin) = GetUserContext();

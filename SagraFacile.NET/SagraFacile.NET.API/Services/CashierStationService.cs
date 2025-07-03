@@ -25,7 +25,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Helper method to check organization access based on user context
-        private async Task<bool> HasAccessToOrganization(int targetOrganizationId, string[]? allowedRoles = null)
+        private async Task<bool> HasAccessToOrganization(Guid targetOrganizationId, string[]? allowedRoles = null)
         {
             var (userOrganizationId, isSuperAdmin) = GetUserContext(); // From BaseService
             _logger.LogDebug("Checking access to organization {TargetOrganizationId}. Caller OrgId: {UserOrganizationId}, IsSuperAdmin: {IsSuperAdmin}.", targetOrganizationId, userOrganizationId, isSuperAdmin);
@@ -105,7 +105,7 @@ namespace SagraFacile.NET.API.Services
             return MapToDto(station);
         }
 
-        public async Task<IEnumerable<CashierStationDto>> GetStationsByOrganizationAsync(int organizationId, User currentUser_IGNORED)
+        public async Task<IEnumerable<CashierStationDto>> GetStationsByOrganizationAsync(Guid organizationId, User currentUser_IGNORED)
         {
             _logger.LogInformation("Fetching cashier stations for OrganizationId: {OrganizationId}.", organizationId);
             if (!await HasAccessToOrganization(organizationId))
@@ -150,7 +150,7 @@ namespace SagraFacile.NET.API.Services
             return stations;
         }
 
-        public async Task<(CashierStationDto? Station, string? Error)> CreateStationAsync(int organizationId, CashierStationUpsertDto dto, User currentUser_IGNORED)
+        public async Task<(CashierStationDto? Station, string? Error)> CreateStationAsync(Guid organizationId, CashierStationUpsertDto dto, User currentUser_IGNORED)
         {
             _logger.LogInformation("Attempting to create cashier station '{StationName}' for OrganizationId: {OrganizationId}.", dto.Name, organizationId);
             if (!await HasAccessToOrganization(organizationId, new[] { "SuperAdmin", "Admin" }))

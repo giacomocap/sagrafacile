@@ -17,7 +17,7 @@ namespace SagraFacile.NET.API.Models
         public bool IsEnabled { get; set; } = true;
 
         // Foreign key for Organization
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         // Navigation property
         public virtual Organization Organization { get; set; } = null!;

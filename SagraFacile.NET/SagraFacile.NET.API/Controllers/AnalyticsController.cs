@@ -27,7 +27,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(DashboardKPIsDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<DashboardKPIsDto>> GetDashboardKPIs([FromQuery, Required] int organizationId, [FromQuery] int? dayId = null)
+        public async Task<ActionResult<DashboardKPIsDto>> GetDashboardKPIs([FromQuery, Required] Guid organizationId, [FromQuery] int? dayId = null)
         {
             _logger.LogInformation("Received request to get dashboard KPIs for OrganizationId: {OrganizationId}, DayId: {DayId}", organizationId, dayId);
             try
@@ -52,7 +52,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(List<SalesTrendDataDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<SalesTrendDataDto>>> GetSalesTrend([FromQuery, Required] int organizationId, [FromQuery] int days = 7)
+        public async Task<ActionResult<List<SalesTrendDataDto>>> GetSalesTrend([FromQuery, Required] Guid organizationId, [FromQuery] int days = 7)
         {
             _logger.LogInformation("Received request to get sales trend for OrganizationId: {OrganizationId}, Days: {Days}", organizationId, days);
             try
@@ -77,7 +77,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(List<OrderStatusDistributionDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<OrderStatusDistributionDto>>> GetOrderStatusDistribution([FromQuery, Required] int organizationId, [FromQuery] int? dayId = null)
+        public async Task<ActionResult<List<OrderStatusDistributionDto>>> GetOrderStatusDistribution([FromQuery, Required] Guid organizationId, [FromQuery] int? dayId = null)
         {
             _logger.LogInformation("Received request to get order status distribution for OrganizationId: {OrganizationId}, DayId: {DayId}", organizationId, dayId);
             try
@@ -102,7 +102,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(List<TopMenuItemDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<TopMenuItemDto>>> GetTopMenuItems([FromQuery, Required] int organizationId, [FromQuery] int days = 7, [FromQuery] int limit = 5)
+        public async Task<ActionResult<List<TopMenuItemDto>>> GetTopMenuItems([FromQuery, Required] Guid organizationId, [FromQuery] int days = 7, [FromQuery] int limit = 5)
         {
             _logger.LogInformation("Received request to get top menu items for OrganizationId: {OrganizationId}, Days: {Days}, Limit: {Limit}", organizationId, days, limit);
             try
@@ -129,7 +129,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<OrdersByHourDto>>> GetOrdersByHour([FromQuery, Required] int organizationId, [FromQuery] int? areaId = null, [FromQuery] int? dayId = null)
+        public async Task<ActionResult<List<OrdersByHourDto>>> GetOrdersByHour([FromQuery, Required] Guid organizationId, [FromQuery] int? areaId = null, [FromQuery] int? dayId = null)
         {
             _logger.LogInformation("Received request to get orders by hour for OrganizationId: {OrganizationId}, AreaId: {AreaId}, DayId: {DayId}", organizationId, areaId, dayId);
             try
@@ -160,7 +160,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<PaymentMethodDistributionDto>>> GetPaymentMethodDistribution([FromQuery, Required] int organizationId, [FromQuery] int? areaId = null, [FromQuery] int? dayId = null)
+        public async Task<ActionResult<List<PaymentMethodDistributionDto>>> GetPaymentMethodDistribution([FromQuery, Required] Guid organizationId, [FromQuery] int? areaId = null, [FromQuery] int? dayId = null)
         {
             _logger.LogInformation("Received request to get payment method distribution for OrganizationId: {OrganizationId}, AreaId: {AreaId}, DayId: {DayId}", organizationId, areaId, dayId);
             try
@@ -191,7 +191,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<List<AverageOrderValueTrendDto>>> GetAverageOrderValueTrend([FromQuery, Required] int organizationId, [FromQuery] int? areaId = null, [FromQuery] int days = 7)
+        public async Task<ActionResult<List<AverageOrderValueTrendDto>>> GetAverageOrderValueTrend([FromQuery, Required] Guid organizationId, [FromQuery] int? areaId = null, [FromQuery] int days = 7)
         {
             _logger.LogInformation("Received request to get average order value trend for OrganizationId: {OrganizationId}, AreaId: {AreaId}, Days: {Days}", organizationId, areaId, days);
             try
@@ -223,7 +223,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GenerateDailySummaryReport([FromQuery, Required] int organizationId, [FromQuery, Required] int dayId)
+        public async Task<IActionResult> GenerateDailySummaryReport([FromQuery, Required] Guid organizationId, [FromQuery, Required] int dayId)
         {
             _logger.LogInformation("Received request to generate daily summary report for OrganizationId: {OrganizationId}, DayId: {DayId}", organizationId, dayId);
             try
@@ -255,7 +255,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GenerateAreaPerformanceReport([FromQuery, Required] int organizationId, [FromQuery, Required] DateTime startDate, [FromQuery, Required] DateTime endDate)
+        public async Task<IActionResult> GenerateAreaPerformanceReport([FromQuery, Required] Guid organizationId, [FromQuery, Required] DateTime startDate, [FromQuery, Required] DateTime endDate)
         {
             _logger.LogInformation("Received request to generate area performance report for OrganizationId: {OrganizationId}, StartDate: {StartDate}, EndDate: {EndDate}", organizationId, startDate, endDate);
             if (startDate > endDate)

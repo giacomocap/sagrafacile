@@ -15,7 +15,7 @@ namespace SagraFacile.NET.API.DTOs
         /// <summary>
         /// The ID of the Organization this configuration belongs to
         /// </summary>
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         /// <summary>
         /// The base URL of the SagraPreOrdine platform

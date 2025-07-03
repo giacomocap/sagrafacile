@@ -16,7 +16,7 @@ namespace SagraFacile.NET.API.DTOs
         // For updates, the service layer should verify the user has access
         // to the organization of the Area being updated (identified by ID in the route).
         [Required]
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         public bool EnableCompletionConfirmation { get; set; }
         public bool EnableKds { get; set; }

@@ -35,7 +35,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         /// <inheritdoc />
-        public async Task PollAndImportPreOrdersAsync(int organizationId, SyncConfiguration syncConfig, CancellationToken cancellationToken)
+        public async Task PollAndImportPreOrdersAsync(Guid organizationId, SyncConfiguration syncConfig, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Starting preorder poll for Organization {OrganizationId}.", organizationId);
 
@@ -103,7 +103,7 @@ namespace SagraFacile.NET.API.Services
             return pollResponse?.PreOrders;
         }
 
-        private async Task ImportSinglePreOrderAsync(PlatformPreOrderDto platformPreOrder, int organizationId, List<string> successfullyImportedIds)
+        private async Task ImportSinglePreOrderAsync(PlatformPreOrderDto platformPreOrder, Guid organizationId, List<string> successfullyImportedIds)
         {
             try
             {

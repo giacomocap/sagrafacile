@@ -48,7 +48,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(Organization), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<Organization>> GetOrganization(int id)
+        public async Task<ActionResult<Organization>> GetOrganization(Guid id)
         {
             _logger.LogInformation("Received request to get organization by ID: {OrganizationId}.", id);
             try
@@ -92,7 +92,7 @@ namespace SagraFacile.NET.API.Controllers
                 var createdOrganization = await _organizationService.CreateOrganizationAsync(organization);
                 _logger.LogInformation("Organization '{OrganizationName}' (ID: {OrganizationId}) created successfully.", createdOrganization.Name, createdOrganization.Id);
                 // Return 201 Created status with location header and the created resource
-                return CreatedAtAction(nameof(GetOrganization), new { id = createdOrganization.Id }, createdOrganization);
+                return CreatedAtAction(nameof(GetOrganization), new { id = createdOrganization.Id }, createdOrganization); // id is already Guid here
             }
             catch (Exception ex)
             {
@@ -109,7 +109,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> PutOrganization(int id, [FromBody] Organization organization) // Use [FromBody]
+        public async Task<IActionResult> PutOrganization(Guid id, [FromBody] Organization organization) // Use [FromBody]
         {
             _logger.LogInformation("Received request to update organization {OrganizationId}.", id);
             if (id != organization.Id)
@@ -158,7 +158,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> DeleteOrganization(int id)
+        public async Task<IActionResult> DeleteOrganization(Guid id)
         {
             _logger.LogInformation("Received request to delete organization {OrganizationId}.", id);
             try

@@ -6,7 +6,7 @@ namespace SagraFacile.NET.API.DTOs
     public class DayDto
     {
         public int Id { get; set; }
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
         public DayStatus Status { get; set; }

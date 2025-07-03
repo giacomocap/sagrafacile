@@ -26,7 +26,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Helper method for authorization
-        private async Task AuthorizeAndValidateAreaAccessAsync(int organizationId, int areaId, ClaimsPrincipal user, bool requireAdmin = false)
+        private async Task AuthorizeAndValidateAreaAccessAsync(Guid organizationId, int areaId, ClaimsPrincipal user, bool requireAdmin = false)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext(); // Use method from BaseService
 
@@ -50,7 +50,7 @@ namespace SagraFacile.NET.API.Services
         }
 
 
-        public async Task<IEnumerable<KdsStation>> GetKdsStationsByAreaAsync(int organizationId, int areaId, ClaimsPrincipal user)
+        public async Task<IEnumerable<KdsStation>> GetKdsStationsByAreaAsync(Guid organizationId, int areaId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user); // Use helper for authorization
 
@@ -60,7 +60,7 @@ namespace SagraFacile.NET.API.Services
                 .ToListAsync();
         }
 
-        public async Task<KdsStation?> GetKdsStationByIdAsync(int organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
+        public async Task<KdsStation?> GetKdsStationByIdAsync(Guid organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user); // Use helper for authorization
 
@@ -70,7 +70,7 @@ namespace SagraFacile.NET.API.Services
                 .FirstOrDefaultAsync(ks => ks.Id == kdsStationId && ks.OrganizationId == organizationId && ks.AreaId == areaId);
         }
 
-        public async Task<KdsStation> CreateKdsStationAsync(int organizationId, int areaId, KdsStation newKdsStation, ClaimsPrincipal user)
+        public async Task<KdsStation> CreateKdsStationAsync(Guid organizationId, int areaId, KdsStation newKdsStation, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user, requireAdmin: true); // Use helper for authorization (Admin required)
 
@@ -85,7 +85,7 @@ namespace SagraFacile.NET.API.Services
             return newKdsStation;
         }
 
-        public async Task<bool> UpdateKdsStationAsync(int organizationId, int areaId, int kdsStationId, KdsStation updatedKdsStation, ClaimsPrincipal user)
+        public async Task<bool> UpdateKdsStationAsync(Guid organizationId, int areaId, int kdsStationId, KdsStation updatedKdsStation, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user, requireAdmin: true); // Use helper for authorization (Admin required)
 
@@ -106,7 +106,7 @@ namespace SagraFacile.NET.API.Services
             return true;
         }
 
-        public async Task<bool> DeleteKdsStationAsync(int organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
+        public async Task<bool> DeleteKdsStationAsync(Guid organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user, requireAdmin: true); // Use helper for authorization (Admin required)
 
@@ -126,7 +126,7 @@ namespace SagraFacile.NET.API.Services
 
         // --- Category Assignments ---
 
-        public async Task<IEnumerable<MenuCategory>> GetAssignedCategoriesAsync(int organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
+        public async Task<IEnumerable<MenuCategory>> GetAssignedCategoriesAsync(Guid organizationId, int areaId, int kdsStationId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user); // Use helper for authorization
 
@@ -148,7 +148,7 @@ namespace SagraFacile.NET.API.Services
                 .ToListAsync();
         }
 
-        public async Task<bool> AssignCategoryAsync(int organizationId, int areaId, int kdsStationId, int menuCategoryId, ClaimsPrincipal user)
+        public async Task<bool> AssignCategoryAsync(Guid organizationId, int areaId, int kdsStationId, int menuCategoryId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user, requireAdmin: true); // Use helper for authorization (Admin required)
 
@@ -192,7 +192,7 @@ namespace SagraFacile.NET.API.Services
             return true;
         }
 
-        public async Task<bool> UnassignCategoryAsync(int organizationId, int areaId, int kdsStationId, int menuCategoryId, ClaimsPrincipal user)
+        public async Task<bool> UnassignCategoryAsync(Guid organizationId, int areaId, int kdsStationId, int menuCategoryId, ClaimsPrincipal user)
         {
             await AuthorizeAndValidateAreaAccessAsync(organizationId, areaId, user, requireAdmin: true); // Use helper for authorization (Admin required)
 

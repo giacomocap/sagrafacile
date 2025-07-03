@@ -9,7 +9,7 @@ public class AreaDto
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Slug { get; set; } = string.Empty;
-    public int OrganizationId { get; set; }
+    public Guid OrganizationId { get; set; }
 
     // Workflow Flags
     public bool EnableWaiterConfirmation { get; set; }

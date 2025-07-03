@@ -14,7 +14,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// </summary>
         /// <param name="organizationId">The ID of the organization.</param>
         /// <returns>The DayDto of the open Day, or null if none is open.</returns>
-        Task<DayDto?> GetCurrentOpenDayAsync(int organizationId); // Keep for internal service use (e.g., OrderService)
+        Task<DayDto?> GetCurrentOpenDayAsync(Guid organizationId); // Keep for internal service use (e.g., OrderService)
 
         /// <summary>
         /// Gets the currently open Day for a specific organization without requiring user authentication.
@@ -22,7 +22,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// </summary>
         /// <param name="organizationId">The ID of the organization.</param>
         /// <returns>The DayDto of the open Day, or null if none is open.</returns>
-        Task<DayDto?> GetPublicCurrentOpenDayAsync(int organizationId);
+        Task<DayDto?> GetPublicCurrentOpenDayAsync(Guid organizationId);
 
         /// <summary>
         /// Gets the currently open Day for the organization associated with the calling user.
@@ -63,7 +63,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// <param name="user">The ClaimsPrincipal representing the authenticated user requesting the data.</param>
         /// <returns>A list of DayDto objects.</returns>
         /// <exception cref="UnauthorizedAccessException">Thrown if the user is not authorized to view Days for this organization.</exception>
-        Task<IEnumerable<DayDto>> GetDaysAsync(int organizationId, DateTime? startDate, DateTime? endDate, ClaimsPrincipal user); // Keep for potential future admin filtering
+        Task<IEnumerable<DayDto>> GetDaysAsync(Guid organizationId, DateTime? startDate, DateTime? endDate, ClaimsPrincipal user); // Keep for potential future admin filtering
 
         /// <summary>
         /// Gets a list of Days for the organization associated with the calling user.

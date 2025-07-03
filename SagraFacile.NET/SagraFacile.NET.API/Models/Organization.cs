@@ -5,7 +5,7 @@ namespace SagraFacile.NET.API.Models
 {
     public class Organization
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
 
         [Required]
         [StringLength(100)]
@@ -14,6 +14,10 @@ namespace SagraFacile.NET.API.Models
         // URL-friendly identifier
         [StringLength(100)] // Keep length consistent with Name
         public string Slug { get; set; } = string.Empty; // Will be configured as required and unique in DbContext
+
+        // New field for SaaS subscription status
+        [StringLength(50)] // e.g., "Trial", "Active", "Expired", "Cancelled"
+        public string SubscriptionStatus { get; set; } = "Trial"; // Default to "Trial"
 
         // Navigation properties
         public virtual ICollection<Area> Areas { get; set; } = new List<Area>();

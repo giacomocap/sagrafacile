@@ -63,7 +63,7 @@ namespace SagraFacile.NET.API.Services
             {
                 return (false, "User is not authorized to modify assignments for this printer.");
             }
-            int organizationId = printer.OrganizationId;
+            Guid organizationId = printer.OrganizationId;
 
             // 2. Verify all provided category IDs exist *within the same organization*
             var validCategoriesInArea = await _context.MenuCategories

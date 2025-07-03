@@ -21,7 +21,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         /// <inheritdoc />
-        public async Task<SyncConfiguration?> GetSyncConfigurationAsync(int organizationId)
+        public async Task<SyncConfiguration?> GetSyncConfigurationAsync(Guid organizationId)
         {
             _logger.LogInformation("Attempting to retrieve sync configuration for Organization ID: {OrganizationId}.", organizationId);
             var (userOrgId, isSuperAdmin) = GetUserContext();
@@ -112,7 +112,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         /// <inheritdoc />
-        public async Task<bool> DeleteSyncConfigurationAsync(int organizationId)
+        public async Task<bool> DeleteSyncConfigurationAsync(Guid organizationId)
         {
             _logger.LogInformation("Attempting to delete sync configuration for Organization ID: {OrganizationId}.", organizationId);
             var (userOrgId, isSuperAdmin) = GetUserContext();

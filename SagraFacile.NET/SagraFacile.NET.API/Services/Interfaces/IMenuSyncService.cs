@@ -5,9 +5,12 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// <summary>
         /// Synchronizes the menu data (Areas, Categories, Menu Items) with the SagraPreOrdine platform
         /// </summary>
+        /// <summary>
+        /// Synchronizes the menu data (Areas, Categories, Menu Items) with the SagraPreOrdine platform
+        /// </summary>
         /// <param name="organizationId">The organization ID</param>
         /// <returns>A result object containing success status and any error messages</returns>
-        Task<MenuSyncResult> SyncMenuAsync(int organizationId);
+        Task<MenuSyncResult> SyncMenuAsync(Guid organizationId);
     }
 
     /// <summary>

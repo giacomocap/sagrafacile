@@ -99,7 +99,7 @@ namespace SagraFacile.NET.API.Services
                     _logger.LogError("User organization context is missing for non-SuperAdmin during CreatePrinterAsync.");
                     return (null, "User organization context is missing.");
                 }
-                if (printerDto.OrganizationId != 0 && printerDto.OrganizationId != userOrgId.Value)
+                if (printerDto.OrganizationId != Guid.Empty && printerDto.OrganizationId != userOrgId.Value)
                 {
                     _logger.LogWarning("User (OrgId: {UserOrgId}) attempted to create printer for different organization ({RequestedOrgId}).", userOrgId.Value, printerDto.OrganizationId);
                     return (null, "User is not authorized to create a printer for a different organization.");
@@ -109,7 +109,7 @@ namespace SagraFacile.NET.API.Services
             }
             else
             {
-                if (printerDto.OrganizationId == 0 || !await _context.Organizations.AnyAsync(o => o.Id == printerDto.OrganizationId))
+                if (printerDto.OrganizationId == Guid.Empty || !await _context.Organizations.AnyAsync(o => o.Id == printerDto.OrganizationId))
                 {
                     _logger.LogWarning("SuperAdmin attempted to create printer without specifying OrganizationId.");
                     return (null, "SuperAdmin must specify an OrganizationId.");
@@ -868,7 +868,7 @@ namespace SagraFacile.NET.API.Services
 </html>";
         }
 
-        private Order CreateSampleOrderForTest(int organizationId)
+        private Order CreateSampleOrderForTest(Guid organizationId)
         {
             var orderId = $"TEST_{Guid.NewGuid().ToString().Substring(0, 8)}";
             return new Order

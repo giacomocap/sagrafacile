@@ -27,5 +27,5 @@ public class RegisterDto
     // Add OrganizationId if users must be tied to an organization upon registration
     // This is primarily for SuperAdmins to specify the organization.
     // OrgAdmins will have their own OrganizationId assigned automatically.
-    public int? OrganizationId { get; set; }
+    public Guid? OrganizationId { get; set; }
 }

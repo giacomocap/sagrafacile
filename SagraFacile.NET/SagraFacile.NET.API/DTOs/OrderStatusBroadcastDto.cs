@@ -8,7 +8,7 @@ namespace SagraFacile.NET.API.DTOs
         public required string OrderId { get; set; }
         public string? DisplayOrderNumber { get; set; } // Human-readable order number
         public OrderStatus NewStatus { get; set; }
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         public int AreaId { get; set; }
         public string? CustomerName { get; set; } // For display and announcement
         public string? TableNumber { get; set; } // Optional, for context

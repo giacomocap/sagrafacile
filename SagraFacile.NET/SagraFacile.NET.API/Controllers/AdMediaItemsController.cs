@@ -21,7 +21,7 @@ namespace SagraFacile.NET.API.Controllers
         // ADMIN ENDPOINTS
         [HttpGet("admin/organizations/{organizationId}/ads")]
         [Authorize(Roles = "Admin,SuperAdmin")]
-        public async Task<ActionResult<IEnumerable<AdMediaItemDto>>> GetAdminAds(int organizationId)
+        public async Task<ActionResult<IEnumerable<AdMediaItemDto>>> GetAdminAds(Guid organizationId)
         {
             _logger.LogInformation("Received request to get ad media items for OrganizationId: {OrganizationId}", organizationId);
             try
@@ -45,7 +45,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpPost("admin/organizations/{organizationId}/ads")]
         [Authorize(Roles = "Admin,SuperAdmin")]
         [Consumes("multipart/form-data")]
-        public async Task<ActionResult<AdMediaItemDto>> PostAd(int organizationId, [FromForm] AdMediaItemUpsertDto adDto)
+        public async Task<ActionResult<AdMediaItemDto>> PostAd(Guid organizationId, [FromForm] AdMediaItemUpsertDto adDto)
         {
             _logger.LogInformation("Received request to create ad media item for OrganizationId: {OrganizationId}, Name: {Name}", organizationId, adDto.Name);
             if (adDto.File == null || adDto.File.Length == 0)

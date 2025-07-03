@@ -690,7 +690,7 @@ namespace SagraFacile.NET.API.Services
         public async Task<PaginatedResult<OrderDto>> GetOrdersAsync(OrderQueryParameters queryParameters, ClaimsPrincipal user)
         {
             var (userOrganizationId, isSuperAdmin) = GetUserContext();
-            int targetOrganizationId;
+            Guid targetOrganizationId;
 
             if (isSuperAdmin)
             {
@@ -2029,7 +2029,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Helper to send SignalR updates consistently
-        private async Task SendOrderStatusUpdateAsync(string orderId, OrderStatus newStatus, int organizationId, int areaId)
+        private async Task SendOrderStatusUpdateAsync(string orderId, OrderStatus newStatus, Guid organizationId, int areaId)
         {
             _logger.LogInformation("Preparing to send order status update for Order {OrderId}, NewStatus: {NewStatus}, Org: {OrganizationId}, Area: {AreaId}", orderId, newStatus, organizationId, areaId);
 

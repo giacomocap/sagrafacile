@@ -28,7 +28,7 @@ namespace SagraFacile.NET.API.Controllers
         // GET: api/organizations/{organizationId}/areas/{areaId}/kds-stations
         [HttpGet]
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Define roles allowed to list stations
-        public async Task<ActionResult<IEnumerable<KdsStationDto>>> GetKdsStations(int organizationId, int areaId)
+        public async Task<ActionResult<IEnumerable<KdsStationDto>>> GetKdsStations(Guid organizationId, int areaId)
         {
             _logger.LogInformation("Received request to get KDS stations for OrganizationId: {OrganizationId}, AreaId: {AreaId}", organizationId, areaId);
             try
@@ -64,7 +64,7 @@ namespace SagraFacile.NET.API.Controllers
         // GET: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}
         [HttpGet("{kdsStationId}")]
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Define roles allowed to get a specific station
-        public async Task<ActionResult<KdsStationDto>> GetKdsStation(int organizationId, int areaId, int kdsStationId)
+        public async Task<ActionResult<KdsStationDto>> GetKdsStation(Guid organizationId, int areaId, int kdsStationId)
         {
             _logger.LogInformation("Received request to get KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
             try
@@ -105,7 +105,7 @@ namespace SagraFacile.NET.API.Controllers
         // POST: api/organizations/{organizationId}/areas/{areaId}/kds-stations
         [HttpPost]
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can create
-        public async Task<ActionResult<KdsStationDto>> CreateKdsStation(int organizationId, int areaId, [FromBody] KdsStationUpsertDto kdsStationDto)
+        public async Task<ActionResult<KdsStationDto>> CreateKdsStation(Guid organizationId, int areaId, [FromBody] KdsStationUpsertDto kdsStationDto)
         {
             _logger.LogInformation("Received request to create KDS station '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationDto.Name, organizationId, areaId);
             if (!ModelState.IsValid)
@@ -151,7 +151,7 @@ namespace SagraFacile.NET.API.Controllers
         // PUT: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}
         [HttpPut("{kdsStationId}")]
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can update
-        public async Task<IActionResult> UpdateKdsStation(int organizationId, int areaId, int kdsStationId, [FromBody] KdsStationUpsertDto kdsStationDto)
+        public async Task<IActionResult> UpdateKdsStation(Guid organizationId, int areaId, int kdsStationId, [FromBody] KdsStationUpsertDto kdsStationDto)
         {
             _logger.LogInformation("Received request to update KDS station {KdsStationId} with Name: '{KdsStationName}' for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, kdsStationDto.Name, organizationId, areaId);
             if (!ModelState.IsValid)
@@ -194,7 +194,7 @@ namespace SagraFacile.NET.API.Controllers
         // DELETE: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}
         [HttpDelete("{kdsStationId}")]
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can delete
-        public async Task<IActionResult> DeleteKdsStation(int organizationId, int areaId, int kdsStationId)
+        public async Task<IActionResult> DeleteKdsStation(Guid organizationId, int areaId, int kdsStationId)
         {
             _logger.LogInformation("Received request to delete KDS station {KdsStationId} for OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
             try
@@ -232,7 +232,7 @@ namespace SagraFacile.NET.API.Controllers
         // GET: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}/categories
         [HttpGet("{kdsStationId}/categories")]
         [Authorize(Roles = "SuperAdmin,Admin,AreaAdmin")] // Roles allowed to view assignments
-        public async Task<ActionResult<IEnumerable<MenuCategoryDto>>> GetAssignedCategories(int organizationId, int areaId, int kdsStationId)
+        public async Task<ActionResult<IEnumerable<MenuCategoryDto>>> GetAssignedCategories(Guid organizationId, int areaId, int kdsStationId)
         {
             _logger.LogInformation("Received request to get assigned categories for KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", kdsStationId, organizationId, areaId);
              try
@@ -268,7 +268,7 @@ namespace SagraFacile.NET.API.Controllers
         // POST: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}/categories/{menuCategoryId}
         [HttpPost("{kdsStationId}/categories/{menuCategoryId}")]
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can assign
-        public async Task<IActionResult> AssignCategoryToKdsStation(int organizationId, int areaId, int kdsStationId, int menuCategoryId)
+        public async Task<IActionResult> AssignCategoryToKdsStation(Guid organizationId, int areaId, int kdsStationId, int menuCategoryId)
         {
             _logger.LogInformation("Received request to assign category {MenuCategoryId} to KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
             try
@@ -304,7 +304,7 @@ namespace SagraFacile.NET.API.Controllers
         // DELETE: api/organizations/{organizationId}/areas/{areaId}/kds-stations/{kdsStationId}/categories/{menuCategoryId}
         [HttpDelete("{kdsStationId}/categories/{menuCategoryId}")]
         [Authorize(Roles = "SuperAdmin,Admin")] // Only higher admins can unassign
-        public async Task<IActionResult> UnassignCategoryFromKdsStation(int organizationId, int areaId, int kdsStationId, int menuCategoryId)
+        public async Task<IActionResult> UnassignCategoryFromKdsStation(Guid organizationId, int areaId, int kdsStationId, int menuCategoryId)
         {
             _logger.LogInformation("Received request to unassign category {MenuCategoryId} from KDS station {KdsStationId}, OrganizationId: {OrganizationId}, AreaId: {AreaId}", menuCategoryId, kdsStationId, organizationId, areaId);
              try

@@ -18,7 +18,7 @@ namespace SagraFacile.NET.API.Services
             _logger = logger;
         }
 
-        public async Task<IEnumerable<AdMediaItemDto>> GetAdsByOrganizationAsync(int organizationId)
+        public async Task<IEnumerable<AdMediaItemDto>> GetAdsByOrganizationAsync(Guid organizationId)
         {
             _logger.LogInformation("Fetching ad media items for OrganizationId: {OrganizationId}.", organizationId);
             var ads = await _context.AdMediaItems
@@ -39,7 +39,7 @@ namespace SagraFacile.NET.API.Services
             return ads;
         }
 
-        public async Task<(AdMediaItemDto? createdAd, string? error)> CreateAdAsync(int organizationId, AdMediaItemUpsertDto adDto)
+        public async Task<(AdMediaItemDto? createdAd, string? error)> CreateAdAsync(Guid organizationId, AdMediaItemUpsertDto adDto)
         {
             _logger.LogInformation("Attempting to create ad media item for OrganizationId: {OrganizationId}, Name: {Name}.", organizationId, adDto.Name);
 
@@ -164,7 +164,7 @@ namespace SagraFacile.NET.API.Services
             return null;
         }
 
-        private async Task<(string? filePath, string? error)> SaveFileAsync(IFormFile file, int organizationId)
+        private async Task<(string? filePath, string? error)> SaveFileAsync(IFormFile file, Guid organizationId)
         {
             _logger.LogInformation("Attempting to save file '{FileName}' for OrganizationId: {OrganizationId}.", file.FileName, organizationId);
             try
@@ -193,16 +193,25 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        public Task<IEnumerable<AdMediaItemDto>> GetActiveAdsByAreaAsync(int areaId)
+        public async Task<IEnumerable<AdMediaItemDto>> GetActiveAdsByAreaAsync(int areaId)
         {
-            _logger.LogInformation("GetActiveAdsByAreaAsync not implemented for AreaId: {AreaId}.", areaId);
-            throw new NotImplementedException();
-        }
-
-        public Task<IEnumerable<AdMediaItemDto>> GetAllAdsByAreaAsync(int areaId)
-        {
-            _logger.LogInformation("GetAllAdsByAreaAsync not implemented for AreaId: {AreaId}.", areaId);
-            throw new NotImplementedException();
+            _logger.LogInformation("Fetching active ad media items for AreaId: {AreaId}.", areaId);
+            var ads = await _context.AdMediaItems
+                .Where(ad => ad.Assignments.Any(assignment => assignment.AreaId == areaId))
+                .OrderBy(ad => ad.Name)
+                .Select(ad => new AdMediaItemDto
+                {
+                    Id = ad.Id,
+                    OrganizationId = ad.OrganizationId,
+                    Name = ad.Name,
+                    MediaType = ad.MediaType.ToString(),
+                    FilePath = ad.FilePath,
+                    MimeType = ad.MimeType,
+                    UploadedAt = ad.UploadedAt
+                })
+                .ToListAsync();
+            _logger.LogInformation("Found {Count} active ad media items for AreaId: {AreaId}.", ads.Count(), areaId);
+            return ads;
         }
     }
 }

@@ -29,7 +29,7 @@ namespace SagraFacile.NET.API.Services
             _pdfService = pdfService;
         }
 
-        public async Task<(bool Success, PaginatedResult<PrintTemplateDto>? Result, string? Error)> GetAllAsync(int organizationId, QueryParameters queryParameters)
+        public async Task<(bool Success, PaginatedResult<PrintTemplateDto>? Result, string? Error)> GetAllAsync(Guid organizationId, QueryParameters queryParameters)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -66,7 +66,7 @@ namespace SagraFacile.NET.API.Services
             return (true, paginatedResult, null);
         }
 
-        public async Task<(bool Success, PrintTemplateDto? Template, string? Error)> GetByIdAsync(int id, int organizationId)
+        public async Task<(bool Success, PrintTemplateDto? Template, string? Error)> GetByIdAsync(int id, Guid organizationId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             var template = await _context.PrintTemplates.AsNoTracking()
@@ -90,7 +90,7 @@ namespace SagraFacile.NET.API.Services
             return (true, MapTemplateToDto(template), null);
         }
 
-        public async Task<(bool Success, PrintTemplateDto? CreatedTemplate, string? Error)> CreateAsync(PrintTemplateUpsertDto createDto, int organizationId)
+        public async Task<(bool Success, PrintTemplateDto? CreatedTemplate, string? Error)> CreateAsync(PrintTemplateUpsertDto createDto, Guid organizationId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -131,7 +131,7 @@ namespace SagraFacile.NET.API.Services
             return (true, MapTemplateToDto(template), null);
         }
 
-        public async Task<(bool Success, string? Error)> UpdateAsync(int id, PrintTemplateUpsertDto updateDto, int organizationId)
+        public async Task<(bool Success, string? Error)> UpdateAsync(int id, PrintTemplateUpsertDto updateDto, Guid organizationId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             var template = await _context.PrintTemplates.FindAsync(id);
@@ -178,7 +178,7 @@ namespace SagraFacile.NET.API.Services
             return (true, null);
         }
 
-        public async Task<(bool Success, string? Error)> DeleteAsync(int id, int organizationId)
+        public async Task<(bool Success, string? Error)> DeleteAsync(int id, Guid organizationId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             var template = await _context.PrintTemplates.FindAsync(id);
@@ -203,7 +203,7 @@ namespace SagraFacile.NET.API.Services
             return (true, null);
         }
 
-        public async Task<(bool Success, string? Error)> RestoreDefaultHtmlTemplatesAsync(int organizationId)
+        public async Task<(bool Success, string? Error)> RestoreDefaultHtmlTemplatesAsync(Guid organizationId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -240,7 +240,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        public async Task<(bool Success, byte[]? PdfBytes, string? Error)> GeneratePreviewAsync(int organizationId, PreviewRequestDto previewRequest)
+        public async Task<(bool Success, byte[]? PdfBytes, string? Error)> GeneratePreviewAsync(Guid organizationId, PreviewRequestDto previewRequest)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -262,7 +262,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        private async Task<(bool IsValid, string? Error)> IsHtmlTemplateValidAsync(string htmlContent, int organizationId)
+        private async Task<(bool IsValid, string? Error)> IsHtmlTemplateValidAsync(string htmlContent, Guid organizationId)
         {
             try
             {
@@ -278,7 +278,7 @@ namespace SagraFacile.NET.API.Services
             }
         }
 
-        private async Task CreateOrUpdateDefaultTemplate(int organizationId, PrintJobType templateType, string htmlContent)
+        private async Task CreateOrUpdateDefaultTemplate(Guid organizationId, PrintJobType templateType, string htmlContent)
         {
             await UnsetExistingDefaultAsync(organizationId, templateType, DocumentType.HtmlPdf);
 
@@ -307,7 +307,7 @@ namespace SagraFacile.NET.API.Services
             await _context.SaveChangesAsync();
         }
 
-        private async Task UnsetExistingDefaultAsync(int organizationId, PrintJobType templateType, DocumentType documentType, int? excludeTemplateId = null)
+        private async Task UnsetExistingDefaultAsync(Guid organizationId, PrintJobType templateType, DocumentType documentType, int? excludeTemplateId = null)
         {
             var query = _context.PrintTemplates
                 .Where(t => t.OrganizationId == organizationId &&
@@ -348,7 +348,7 @@ namespace SagraFacile.NET.API.Services
             };
         }
 
-        private Order CreateSampleOrder(int organizationId)
+        private Order CreateSampleOrder(Guid organizationId)
         {
             var orderId = $"PREVIEW_{Guid.NewGuid().ToString().Substring(0, 8)}";
             return new Order

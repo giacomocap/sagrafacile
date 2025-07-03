@@ -17,7 +17,7 @@ namespace SagraFacile.NET.API.Models
         public string Slug { get; set; } = string.Empty; // Will be configured as required and unique in DbContext
 
         // Foreign Key for Organization
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         // Navigation property for Organization
         [ForeignKey("OrganizationId")]

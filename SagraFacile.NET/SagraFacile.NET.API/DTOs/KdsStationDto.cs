@@ -5,7 +5,7 @@ namespace SagraFacile.NET.API.DTOs
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public int AreaId { get; set; }
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         // Consider adding assigned category IDs or names if needed directly in this DTO later
     }
 }

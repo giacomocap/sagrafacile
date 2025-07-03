@@ -32,7 +32,7 @@ namespace SagraFacile.NET.API.Controllers
         /// <returns>The sync configuration, or 404 if not found</returns>
         [HttpGet("organizations/{organizationId}/config")]
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can access
-        public async Task<ActionResult<SyncConfigurationDto>> GetSyncConfiguration(int organizationId)
+        public async Task<ActionResult<SyncConfigurationDto>> GetSyncConfiguration(Guid organizationId)
         {
             _logger.LogInformation("Received request to get sync configuration for organization {OrganizationId}.", organizationId);
             try
@@ -77,7 +77,7 @@ namespace SagraFacile.NET.API.Controllers
         /// <returns>The saved sync configuration</returns>
         [HttpPut("organizations/{organizationId}/config")]
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can modify
-        public async Task<ActionResult<SyncConfigurationDto>> SaveSyncConfiguration(int organizationId, [FromBody] SyncConfigurationUpsertDto configDto)
+        public async Task<ActionResult<SyncConfigurationDto>> SaveSyncConfiguration(Guid organizationId, [FromBody] SyncConfigurationUpsertDto configDto)
         {
             _logger.LogInformation("Received request to save sync configuration for organization {OrganizationId}. IsEnabled: {IsEnabled}", organizationId, configDto.IsEnabled);
             try
@@ -130,7 +130,7 @@ namespace SagraFacile.NET.API.Controllers
         /// <returns>204 No Content if successful, 404 if not found</returns>
         [HttpDelete("organizations/{organizationId}/config")]
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can delete
-        public async Task<ActionResult> DeleteSyncConfiguration(int organizationId)
+        public async Task<ActionResult> DeleteSyncConfiguration(Guid organizationId)
         {
             _logger.LogInformation("Received request to delete sync configuration for organization {OrganizationId}.", organizationId);
             try
@@ -163,7 +163,7 @@ namespace SagraFacile.NET.API.Controllers
         /// <returns>The result of the synchronization</returns>
         [HttpPost("organizations/{organizationId}/sync/menu")]
         [Authorize(Roles = "Admin,SuperAdmin")] // Only Admin or SuperAdmin can trigger sync
-        public async Task<ActionResult<MenuSyncResult>> SyncMenu(int organizationId)
+        public async Task<ActionResult<MenuSyncResult>> SyncMenu(Guid organizationId)
         {
             _logger.LogInformation("Received request to synchronize menu for organization {OrganizationId}.", organizationId);
             try

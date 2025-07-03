@@ -24,6 +24,6 @@ public class OrderQueryParameters
     // Filtering properties
     public int? AreaId { get; set; }
     public int? DayId { get; set; }
-    public int? OrganizationId { get; set; }
+    public Guid? OrganizationId { get; set; }
     public List<int>? Statuses { get; set; }
 }

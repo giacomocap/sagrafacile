@@ -11,24 +11,43 @@ using System.Text;
 using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Models.Enums;
+using SagraFacile.NET.API.Services.SaaS; // Add this using for SaaSSubscriptionService
 using PuppeteerSharp; // Added for Puppeteer
 using Serilog; // Added for Serilog
 
 // Ensure extended encodings are available
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
+// Check if running in design-time mode (EF tools)
+var isDesignTime = args.Contains("--design-time") || 
+                   Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "DesignTime" ||
+                   args.Any(arg => arg.Contains("ef")) ||
+                   AppDomain.CurrentDomain.GetAssemblies().Any(a => a.FullName?.Contains("EntityFrameworkCore.Design") == true);
+
+
 // --- Serilog Bootstrap Logger ---
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug() // More verbose for bootstrap
-    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components during bootstrap
-    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
-    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .Enrich.WithMachineName()
-    .Enrich.WithThreadId()
-    .WriteTo.Console(outputTemplate: // Structured console output for Docker
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
-    .CreateBootstrapLogger();
+if (!isDesignTime)
+{
+    Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.Debug() // More verbose for bootstrap
+        .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components during bootstrap
+        .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
+        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information)
+        .Enrich.FromLogContext()
+        .Enrich.WithMachineName()
+        .Enrich.WithThreadId()
+        .WriteTo.Console(outputTemplate: // Structured console output for Docker
+            "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}{Properties:j}")
+        .CreateBootstrapLogger();
+}
+else
+{
+    // Minimal logging for design-time
+    Log.Logger = new LoggerConfiguration()
+        .MinimumLevel.Warning()
+        .WriteTo.Console()
+        .CreateBootstrapLogger();
+}
 // --- End Serilog Bootstrap Logger ---
 
 try // Added for Serilog try-finally block
@@ -38,15 +57,18 @@ try // Added for Serilog try-finally block
     var builder = WebApplication.CreateBuilder(args);
 
     // --- Configure Serilog for WebApplicationBuilder ---
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .MinimumLevel.Debug() // More verbose for general logging
-        .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components
-        .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information) // Explicitly set EF command logs to Information
-        .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .Enrich.WithMachineName()
-        .Enrich.WithThreadId());
+    if (!isDesignTime)
+    {
+        builder.Host.UseSerilog((context, services, configuration) => configuration
+            .MinimumLevel.Debug() // More verbose for general logging
+            .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // More verbose for Microsoft components
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Information) // Explicitly set EF command logs to Information
+            .ReadFrom.Configuration(context.Configuration) // appsettings.json can override these if needed
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            .Enrich.WithMachineName()
+            .Enrich.WithThreadId());
+    }
     // --- End Configure Serilog for WebApplicationBuilder ---
 
     // Define CORS policy name
@@ -75,29 +97,32 @@ try // Added for Serilog try-finally block
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders(); // Add default token providers
 
-    // 2a. Add Authentication and JWT Bearer Configuration
-    builder.Services.AddAuthentication(options =>
+    // 2a. Add Authentication and JWT Bearer Configuration (skip during design-time)
+    if (!isDesignTime)
     {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
+        builder.Services.AddAuthentication(options =>
         {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["JWT_ISSUER"] ?? builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables."),
-            ValidAudience = builder.Configuration["JWT_AUDIENCE"] ?? builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables."),
-            // Use the JWT_SECRET environment variable directly, as this is what's being set.
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"] ?? builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables."))),
-            // Explicitly tell the middleware which claim contains role information
-            RoleClaimType = ClaimTypes.Role
-        };
-    });
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = builder.Configuration["JWT_ISSUER"] ?? builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("JWT_ISSUER not configured. Check environment variables."),
+                ValidAudience = builder.Configuration["JWT_AUDIENCE"] ?? builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("JWT_AUDIENCE not configured. Check environment variables."),
+                // Use the JWT_SECRET environment variable directly, as this is what's being set.
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT_SECRET"] ?? builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT_SECRET not configured. Check environment variables."))),
+                // Explicitly tell the middleware which claim contains role information
+                RoleClaimType = ClaimTypes.Role
+            };
+        });
+    }
 
 
     // 3. Add Custom Services (Scoped is typical for services using DbContext)
@@ -125,24 +150,41 @@ try // Added for Serilog try-finally block
     builder.Services.AddScoped<IPrintTemplateService, PrintTemplateService>(); // Register Print Template Service
     builder.Services.AddScoped<IInitialDataSeeder, InitialDataSeeder>(); // Register InitialDataSeeder
 
-    // Register the Background Service conditionally
-    var enablePollingService = builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
-
-    // Explicitly check for null to distinguish from a "false" value.
-    // If the variable is not present at all, we default to true (as per docker-compose).
-    // If it's present and "false", we disable. If present and "true", we enable.
-    if (enablePollingService == null || enablePollingService == true)
+    // Conditional Dependency Injection for ISubscriptionService based on APP_MODE
+    var appMode = builder.Configuration["APP_MODE"];
+    if (appMode?.ToLower() == "saas")
     {
-        builder.Services.AddHostedService<PreOrderPollingBackgroundService>();
-        Console.WriteLine("PreOrderPollingBackgroundService is ENABLED."); // Log for clarity
+        builder.Services.AddScoped<ISubscriptionService, SaaSSubscriptionService>();
+        Console.WriteLine("SaaS mode detected. Registered SaaSSubscriptionService.");
     }
     else
     {
-        Console.WriteLine("PreOrderPollingBackgroundService is DISABLED by configuration."); // Log for clarity
+        builder.Services.AddScoped<ISubscriptionService, OpenSourceSubscriptionService>();
+        Console.WriteLine("Open Source mode detected. Registered OpenSourceSubscriptionService.");
     }
 
-    // Register the new PrintJobProcessor background service
-    builder.Services.AddHostedService<PrintJobProcessor>();
+    // Register the Background Service conditionally
+    var enablePollingService = builder.Configuration.GetValue<bool?>("ENABLE_PREORDER_POLLING_SERVICE");
+
+    // Skip background services during design-time
+    if (!isDesignTime)
+    {
+        // Explicitly check for null to distinguish from a "false" value.
+        // If the variable is not present at all, we default to true (as per docker-compose).
+        // If it's present and "false", we disable. If present and "true", we enable.
+        if (enablePollingService == null || enablePollingService == true)
+        {
+            builder.Services.AddHostedService<PreOrderPollingBackgroundService>();
+            Console.WriteLine("PreOrderPollingBackgroundService is ENABLED."); // Log for clarity
+        }
+        else
+        {
+            Console.WriteLine("PreOrderPollingBackgroundService is DISABLED by configuration."); // Log for clarity
+        }
+
+        // Register the new PrintJobProcessor background service
+        builder.Services.AddHostedService<PrintJobProcessor>();
+    }
 
 
     // 4. Configure Options Pattern for Settings
@@ -189,6 +231,7 @@ try // Added for Serilog try-finally block
     });
 
     Console.WriteLine("All services configured. Attempting to build the application..."); // Replaced Log.Information
+    
     var app = builder.Build();
     Console.WriteLine("Application built successfully. Configuring HTTP request pipeline..."); // Replaced Log.Information
 
@@ -210,9 +253,12 @@ try // Added for Serilog try-finally block
     // Apply CORS middleware - AFTER UseRouting, BEFORE UseAuthentication, UseAuthorization
     app.UseCors(MyAllowSpecificOrigins);
 
-    // Add Authentication middleware BEFORE Authorization
-    app.UseAuthentication();
-    app.UseAuthorization();
+    // Add Authentication middleware BEFORE Authorization (skip during design-time)
+    if (!isDesignTime)
+    {
+        app.UseAuthentication();
+        app.UseAuthorization();
+    }
 
     app.MapControllers();
 
@@ -246,11 +292,15 @@ try // Added for Serilog try-finally block
     // --- End Apply Migrations ---
 
     // --- Seed Database (System Defaults, Demo Data OR Initial Org/Admin) ---
-    await app.SeedDatabaseAsync();
+    if (!isDesignTime)
+    {
+        await app.SeedDatabaseAsync();
+    }
     // --- End Seed Database ---
 
     // --- Download Chromium for Puppeteer ---
-    if (!app.Environment.IsEnvironment("Testing"))
+    // Only run Puppeteer download if not in Testing and not in design-time mode
+    if (!app.Environment.IsEnvironment("Testing") && !isDesignTime)
     {
         try
         {
@@ -268,19 +318,21 @@ try // Added for Serilog try-finally block
     // --- End Download Chromium ---
 
     // --- Serilog Request Logging ---
-    // app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
-                                    // --- End Serilog Request Logging ---
+    if (!isDesignTime)
+    {
+        app.UseSerilogRequestLogging(); // Add Serilog's request logging middleware
+    }
+    // --- End Serilog Request Logging ---
 
     app.Run();
 } // Added for Serilog try-finally block
-catch (Exception ex) // Added for Serilog try-finally block
+catch (Exception ex) when (ex is not HostAbortedException && ex.Source != "Microsoft.EntityFrameworkCore.Design")
 {
-    // Log.Fatal(ex, "SagraFacile.NET.API host terminated unexpectedly");
-    Console.WriteLine($"FATAL ERROR: SagraFacile.NET.API host terminated unexpectedly. Exception: {ex}"); // Replaced Log.Fatal
+    Log.Fatal(ex, "Web host terminated unexpectedly");
 }
-finally // Added for Serilog try-finally block
+finally
 {
-    // Log.CloseAndFlush();
+    Log.CloseAndFlush();
 }
 
 

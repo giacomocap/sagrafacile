@@ -5,7 +5,7 @@ namespace SagraFacile.NET.API.DTOs
     public class AdMediaItemDto
     {
         public Guid Id { get; set; }
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         public string Name { get; set; }
         public string MediaType { get; set; }
         public string FilePath { get; set; }

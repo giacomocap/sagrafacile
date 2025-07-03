@@ -24,7 +24,7 @@ namespace SagraFacile.NET.API.Controllers
 
         [HttpGet]
         [ProducesResponseType(typeof(PaginatedResult<PrintTemplateDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetTemplates([FromRoute] int organizationId, [FromQuery] QueryParameters queryParameters)
+        public async Task<IActionResult> GetTemplates([FromRoute] Guid organizationId, [FromQuery] QueryParameters queryParameters)
         {
             _logger.LogInformation("Request to get templates for organization {OrgId}", organizationId);
             var (success, result, error) = await _printTemplateService.GetAllAsync(organizationId, queryParameters);
@@ -39,7 +39,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(PrintTemplateDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetTemplateById([FromRoute] int organizationId, [FromRoute] int id)
+        public async Task<IActionResult> GetTemplateById([FromRoute] Guid organizationId, [FromRoute] int id)
         {
             _logger.LogInformation("Request to get template {TemplateId} for organization {OrgId}", id, organizationId);
             var (success, template, error) = await _printTemplateService.GetByIdAsync(id, organizationId);
@@ -54,7 +54,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpPost]
         [ProducesResponseType(typeof(PrintTemplateDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> CreateTemplate([FromRoute] int organizationId, [FromBody] PrintTemplateUpsertDto createDto)
+        public async Task<IActionResult> CreateTemplate([FromRoute] Guid organizationId, [FromBody] PrintTemplateUpsertDto createDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             _logger.LogInformation("Request to create template for organization {OrgId}", organizationId);
@@ -77,7 +77,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateTemplate([FromRoute] int organizationId, [FromRoute] int id, [FromBody] PrintTemplateUpsertDto updateDto)
+        public async Task<IActionResult> UpdateTemplate([FromRoute] Guid organizationId, [FromRoute] int id, [FromBody] PrintTemplateUpsertDto updateDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             _logger.LogInformation("Request to update template {TemplateId} for organization {OrgId}", id, organizationId);
@@ -99,7 +99,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> DeleteTemplate([FromRoute] int organizationId, [FromRoute] int id)
+        public async Task<IActionResult> DeleteTemplate([FromRoute] Guid organizationId, [FromRoute] int id)
         {
             _logger.LogInformation("Request to delete template {TemplateId} for organization {OrgId}", id, organizationId);
             var (success, error) = await _printTemplateService.DeleteAsync(id, organizationId);
@@ -114,7 +114,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpPost("restore-defaults")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> RestoreDefaults([FromRoute] int organizationId)
+        public async Task<IActionResult> RestoreDefaults([FromRoute] Guid organizationId)
         {
             _logger.LogInformation("Request to restore default templates for organization {OrgId}", organizationId);
             var (success, error) = await _printTemplateService.RestoreDefaultHtmlTemplatesAsync(organizationId);
@@ -129,7 +129,7 @@ namespace SagraFacile.NET.API.Controllers
         [HttpPost("preview")]
         [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> PreviewTemplate([FromRoute] int organizationId, [FromBody] PreviewRequestDto previewRequest)
+        public async Task<IActionResult> PreviewTemplate([FromRoute] Guid organizationId, [FromBody] PreviewRequestDto previewRequest)
         {
             _logger.LogInformation("Request to preview template for organization {OrgId}", organizationId);
             var (success, pdfBytes, error) = await _printTemplateService.GeneratePreviewAsync(organizationId, previewRequest);

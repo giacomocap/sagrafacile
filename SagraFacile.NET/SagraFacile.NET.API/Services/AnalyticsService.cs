@@ -28,7 +28,7 @@ namespace SagraFacile.NET.API.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        private async Task<Day> GetTargetDayAsync(int organizationId, int? dayId, bool throwIfNotFound = false)
+        private async Task<Day> GetTargetDayAsync(Guid organizationId, int? dayId, bool throwIfNotFound = false)
         {
             _logger.LogDebug("Attempting to get target day for organization {OrganizationId}, requested DayId: {DayId}, ThrowIfNotFound: {ThrowIfNotFound}", organizationId, dayId, throwIfNotFound);
             Day targetDayEntity = null;
@@ -73,7 +73,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Dashboard
-        public async Task<DashboardKPIsDto> GetDashboardKPIsAsync(int organizationId, int? dayId = null)
+        public async Task<DashboardKPIsDto> GetDashboardKPIsAsync(Guid organizationId, int? dayId = null)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -145,7 +145,7 @@ namespace SagraFacile.NET.API.Services
             };
         }
 
-        public async Task<List<SalesTrendDataDto>> GetSalesTrendAsync(int organizationId, int days = 7)
+        public async Task<List<SalesTrendDataDto>> GetSalesTrendAsync(Guid organizationId, int days = 7)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -206,7 +206,7 @@ namespace SagraFacile.NET.API.Services
             return result.OrderBy(r => r.Date).ToList();
         }
 
-        public async Task<List<OrderStatusDistributionDto>> GetOrderStatusDistributionAsync(int organizationId, int? dayId = null)
+        public async Task<List<OrderStatusDistributionDto>> GetOrderStatusDistributionAsync(Guid organizationId, int? dayId = null)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -246,7 +246,7 @@ namespace SagraFacile.NET.API.Services
             return distribution;
         }
 
-        public async Task<List<TopMenuItemDto>> GetTopMenuItemsAsync(int organizationId, int days = 7, int limit = 5)
+        public async Task<List<TopMenuItemDto>> GetTopMenuItemsAsync(Guid organizationId, int days = 7, int limit = 5)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -281,7 +281,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         // Orders Analytics
-        public async Task<List<OrdersByHourDto>> GetOrdersByHourAsync(int organizationId, int? areaId = null, int? dayId = null)
+        public async Task<List<OrdersByHourDto>> GetOrdersByHourAsync(Guid organizationId, int? areaId = null, int? dayId = null)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -334,7 +334,7 @@ namespace SagraFacile.NET.API.Services
             return result;
         }
 
-        public async Task<List<PaymentMethodDistributionDto>> GetPaymentMethodDistributionAsync(int organizationId, int? areaId = null, int? dayId = null)
+        public async Task<List<PaymentMethodDistributionDto>> GetPaymentMethodDistributionAsync(Guid organizationId, int? areaId = null, int? dayId = null)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -390,7 +390,7 @@ namespace SagraFacile.NET.API.Services
             return distribution;
         }
 
-        public async Task<List<AverageOrderValueTrendDto>> GetAverageOrderValueTrendAsync(int organizationId, int? areaId = null, int days = 7)
+        public async Task<List<AverageOrderValueTrendDto>> GetAverageOrderValueTrendAsync(Guid organizationId, int? areaId = null, int days = 7)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -464,7 +464,7 @@ namespace SagraFacile.NET.API.Services
             return result.OrderBy(r => r.Date).ToList();
         }
 
-        public async Task<List<OrderStatusTimelineEventDto>> GetOrderStatusTimelineAsync(int organizationId, int? areaId = null, int? dayId = null)
+        public async Task<List<OrderStatusTimelineEventDto>> GetOrderStatusTimelineAsync(Guid organizationId, int? areaId = null, int? dayId = null)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -520,7 +520,7 @@ namespace SagraFacile.NET.API.Services
 
 
         // Reports
-        public async Task<byte[]> GenerateDailySummaryReportAsync(int organizationId, int dayId)
+        public async Task<byte[]> GenerateDailySummaryReportAsync(Guid organizationId, int dayId)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)
@@ -600,7 +600,7 @@ namespace SagraFacile.NET.API.Services
             return Encoding.UTF8.GetBytes(reportContent.ToString());
         }
 
-        public async Task<byte[]> GenerateAreaPerformanceReportAsync(int organizationId, DateTime startDate, DateTime endDate)
+        public async Task<byte[]> GenerateAreaPerformanceReportAsync(Guid organizationId, DateTime startDate, DateTime endDate)
         {
             var (userOrgId, isSuperAdmin) = GetUserContext();
             if (!isSuperAdmin && userOrgId != organizationId)

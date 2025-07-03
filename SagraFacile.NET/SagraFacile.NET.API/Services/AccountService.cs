@@ -51,7 +51,7 @@ public class AccountService : BaseService, IAccountService
         // Get the context of the user making the request
         var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
 
-        int organizationIdToAssign; // Now non-nullable, must be determined
+        Guid? organizationIdToAssign; // Now nullable, must be determined
 
         if (isCallerSuperAdmin)
         {
@@ -86,12 +86,19 @@ public class AccountService : BaseService, IAccountService
         }
 
         // Validate that the determined OrganizationId actually exists
-        _logger.LogDebug("Checking if OrganizationId {OrganizationId} exists.", organizationIdToAssign);
-        var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign);
+        // If organizationIdToAssign is null (SuperAdmin didn't provide it), this check should fail.
+        if (!organizationIdToAssign.HasValue)
+        {
+            _logger.LogWarning("Organization ID to assign is null. This should have been caught earlier for SuperAdmin, or indicates a logic error for OrgAdmin.");
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Organization ID to assign is missing." } } };
+        }
+
+        _logger.LogDebug("Checking if OrganizationId {OrganizationId} exists.", organizationIdToAssign.Value);
+        var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
         if (!organizationExists)
         {
-            _logger.LogWarning("Organization with ID {OrganizationId} not found during user registration.", organizationIdToAssign);
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign} not found." } } };
+            _logger.LogWarning("Organization with ID {OrganizationId} not found during user registration.", organizationIdToAssign.Value);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
         }
 
         // Proceed with user creation
@@ -101,7 +108,7 @@ public class AccountService : BaseService, IAccountService
             Email = registerDto.Email,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName,
-            OrganizationId = organizationIdToAssign, // Assign the validated OrganizationId
+            OrganizationId = organizationIdToAssign.Value, // Assign the validated OrganizationId
             EmailConfirmed = true // Consider email confirmation flow
         };
 
@@ -283,8 +290,8 @@ public class AccountService : BaseService, IAccountService
                 LastName = user.LastName,
                 Email = user.Email ?? string.Empty,
                 EmailConfirmed = user.EmailConfirmed,
-                Roles = roles.ToList(),
-                OrganizationId = user.OrganizationId // Populate OrganizationId
+                OrganizationId = user.OrganizationId ?? Guid.Empty, // Populate OrganizationId, default to Guid.Empty if null
+                Roles = roles.ToList()
             });
         }
         _logger.LogInformation("Successfully fetched {UserCount} users.", userDtos.Count);
@@ -333,8 +340,8 @@ public class AccountService : BaseService, IAccountService
             LastName = user.LastName,
             Email = user.Email ?? string.Empty,
             EmailConfirmed = user.EmailConfirmed,
-            Roles = roles.ToList(),
-            OrganizationId = user.OrganizationId // Include OrganizationId
+            OrganizationId = user.OrganizationId ?? Guid.Empty, // Include OrganizationId, default to Guid.Empty if null
+            Roles = roles.ToList()
         };
         _logger.LogInformation("Successfully fetched user {UserId}.", userId);
         return userDto;
@@ -564,9 +571,14 @@ public class AccountService : BaseService, IAccountService
             new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim("firstName", user.FirstName),
-            new Claim("lastName", user.LastName),
-            new Claim("organizationId", user.OrganizationId.ToString())
+            new Claim("lastName", user.LastName)
         };
+
+        // Only add organizationId claim if it's not null
+        if (user.OrganizationId.HasValue)
+        {
+            claims.Add(new Claim("organizationId", user.OrganizationId.Value.ToString()));
+        }
 
         // Add roles to claims
         var roles = await _userManager.GetRolesAsync(user);

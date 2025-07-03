@@ -5,7 +5,7 @@ namespace SagraFacile.NET.API.DTOs
     public class PrinterDto
     {
         public int Id { get; set; }
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         public required string Name { get; set; }
         public PrinterType Type { get; set; }
         public required string ConnectionString { get; set; }

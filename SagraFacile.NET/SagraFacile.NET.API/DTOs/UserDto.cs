@@ -11,6 +11,6 @@ public class UserDto
     public bool EmailConfirmed { get; set; }
     public List<string> Roles { get; set; } = new List<string>();
     // Add OrganizationId/Name if needed, depending on SuperAdmin view requirements
-    public int OrganizationId { get; set; }
+    public Guid OrganizationId { get; set; }
     // public string OrganizationName { get; set; } = string.Empty;
 }

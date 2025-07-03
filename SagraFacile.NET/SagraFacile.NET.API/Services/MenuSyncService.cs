@@ -32,7 +32,7 @@ namespace SagraFacile.NET.API.Services
         }
 
         /// <inheritdoc />
-        public async Task<MenuSyncResult> SyncMenuAsync(int organizationId)
+        public async Task<MenuSyncResult> SyncMenuAsync(Guid organizationId)
         {
             try
             {

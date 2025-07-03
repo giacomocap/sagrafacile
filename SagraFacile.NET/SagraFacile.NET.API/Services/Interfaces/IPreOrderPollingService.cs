@@ -16,6 +16,6 @@ namespace SagraFacile.NET.API.Services.Interfaces
         /// <param name="syncConfig">The sync configuration for the organization.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>A task representing the asynchronous operation.</returns>
-        Task PollAndImportPreOrdersAsync(int organizationId, SyncConfiguration syncConfig, CancellationToken cancellationToken);
+        Task PollAndImportPreOrdersAsync(Guid organizationId, SyncConfiguration syncConfig, CancellationToken cancellationToken);
     }
 }

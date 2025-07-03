@@ -36,7 +36,7 @@ namespace SagraFacile.NET.API.Models
         // Removed OrderNumber property
 
         // Foreign Key for Organization
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         // Navigation property for Organization
         [ForeignKey("OrganizationId")]

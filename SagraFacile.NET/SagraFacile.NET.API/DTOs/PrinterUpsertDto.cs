@@ -9,7 +9,7 @@ namespace SagraFacile.NET.API.DTOs
         // OrganizationId will be derived from user context or validated
 
         [Required]
-        public int OrganizationId { get; set; } // Required, but validated against user context
+        public Guid OrganizationId { get; set; } // Required, but validated against user context
 
         [Required]
         [StringLength(100)]

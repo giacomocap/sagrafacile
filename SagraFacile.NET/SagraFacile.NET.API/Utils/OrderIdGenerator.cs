@@ -9,12 +9,12 @@ namespace SagraFacile.NET.API.Utils
         /// <param name="organizationId">The ID of the organization.</param>
         /// <param name="areaId">The ID of the area within the organization.</param>
         /// <returns>A formatted Order ID string.</returns>
-        public static string Generate(int organizationId, int areaId)
+        public static string Generate(Guid organizationId, int areaId)
         {
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             string randomPart = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant(); // 8 random chars
             // Format: ORGID-AREAID-TIMESTAMP-RANDOM
-            return $"{organizationId}-{areaId}-{timestamp}-{randomPart}";
+            return $"{organizationId.ToString().Substring(0, 8)}-{areaId}-{timestamp}-{randomPart}"; // Use substring for brevity in ID
         }
     }
 }

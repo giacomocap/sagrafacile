@@ -18,7 +18,7 @@ namespace SagraFacile.NET.API.Models
         public virtual Area Area { get; set; } = null!;
 
         [Required]
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
         [ForeignKey("OrganizationId")]
         public virtual Organization Organization { get; set; } = null!;
 

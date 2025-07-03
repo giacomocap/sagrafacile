@@ -9,7 +9,7 @@ namespace SagraFacile.NET.API.DTOs
     public class PreOrderDto
     {
         [Required]
-        public int OrganizationId { get; set; } // Need to know which org
+        public Guid OrganizationId { get; set; } // Need to know which org
 
         [Required]
         public int AreaId { get; set; } // Need to know which area

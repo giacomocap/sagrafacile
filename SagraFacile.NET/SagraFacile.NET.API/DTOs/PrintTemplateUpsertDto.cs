@@ -10,7 +10,7 @@ namespace SagraFacile.NET.API.DTOs
         public string Name { get; set; }
 
         [Required]
-        public int OrganizationId { get; set; }
+        public Guid OrganizationId { get; set; }
 
         [Required]
         public PrintJobType TemplateType { get; set; }

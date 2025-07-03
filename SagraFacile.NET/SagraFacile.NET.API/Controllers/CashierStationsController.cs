@@ -22,7 +22,7 @@ namespace SagraFacile.NET.API.Controllers
         [Authorize(Roles = "SuperAdmin, Admin, AreaAdmin")] // Admins can see all stations in an org
         [ProducesResponseType(typeof(IEnumerable<CashierStationDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<IEnumerable<CashierStationDto>>> GetStationsByOrganization(int organizationId)
+        public async Task<ActionResult<IEnumerable<CashierStationDto>>> GetStationsByOrganization(Guid organizationId)
         {
             _logger.LogInformation("Received request to get cashier stations for OrganizationId: {OrganizationId}", organizationId);
             try
@@ -110,7 +110,7 @@ namespace SagraFacile.NET.API.Controllers
         [ProducesResponseType(typeof(CashierStationDto), StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<CashierStationDto>> CreateStation(int organizationId, [FromBody] CashierStationUpsertDto dto)
+        public async Task<ActionResult<CashierStationDto>> CreateStation(Guid organizationId, [FromBody] CashierStationUpsertDto dto)
         {
             _logger.LogInformation("Received request to create cashier station for OrganizationId: {OrganizationId}, Name: {Name}", organizationId, dto.Name);
             if (!ModelState.IsValid)

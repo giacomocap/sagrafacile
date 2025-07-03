@@ -166,19 +166,19 @@ namespace SagraFacile.NET.API.Services
                     throw new InvalidOperationException("User organization context is missing.");
                 }
                 // Ensure the area is being created for the user's own organization
-                if (area.OrganizationId != 0 && area.OrganizationId != userOrgId.Value)
+                if (area.OrganizationId != Guid.Empty && area.OrganizationId != userOrgId.Value)
                 {
                     _logger.LogWarning("Unauthorized attempt to create area for a different organization. Caller OrgId: {CallerOrgId}, Target OrgId: {TargetOrgId}.", userOrgId.Value, area.OrganizationId);
                     throw new UnauthorizedAccessException("Cannot create an area for a different organization.");
                 }
-                // Assign the user's organization ID if not provided or if it was 0
+                // Assign the user's organization ID if not provided or if it was Guid.Empty
                 area.OrganizationId = userOrgId.Value;
             }
             else // SuperAdmin is creating
             {
                 _logger.LogDebug("Caller is SuperAdmin. Verifying target OrganizationId for area creation.");
                 // SuperAdmin MUST specify a valid OrganizationId
-                if (area.OrganizationId == 0 || !await _context.Organizations.AnyAsync(o => o.Id == area.OrganizationId))
+                if (area.OrganizationId == Guid.Empty || !await _context.Organizations.AnyAsync(o => o.Id == area.OrganizationId))
                 {
                     _logger.LogWarning("SuperAdmin area creation failed: Organization with ID {OrganizationId} not found or invalid.", area.OrganizationId);
                     throw new KeyNotFoundException($"Organization with ID {area.OrganizationId} not found or invalid.");
@@ -228,15 +228,15 @@ namespace SagraFacile.NET.API.Services
             // Authorization check 2: Prevent changing the OrganizationId unless SuperAdmin
             if (!isSuperAdmin && existingArea.OrganizationId != areaDto.OrganizationId)
             {
-                if (areaDto.OrganizationId > 0)
+                if (areaDto.OrganizationId != Guid.Empty)
                 {
                     _logger.LogWarning("Unauthorized attempt to change area's organization. Caller is not SuperAdmin. AreaId: {AreaId}, Current OrgId: {CurrentOrgId}, Attempted OrgId: {AttemptedOrgId}.", id, existingArea.OrganizationId, areaDto.OrganizationId);
                     throw new UnauthorizedAccessException("User is not authorized to change the area's organization.");
                 }
                 else
                 {
-                    areaDto.OrganizationId = existingArea.OrganizationId; // Revert to original if 0 was passed
-                    _logger.LogDebug("AreaDto OrganizationId was 0, reverted to existing area's OrganizationId: {OrganizationId}.", existingArea.OrganizationId);
+                    areaDto.OrganizationId = existingArea.OrganizationId; // Revert to original if Guid.Empty was passed
+                    _logger.LogDebug("AreaDto OrganizationId was Guid.Empty, reverted to existing area's OrganizationId: {OrganizationId}.", existingArea.OrganizationId);
                 }
             }
             _logger.LogDebug("Organization ID change check passed.");
@@ -381,7 +381,7 @@ namespace SagraFacile.NET.API.Services
 
         // --- Slug Generation Helpers ---
 
-        private async Task<string> GenerateUniqueAreaSlug(string name, int organizationId, int? existingAreaId = null)
+        private async Task<string> GenerateUniqueAreaSlug(string name, Guid organizationId, int? existingAreaId = null)
         {
             _logger.LogDebug("Generating unique slug for area '{AreaName}' in OrganizationId: {OrganizationId}. Existing AreaId: {ExistingAreaId}.", name, organizationId, existingAreaId);
             string baseSlug = GenerateSlug(name);
