@@ -3,6 +3,28 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Implemented SaaS User Sign-up and Email Confirmation Flow
+**Context:** To support the new SaaS onboarding process, the frontend required a public-facing sign-up page and a page to handle email confirmation links.
+**Accomplishments:**
+*   **New Sign-up Page (`/app/signup`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/app/signup/page.tsx`.
+    *   The page features a form with fields for First Name, Last Name, Email, and Password.
+    *   Includes two mandatory, unticked checkboxes for the user to accept the Terms of Service and Privacy Policy before they can create an account.
+    *   The form calls the backend's `/api/accounts/register` endpoint.
+    *   Upon successful registration, it displays the confirmation message returned from the backend and informs the user to check their email.
+    *   A link to the existing Login page is provided.
+*   **New Email Confirmation Page (`/conferma-email`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/conferma-email/page.tsx`.
+    *   This page uses a `Suspense` boundary to handle client-side rendering and reads the `userId` and `token` from the URL search parameters.
+    *   It calls the backend's `GET /api/accounts/confirm-email` endpoint to verify the user's email.
+    *   It displays appropriate success or failure messages to the user based on the API response.
+    *   On success, it provides a direct link to the login page.
+*   **Login Page Update:** Added a "Don't have an account? Sign up" link to `sagrafacile/sagrafacile-webapp/src/app/app/login/page.tsx` to direct new users to the registration page.
+**Key Decisions:**
+*   The sign-up and email confirmation pages are built as simple, focused components, following the existing project structure and style.
+*   The use of `Suspense` on the confirmation page ensures a good user experience while the client-side logic processes the URL parameters.
+**Outcome:** The frontend now fully supports the initial user registration and email confirmation steps of the SaaS onboarding flow.
+
 ## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
 **Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.
 **Accomplishments:**

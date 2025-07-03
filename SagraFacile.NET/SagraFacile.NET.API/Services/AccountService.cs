@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore; // Added for ToListAsync, AnyAsync
 using SagraFacile.NET.API.Data; // Added for ApplicationDbContext
 using System.Security.Cryptography; // Added for RandomNumberGenerator
 using Microsoft.Extensions.Logging; // Added for ILogger
+using System.Web;
 
 namespace SagraFacile.NET.API.Services;
 
@@ -22,6 +23,7 @@ public class AccountService : BaseService, IAccountService
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _context; // Inject DbContext
     private readonly ILogger<AccountService> _logger; // Inject ILogger
+    private readonly IEmailService _emailService;
     // IHttpContextAccessor is now inherited from BaseService
 
     public AccountService(
@@ -31,7 +33,8 @@ public class AccountService : BaseService, IAccountService
         IConfiguration configuration,
         IHttpContextAccessor httpContextAccessor, // Inject accessor for base class
         ApplicationDbContext context, // Inject DbContext
-        ILogger<AccountService> logger) // Inject ILogger
+        ILogger<AccountService> logger, // Inject ILogger
+        IEmailService emailService)
         : base(httpContextAccessor) // Call base constructor
     {
         _userManager = userManager;
@@ -40,6 +43,7 @@ public class AccountService : BaseService, IAccountService
         _configuration = configuration;
         _context = context; // Assign DbContext
         _logger = logger; // Assign ILogger
+        _emailService = emailService;
     }
 
     // GetUserContext helper is now inherited from BaseService
@@ -48,85 +52,106 @@ public class AccountService : BaseService, IAccountService
     {
         _logger.LogInformation("Attempting to register user with email {Email}.", registerDto.Email);
 
-        // Get the context of the user making the request
-        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+        var appMode = _configuration["APP_MODE"];
+        var isSaaSMode = appMode == "saas";
+        var isApiCallAuthenticated = _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false; // Check if the call is from an already logged-in user
 
-        Guid? organizationIdToAssign; // Now nullable, must be determined
+        // SaaS Public Sign-up Flow
+        if (isSaaSMode && !isApiCallAuthenticated)
+        {
+            _logger.LogInformation("Executing SaaS public sign-up flow for {Email}.", registerDto.Email);
+            var user = new User
+            {
+                UserName = registerDto.Email,
+                Email = registerDto.Email,
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                OrganizationId = null, // No organization assigned on initial sign-up
+                EmailConfirmed = false // Requires email confirmation
+            };
+
+            var identityResult = await _userManager.CreateAsync(user, registerDto.Password);
+            if (!identityResult.Succeeded)
+            {
+                _logger.LogWarning("SaaS user creation failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
+            }
+
+            _logger.LogInformation("SaaS user {Email} created successfully with ID {UserId}. Generating confirmation token.", user.Email, user.Id);
+            
+            // Send confirmation email
+            try
+            {
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? "https://app.sagrafacile.it";
+                var confirmationLink = $"{frontendBaseUrl}/conferma-email?userId={user.Id}&token={HttpUtility.UrlEncode(token)}";
+
+                await _emailService.SendEmailAsync(
+                    user.Email,
+                    "Conferma la tua registrazione a SagraFacile",
+                    $"<h1>Benvenuto in SagraFacile!</h1><p>Per favore, conferma il tuo indirizzo email cliccando sul seguente link: <a href='{confirmationLink}'>Conferma Email</a></p>"
+                );
+                _logger.LogInformation("Email confirmation link sent to {Email}.", user.Email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send confirmation email to {Email}. The user was created but needs to confirm their email manually.", registerDto.Email);
+                // Even if email fails, the user is created. They can request a new confirmation link later.
+                // We still return a success message to the user, but with a note about the email.
+                return new AccountResult { Succeeded = true, Data = new { UserId = user.Id, Message = "Registration successful. Please check your email to confirm your account. If you don't receive an email, please contact support." } };
+            }
+
+            return new AccountResult { Succeeded = true, Data = new { UserId = user.Id, Message = "Registration successful. Please check your email to confirm your account." } };
+        }
+
+        // Admin-initiated Registration Flow (for both Self-Hosted and SaaS)
+        _logger.LogInformation("Executing admin-initiated registration flow for {Email}.", registerDto.Email);
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+        Guid? organizationIdToAssign;
 
         if (isCallerSuperAdmin)
         {
-            _logger.LogDebug("Caller is SuperAdmin. Checking for OrganizationId in DTO.");
-            // SuperAdmin MUST provide OrganizationId in the DTO
             if (!registerDto.OrganizationId.HasValue)
             {
-                _logger.LogWarning("SuperAdmin registration failed: OrganizationId not provided in DTO.");
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId when registering a user." } } };
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId." } } };
             }
             organizationIdToAssign = registerDto.OrganizationId.Value;
-            _logger.LogDebug("User will be assigned to OrganizationId: {OrganizationId}.", organizationIdToAssign);
         }
         else
         {
-            _logger.LogDebug("Caller is not SuperAdmin. Assigning user to caller's organization.");
-            // Admin registers users within their own organization
             if (!callerOrganizationId.HasValue)
             {
-                _logger.LogError("Registering user context is missing OrganizationId for non-SuperAdmin caller.");
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Registering user context is missing OrganizationId." } } };
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Admin user context is missing OrganizationId." } } };
             }
             organizationIdToAssign = callerOrganizationId.Value;
-            _logger.LogDebug("User will be assigned to caller's OrganizationId: {OrganizationId}.", organizationIdToAssign);
-
-            // Optional: Double-check if Admin tries to specify a different OrgId in DTO (should ideally be ignored or error)
-            if (registerDto.OrganizationId.HasValue && registerDto.OrganizationId.Value != organizationIdToAssign)
-            {
-                _logger.LogWarning("OrgAdmin attempted to assign user to a different organization ({AttemptedOrgId}) than their own ({CallerOrgId}).", registerDto.OrganizationId.Value, organizationIdToAssign);
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "OrgAdmins cannot assign users to a different organization." } } };
-            }
         }
 
-        // Validate that the determined OrganizationId actually exists
-        // If organizationIdToAssign is null (SuperAdmin didn't provide it), this check should fail.
-        if (!organizationIdToAssign.HasValue)
-        {
-            _logger.LogWarning("Organization ID to assign is null. This should have been caught earlier for SuperAdmin, or indicates a logic error for OrgAdmin.");
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Organization ID to assign is missing." } } };
-        }
-
-        _logger.LogDebug("Checking if OrganizationId {OrganizationId} exists.", organizationIdToAssign.Value);
         var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
         if (!organizationExists)
         {
-            _logger.LogWarning("Organization with ID {OrganizationId} not found during user registration.", organizationIdToAssign.Value);
             return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
         }
 
-        // Proceed with user creation
-        var user = new User
+        var adminCreatedUser = new User
         {
-            UserName = registerDto.Email, // Use Email as UserName
+            UserName = registerDto.Email,
             Email = registerDto.Email,
             FirstName = registerDto.FirstName,
             LastName = registerDto.LastName,
-            OrganizationId = organizationIdToAssign.Value, // Assign the validated OrganizationId
-            EmailConfirmed = true // Consider email confirmation flow
+            OrganizationId = organizationIdToAssign.Value,
+            EmailConfirmed = true // Admin-created users are confirmed by default
         };
 
-        _logger.LogInformation("Creating user {Email} in organization {OrganizationId}.", user.Email, user.OrganizationId);
-        var identityResult = await _userManager.CreateAsync(user, registerDto.Password);
-
-        if (identityResult.Succeeded)
+        var adminCreateResult = await _userManager.CreateAsync(adminCreatedUser, registerDto.Password);
+        if (adminCreateResult.Succeeded)
         {
-            _logger.LogInformation("User {Email} registered successfully with ID {UserId}.", user.Email, user.Id);
-            // Optional: Assign default role
-            // await _userManager.AddToRoleAsync(user, "DefaultRole");
-
-            return new AccountResult { Succeeded = true, Data = new { UserId = user.Id } }; // Return basic info
+            _logger.LogInformation("Admin-created user {Email} registered successfully in organization {OrganizationId}.", adminCreatedUser.Email, adminCreatedUser.OrganizationId);
+            return new AccountResult { Succeeded = true, Data = new { UserId = adminCreatedUser.Id } };
         }
         else
         {
-            _logger.LogWarning("User registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
+            _logger.LogWarning("Admin-initiated registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", adminCreateResult.Errors.Select(e => e.Description)));
+            return new AccountResult { Succeeded = false, Errors = adminCreateResult.Errors };
         }
     }
 
@@ -134,7 +159,6 @@ public class AccountService : BaseService, IAccountService
     {
         _logger.LogInformation("Attempting login for user with email {Email}.", loginDto.Email);
 
-        // 1. Find the user by email first
         var user = await _userManager.FindByEmailAsync(loginDto.Email);
         if (user == null)
         {
@@ -142,29 +166,24 @@ public class AccountService : BaseService, IAccountService
             return new LoginResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid login attempt." } } };
         }
 
-        // 2. Check password using CheckPasswordSignInAsync
-        _logger.LogDebug("Checking password for user {UserId}.", user.Id);
-        var result = await _signInManager.CheckPasswordSignInAsync(
-            user,
-            loginDto.Password,
-            lockoutOnFailure: true); // Enable lockout for security
+        // Check if email is confirmed before checking password
+        if (!user.EmailConfirmed)
+        {
+            _logger.LogWarning("Login failed for {Email}: Email not confirmed.", loginDto.Email);
+            return new LoginResult { Succeeded = false, IsNotAllowed = true, Errors = new List<IdentityError> { new IdentityError { Description = "Email not confirmed. Please check your inbox for the confirmation link." } } };
+        }
+
+        var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: true);
 
         if (result.Succeeded)
         {
             _logger.LogInformation("User {Email} logged in successfully. Generating tokens.", loginDto.Email);
-            // Password is correct, proceed to generate token
             var tokenResponse = await GenerateAndSaveTokens(user);
-
-            return new LoginResult
-            {
-                Succeeded = true,
-                Data = tokenResponse // Return TokenResponseDto
-            };
+            return new LoginResult { Succeeded = true, Data = tokenResponse };
         }
         else
         {
-            // Password check failed, provide feedback based on SignInResult
-            string errorDescription = "Invalid login attempt."; // Default message
+            string errorDescription = "Invalid login attempt.";
             if (result.IsLockedOut)
             {
                 errorDescription = "Account locked out.";
@@ -172,13 +191,9 @@ public class AccountService : BaseService, IAccountService
             }
             else if (result.IsNotAllowed)
             {
+                // This case might be redundant now due to the explicit check above, but kept for completeness
                 errorDescription = "Login not allowed.";
-                _logger.LogWarning("Login failed for {Email}: Login not allowed.", loginDto.Email);
-            }
-            else if (result.RequiresTwoFactor)
-            {
-                errorDescription = "Two-factor authentication required.";
-                _logger.LogWarning("Login failed for {Email}: Two-factor authentication required.", loginDto.Email);
+                _logger.LogWarning("Login failed for {Email}: Login not allowed (by SignInManager).", loginDto.Email);
             }
             else
             {
@@ -193,6 +208,35 @@ public class AccountService : BaseService, IAccountService
                 RequiresTwoFactor = result.RequiresTwoFactor,
                 Errors = new List<IdentityError> { new IdentityError { Description = errorDescription } }
             };
+        }
+    }
+
+    public async Task<AccountResult> ConfirmEmailAsync(string userId, string token)
+    {
+        _logger.LogInformation("Attempting to confirm email for user {UserId}.", userId);
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+        {
+            _logger.LogWarning("Email confirmation failed: UserId or token is missing.");
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User ID and token must be provided." } } };
+        }
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("Email confirmation failed: User with ID {UserId} not found.", userId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User not found." } } };
+        }
+
+        var result = await _userManager.ConfirmEmailAsync(user, token);
+        if (result.Succeeded)
+        {
+            _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
+            return new AccountResult { Succeeded = true };
+        }
+        else
+        {
+            _logger.LogWarning("Email confirmation failed for user {UserId}. Errors: {Errors}", userId, string.Join(", ", result.Errors.Select(e => e.Description)));
+            return new AccountResult { Succeeded = false, Errors = result.Errors };
         }
     }
 

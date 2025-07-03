@@ -532,4 +532,24 @@ This document outlines the planned development phases for the SagraFacile system
         *   `[ ]` Review and confirm `app_name` in `strings.xml`.
 
 
+        *   `[ ]` Review and confirm `app_name` in `strings.xml`.
+
+### Phase 11: SaaS (Software-as-a-Service) Platform
+
+*   **Goal:** Develop and launch a fully managed, commercial SaaS offering of SagraFacile to provide a zero-installation, easy-to-use version of the product for non-technical users.
+*   **Key Features & Tasks:**
+    *   `[~]` **SaaS User Onboarding Flow:**
+        *   `[x]` Implement a new user sign-up process with mandatory email confirmation and consent to Terms of Service/Privacy Policy.
+        *   `[ ]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan.
+    *   `[ ]` **Billing & Subscription Integration:**
+        *   `[ ]` Integrate with a payment provider (e.g., Stripe).
+        *   `[ ]` Implement a "Trial Tier" with usage-based limits (e.g., limited orders per day).
+        *   `[ ]` Implement a "Pay-Per-Day" pricing model for paid plans.
+    *   `[ ]` **Platform Administration & Security:**
+        *   `[ ]` Deprecate the `SuperAdmin` role to enhance security and GDPR compliance.
+        *   `[ ]` Develop a separate, secure "Platform Admin" application for internal management of tenants and subscriptions.
+        *   `[ ]` Implement a dedicated, secure API for platform administration tasks.
+    *   `[ ]` **First-Time Use Wizard:**
+        *   `[ ]` Implement a universal "First-Time Setup" wizard for all new organizations (both SaaS and self-hosted) to guide admins through creating their first Area and Menu Category.
+
 *(This roadmap is a living document and will be updated as the project progresses.)*

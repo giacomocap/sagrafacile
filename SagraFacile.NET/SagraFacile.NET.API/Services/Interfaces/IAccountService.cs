@@ -33,4 +33,5 @@ public interface IAccountService
     Task<IEnumerable<string>> GetRolesAsync(); // List all available roles
     Task<AccountResult> CreateRoleAsync(CreateRoleDto createRoleDto); // Create a new role
     Task<TokenResponseDto?> RefreshTokenAsync(string refreshToken);
+    Task<AccountResult> ConfirmEmailAsync(string userId, string token);
 }

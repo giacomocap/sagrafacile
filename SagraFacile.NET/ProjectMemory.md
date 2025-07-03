@@ -3,6 +3,23 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Implemented SaaS User Registration and Email Confirmation
+**Context:** As the first step in building the SaaS onboarding flow, the backend needed to support a public, unauthenticated sign-up process with mandatory email verification.
+**Accomplishments:**
+*   **`IAccountService`:** Added a new `ConfirmEmailAsync` method to the interface.
+*   **`AccountService` Refactoring:**
+    *   Injected `IEmailService` to handle sending confirmation emails.
+    *   The `RegisterUserAsync` method was significantly updated to differentiate between a public SaaS sign-up and an admin-initiated user creation based on the `APP_MODE` environment variable and whether the API call is authenticated.
+    *   For public SaaS sign-ups, a `User` is now created with `EmailConfirmed = false` and a `null` `OrganizationId`.
+    *   After user creation, it generates an email confirmation token and sends a verification link to the user's email address.
+    *   The `LoginUserAsync` method was updated to prevent users from logging in if their email has not been confirmed.
+*   **`AccountsController`:** A new public, anonymous `GET /api/accounts/confirm-email` endpoint was added. This endpoint receives the `userId` and `token` from the confirmation link and calls the `ConfirmEmailAsync` service method to verify the user's email address.
+**Key Decisions:**
+*   The registration logic now clearly separates the public SaaS flow from the internal, admin-driven flow.
+*   Email confirmation is a mandatory step for all new public sign-ups, enhancing security and user data validity.
+*   The system is designed to be resilient; even if the confirmation email fails to send, the user account is still created and they can request a new link later.
+**Outcome:** The backend is now fully equipped to handle the initial phase of SaaS user onboarding, from registration to email verification.
+
 ## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Status Endpoint
 **Context:** To support the dual Open Core and SaaS model, a foundational framework was needed to differentiate behavior. This session focused on creating the local testing infrastructure and the initial API endpoints required for SaaS-specific features.
 **Accomplishments:**

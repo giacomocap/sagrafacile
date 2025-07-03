@@ -93,6 +93,35 @@ public class AccountsController : ControllerBase
         }
     }
 
+    [HttpGet("confirm-email")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] string userId, [FromQuery] string token)
+    {
+        _logger.LogInformation("Received request to confirm email for user {UserId}.", userId);
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { Message = "User ID and token are required." });
+        }
+
+        var result = await _accountService.ConfirmEmailAsync(userId, token);
+
+        if (result.Succeeded)
+        {
+            _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
+            // Redirect to a frontend page indicating success
+            // For now, just return OK. The frontend will handle the redirect.
+            return Ok(new { Message = "Email confirmed successfully." });
+        }
+        else
+        {
+            _logger.LogWarning("Email confirmation failed for user {UserId}.", userId);
+            // Return a generic error message
+            return BadRequest(new { Message = "Email confirmation failed. The link may be invalid or expired." });
+        }
+    }
+
     [HttpPost("assign-roles")]
     [Authorize(Roles = "SuperAdmin,Admin")] 
     [ProducesResponseType(StatusCodes.Status200OK)]
