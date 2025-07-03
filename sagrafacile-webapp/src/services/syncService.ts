@@ -8,7 +8,7 @@ import { AxiosResponse } from 'axios';
  * @param organizationId The ID of the organization
  * @returns The sync configuration or null if not found
  */
-export const getSyncConfiguration = async (organizationId: number): Promise<SyncConfigurationDto | null> => {
+export const getSyncConfiguration = async (organizationId: string): Promise<SyncConfigurationDto | null> => {
   try {
     const response: AxiosResponse<SyncConfigurationDto> = await apiClient.get(
       `/sync/organizations/${organizationId}/config`
@@ -31,7 +31,7 @@ export const getSyncConfiguration = async (organizationId: number): Promise<Sync
  * @returns The saved sync configuration
  */
 export const upsertSyncConfiguration = async (
-  organizationId: number,
+  organizationId: string,
   config: SyncConfigurationUpsertDto
 ): Promise<SyncConfigurationDto> => {
   const response: AxiosResponse<SyncConfigurationDto> = await apiClient.put(
@@ -46,7 +46,7 @@ export const upsertSyncConfiguration = async (
  * DELETE /api/sync/organizations/{organizationId}/config
  * @param organizationId The ID of the organization
  */
-export const deleteSyncConfiguration = async (organizationId: number): Promise<void> => {
+export const deleteSyncConfiguration = async (organizationId: string): Promise<void> => {
   await apiClient.delete(`/sync/organizations/${organizationId}/config`);
 };
 
@@ -56,7 +56,7 @@ export const deleteSyncConfiguration = async (organizationId: number): Promise<v
  * @param organizationId The ID of the organization
  * @returns The result of the synchronization
  */
-export const syncMenu = async (organizationId: number): Promise<MenuSyncResult> => {
+export const syncMenu = async (organizationId: string): Promise<MenuSyncResult> => {
   const response: AxiosResponse<MenuSyncResult> = await apiClient.post(
     `/sync/organizations/${organizationId}/sync/menu`
   );

@@ -12,6 +12,27 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Migrated organizationId from int to Guid (string) in Frontend
+**Context:** Completed the migration of `organizationId` from `int` to `Guid` (represented as `string` in TypeScript) across the `sagrafacile-webapp` frontend, resolving all associated compilation errors. This involved systematic updates to type definitions and component logic.
+**Accomplishments:**
+*   **Type Migration:**
+    *   Confirmed `organizationId` in `src/types/index.ts` was updated from `number` to `string` in `SyncConfigurationDto`, `OrganizationDto` (its `id`), `AreaDto`, `AreaResponseDto`, `KdsStationDto`, `PreOrderDto`, `DayDto`, `UserDto`, `PrinterDto`, `PrinterUpsertDto`, `OrderStatusBroadcastDto`, `OrderQueryParameters`, `CashierStationDto`, `CashierStationUpsertDto`, and `AdMediaItemDto`.
+*   **Component Updates:**
+    *   `sagrafacile-webapp/src/contexts/OrganizationContext.tsx`: Updated `Organization` interface's `id` and `selectedOrganizationId` state to `string | null`.
+    *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/orders/page.tsx`: Adjusted `organizationId` in `queryParams` to use `selectedOrganizationId` as a string.
+    *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/layout.tsx`: Updated `currentOrgId` to `string` and ensured `setSelectedOrganizationId` receives a `string`.
+    *   `sagrafacile-webapp/src/components/admin/AdminNavigation.tsx`: Updated `currentOrgId` prop type to `string`.
+    *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx`: Changed `organizationId` in `RegisterPayload` interface to `string`.
+    *   `sagrafacile-webapp/src/app/app/org/[orgId]/layout.tsx`: Modified `currentOrgId` and `userOrgId` to `string` and updated related comparisons and path replacements.
+    *   `sagrafacile-webapp/src/components/admin/PrinterFormDialog.tsx`: The `orgId` prop type was changed to `string`.
+    *   `sagrafacile-webapp/src/app/app/org/[orgId]/admin/printers/page.tsx`: Corrected the `orgId` prop passed to `PrinterFormDialog` to `user?.organizationId || ''`, ensuring it's a string.
+    *   `sagrafacile-webapp/src/components/cashier/ReprintOrderDialog.tsx`: Updated `organizationId` parameter in `apiClient.get` call to directly use `orgId` (string) instead of `parseInt(orgId, 10)`.
+    *   `sagrafacile-webapp/src/hooks/useMenuAndAreaLoader.ts`: Changed comparison `fetchedArea.organizationId !== parseInt(orgId)` to `fetchedArea.organizationId !== orgId` to align with string type.
+**Key Decisions:**
+*   Maintained consistency by updating all relevant type definitions and component usages to reflect the `organizationId` as a `string`.
+*   Iterative debugging with `npm run build` was effective in identifying and resolving type mismatches.
+**Outcome:** The frontend now correctly handles `organizationId` as a `string` (Guid), aligning with backend changes, and compiles successfully without type errors.
+
 ## (2025-06-26) - Addressed Dialog Overflow Issues Across Admin UI
 **Context:** Identified and resolved UI overflow issues in various dialog components within the admin interface, where content and action buttons became inaccessible on smaller or vertically constrained screens.
 **Accomplishments:**

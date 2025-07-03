@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 interface AdminNavigationProps {
-  currentOrgId: number;
+  currentOrgId: string;
   onLinkClick?: () => void; // Callback per chiudere il menu mobile
 }
 

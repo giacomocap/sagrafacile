@@ -7,7 +7,7 @@ import { LoadingChart } from '../shared/LoadingChart';
 import { EmptyChart } from '../shared/EmptyChart';
 
 interface DashboardKPIsProps {
-    organizationId: number;
+    organizationId: string;
     dayId?: number;
     refreshInterval?: number; // in milliseconds
 }

@@ -114,7 +114,7 @@ const useMenuAndAreaLoader = (): MenuAndAreaLoaderResult => {
                 if (!fetchedArea) {
                     throw new Error(`Area con ID ${areaIdParam} non trovata.`);
                 }
-                if (fetchedArea.organizationId !== parseInt(orgId)) {
+                if (fetchedArea.organizationId !== orgId) {
                      // Check against selectedOrganizationId as well, especially for SuperAdmin
                     if (user?.roles.includes('SuperAdmin') && selectedOrganizationId && fetchedArea.organizationId !== selectedOrganizationId) {
                         console.warn(`useMenuAndAreaLoader: Area ${fetchedArea.name} (Org ID: ${fetchedArea.organizationId}) does not match SuperAdmin's selected organization context (Org ID: ${selectedOrganizationId}). Proceeding as SuperAdmin might be viewing cross-org.`);

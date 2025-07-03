@@ -32,9 +32,9 @@ export default function PublicLinksPage() {
   const [isLoadingAreas, setIsLoadingAreas] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const orgId = parseInt(params.orgId as string, 10);
+  const orgId = params.orgId as string;
 
-  const orgSlug = orgId;
+  const orgSlug = orgId; // orgId is already a string (Guid)
 
 
   useEffect(() => {

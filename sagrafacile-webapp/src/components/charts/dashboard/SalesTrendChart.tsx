@@ -8,7 +8,7 @@ import { LoadingChart } from '../shared/LoadingChart';
 import { EmptyChart } from '../shared/EmptyChart';
 
 interface SalesTrendChartProps {
-    organizationId: number;
+    organizationId: string;
     days?: number;
     refreshInterval?: number;
 }

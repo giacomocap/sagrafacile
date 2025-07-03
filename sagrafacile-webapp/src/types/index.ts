@@ -5,7 +5,7 @@
 // ==================
 export interface SyncConfigurationDto {
   id: number;
-  organizationId: number;
+  organizationId: string;
   platformBaseUrl: string;
   apiKey: string;
   isEnabled: boolean;
@@ -28,14 +28,14 @@ export interface MenuSyncResult {
 // Organization & Area
 // ==================
 export interface OrganizationDto {
-  id: number;
+  id: string;
   name: string;
 }
 
 export interface AreaDto {
   id: number;
   name: string;
-  organizationId: number;
+  organizationId: string;
   slug: string;
   isActive: boolean;
   // Workflow flags
@@ -53,7 +53,7 @@ export interface AreaDto {
 export interface AreaResponseDto {
   id: number;
   name: string;
-  organizationId: number;
+  organizationId: string;
   isActive: boolean;
 }
 
@@ -65,7 +65,7 @@ export interface KdsStationDto {
   id: number;
   name: string;
   areaId: number;
-  organizationId: number;
+  organizationId: string;
   // assignedCategoryIds?: number[]; // Consider adding if needed directly on the station DTO
 }
 
@@ -180,7 +180,7 @@ export enum DayStatus {
 
 export interface DayDto {
   id: number;
-  organizationId: number;
+  organizationId: string;
   startTime: string; // ISO Date string
   endTime?: string | null; // ISO Date string
   status: DayStatus;
@@ -247,7 +247,7 @@ export interface CreateOrderDto {
 
 // Specifically for the public pre-order endpoint
 export interface PreOrderDto {
-  organizationId: number; // Required by backend for validation/context
+  organizationId: string; // Required by backend for validation/context
   areaId: number;
   customerName: string;
   customerEmail: string;
@@ -327,7 +327,7 @@ export interface OrderStatusBroadcastDto {
   orderId: string;
   displayOrderNumber?: string | null;
   newStatus: OrderStatus;
-  organizationId: number;
+  organizationId: string;
   areaId: number;
   customerName?: string | null;
   tableNumber?: string | null;
@@ -345,7 +345,7 @@ export interface UserDto {
   email: string;
   emailConfirmed: boolean;
   roles: string[];
-  organizationId: number;
+  organizationId: string;
   // organizationName?: string;
 }
 
@@ -387,7 +387,7 @@ export enum ReprintType {
 
 export interface PrinterDto {
   id: number;
-  organizationId: number;
+  organizationId: string;
   name: string;
   type: PrinterType; // Enum: Network, WindowsUsb
   connectionString: string; // IP:Port for Network, GUID for WindowsUsb
@@ -402,7 +402,7 @@ export interface PrinterUpsertDto {
   type: PrinterType;
   connectionString: string;
   isEnabled: boolean;
-  organizationId: number;
+  organizationId: string;
   printMode: PrintMode; // Added for On-Demand Printing
   documentType: DocumentType;
   paperSize: string | null;
@@ -484,7 +484,7 @@ export interface OrderQueryParameters {
   sortAscending?: boolean;
   areaId?: number;
   dayId?: number | 'current';
-  organizationId?: number;
+  organizationId?: string;
   statuses?: number[];
 }
 
@@ -502,7 +502,7 @@ export interface PaginatedResult<T> {
 // ==================
 export interface CashierStationDto {
   id: number;
-  organizationId: number;
+  organizationId: string;
   areaId: number;
   name: string;
   receiptPrinterId: number | null;
@@ -513,7 +513,7 @@ export interface CashierStationDto {
 }
 
 export interface CashierStationUpsertDto {
-  organizationId: number; // Not sent by frontend on create, but good for consistency if used elsewhere
+  organizationId: string; // Not sent by frontend on create, but good for consistency if used elsewhere
   areaId: number;
   name: string;
   receiptPrinterId: number | null;
@@ -554,7 +554,7 @@ export interface AppCartItem extends CartItem {
 // ==================
 export interface AdMediaItemDto {
     id: string;
-    organizationId: number;
+    organizationId: string;
     name: string;
     mediaType: 'Image' | 'Video';
     filePath: string;

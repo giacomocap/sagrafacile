@@ -37,21 +37,19 @@ export default function AdminLayout({
   const router = useRouter(); // Necessario per handleOrgChange e logout
 
   // Re-interpreta orgId qui perché è necessario per i link e la visualizzazione dell'intestazione
-  const currentOrgIdParam = params.orgId as string;
-  const currentOrgId = parseInt(currentOrgIdParam, 10);
+  const currentOrgId = params.orgId as string;
 
   const handleOrgChange = (newOrgIdStr: string) => {
-    const newOrgId = parseInt(newOrgIdStr, 10);
-    if (!isNaN(newOrgId) && newOrgId !== currentOrgId) {
-      setSelectedOrganizationId(newOrgId);
+    if (newOrgIdStr && newOrgIdStr !== currentOrgId) {
+      setSelectedOrganizationId(newOrgIdStr);
       // Conserva il percorso corrente relativo alla radice dell'organizzazione
       // Nota: siamo già dentro /admin, quindi sostituiamo in quel contesto
-      const basePath = `/app/org/${newOrgId}/admin`;
+      const basePath = `/app/org/${newOrgIdStr}/admin`;
       // Prova a trovare la parte del percorso *dopo* /admin/
-      const adminRelativePath = pathname.split(`/app/org/${currentOrgIdParam}/admin`)[1] || '';
+      const adminRelativePath = pathname.split(`/app/org/${currentOrgId}/admin`)[1] || '';
       const newPath = `${basePath}${adminRelativePath}`;
 
-      console.log(`AdminLayout: SuperAdmin sta cambiando organizzazione da ${currentOrgId} a ${newOrgId}. Navigazione a: ${newPath}`);
+      console.log(`AdminLayout: SuperAdmin sta cambiando organizzazione da ${currentOrgId} a ${newOrgIdStr}. Navigazione a: ${newPath}`);
       router.push(newPath); // Usa push per la cronologia di navigazione
     }
   };

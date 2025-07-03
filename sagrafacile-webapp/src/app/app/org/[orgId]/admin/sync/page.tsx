@@ -15,7 +15,7 @@ import { SyncConfigurationUpsertDto, MenuSyncResult } from '@/types';
 
 export default function SyncPage() {
   const { orgId } = useParams();
-  const organizationId = parseInt(orgId as string, 10);
+  const organizationId = orgId as string;
   // selectedOrganizationId removed as it's unused
   useOrganization(); // Call useOrganization if it has side effects or to satisfy hooks rules
 

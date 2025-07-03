@@ -12,7 +12,7 @@ import {
 
 export class AnalyticsService {
     // Dashboard KPIs
-    static async getDashboardKPIs(organizationId: number, dayId?: number): Promise<DashboardKPIsDto> {
+    static async getDashboardKPIs(organizationId: string, dayId?: number): Promise<DashboardKPIsDto> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (dayId) {
@@ -23,7 +23,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getSalesTrend(organizationId: number, days: number = 7): Promise<SalesTrendDataDto[]> {
+    static async getSalesTrend(organizationId: string, days: number = 7): Promise<SalesTrendDataDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         params.append('days', days.toString());
@@ -32,7 +32,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getOrderStatusDistribution(organizationId: number, dayId?: number): Promise<OrderStatusDistributionDto[]> {
+    static async getOrderStatusDistribution(organizationId: string, dayId?: number): Promise<OrderStatusDistributionDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (dayId) {
@@ -43,7 +43,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getTopMenuItems(organizationId: number, days: number = 7, limit: number = 5): Promise<TopMenuItemDto[]> {
+    static async getTopMenuItems(organizationId: string, days: number = 7, limit: number = 5): Promise<TopMenuItemDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         params.append('days', days.toString());
@@ -54,7 +54,7 @@ export class AnalyticsService {
     }
 
     // Orders Analytics
-    static async getOrdersByHour(organizationId: number, areaId?: number, dayId?: number): Promise<OrdersByHourDto[]> {
+    static async getOrdersByHour(organizationId: string, areaId?: number, dayId?: number): Promise<OrdersByHourDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (areaId) {
@@ -68,7 +68,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getPaymentMethodDistribution(organizationId: number, areaId?: number, dayId?: number): Promise<PaymentMethodDistributionDto[]> {
+    static async getPaymentMethodDistribution(organizationId: string, areaId?: number, dayId?: number): Promise<PaymentMethodDistributionDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (areaId) {
@@ -82,7 +82,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getAverageOrderValueTrend(organizationId: number, areaId?: number, days: number = 7): Promise<AverageOrderValueTrendDto[]> {
+    static async getAverageOrderValueTrend(organizationId: string, areaId?: number, days: number = 7): Promise<AverageOrderValueTrendDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (areaId) {
@@ -94,7 +94,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async getOrderStatusTimeline(organizationId: number, areaId?: number, dayId?: number): Promise<OrderStatusTimelineEventDto[]> {
+    static async getOrderStatusTimeline(organizationId: string, areaId?: number, dayId?: number): Promise<OrderStatusTimelineEventDto[]> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         if (areaId) {
@@ -109,7 +109,7 @@ export class AnalyticsService {
     }
 
     // Reports
-    static async generateDailySummaryReport(organizationId: number, dayId: number): Promise<Blob> {
+    static async generateDailySummaryReport(organizationId: string, dayId: number): Promise<Blob> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         params.append('dayId', dayId.toString());
@@ -120,7 +120,7 @@ export class AnalyticsService {
         return response.data;
     }
 
-    static async generateAreaPerformanceReport(organizationId: number, startDate: string, endDate: string): Promise<Blob> {
+    static async generateAreaPerformanceReport(organizationId: string, startDate: string, endDate: string): Promise<Blob> {
         const params = new URLSearchParams();
         params.append('organizationId', organizationId.toString());
         params.append('startDate', startDate);

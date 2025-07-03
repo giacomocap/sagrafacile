@@ -8,7 +8,7 @@ import { LoadingChart } from '../shared/LoadingChart';
 import { EmptyChart } from '../shared/EmptyChart';
 
 interface OrderStatusChartProps {
-    organizationId: number;
+    organizationId: string;
     dayId?: number;
     refreshInterval?: number;
 }

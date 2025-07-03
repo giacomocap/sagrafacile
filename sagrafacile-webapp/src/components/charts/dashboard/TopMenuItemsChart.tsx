@@ -8,7 +8,7 @@ import { LoadingChart } from '../shared/LoadingChart';
 import { EmptyChart } from '../shared/EmptyChart';
 
 interface TopMenuItemsChartProps {
-    organizationId: number;
+    organizationId: string;
     days?: number;
     limit?: number;
     refreshInterval?: number;

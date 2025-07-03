@@ -277,7 +277,7 @@ export default function PrintersPage() {
         onOpenChange={setIsFormOpen}
         printerToEdit={editingPrinter}
         onSaveSuccess={handleSaveSuccess}
-        orgId={+(user?.organizationId || 0)}
+        orgId={user?.organizationId || ''}
       />
 
       {/* Dialog Conferma Eliminazione */}

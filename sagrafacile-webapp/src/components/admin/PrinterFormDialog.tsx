@@ -74,7 +74,7 @@ interface PrinterFormDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   printerToEdit?: PrinterDto | null;
   onSaveSuccess: () => void;
-  orgId: number;
+  orgId: string;
 }
 
 export default function PrinterFormDialog({ isOpen, onOpenChange, printerToEdit, onSaveSuccess, orgId }: PrinterFormDialogProps) {

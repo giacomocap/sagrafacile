@@ -27,30 +27,6 @@
 *   The final migration script is idempotent and safe to run on both new (empty) and existing databases, making it suitable for all deployment environments.
 **Outcome:** The database schema has been successfully and safely updated. The `OrganizationId` is now a `Guid` throughout the application, and the `SubscriptionStatus` field is available, paving the way for future development.
 
-
-## (2025-07-03) - Major DB Migration: OrganizationId to Guid & SubscriptionStatus
-**Context:** A critical database migration was required to change the `OrganizationId` primary key from `int` to `Guid` across the entire database schema. This was a prerequisite for implementing multi-tenancy and subscription features. Additionally, a new `SubscriptionStatus` field was added to the `Organizations` table.
-**Accomplishments:**
-*   **Troubleshot `HostAbortedException`:**
-    *   **Problem:** The `dotnet ef migrations add` command was consistently failing with a `HostAbortedException`.
-    *   **Root Cause Analysis:** Discovered that this exception is *expected behavior* for EF Core's design-time tools. The tool starts the host to gather information and then immediately aborts it. Our generic `catch (Exception ex)` block was incorrectly treating this as a fatal error.
-    *   **Solution:** Refined the `catch` block in `Program.cs` to specifically ignore the `HostAbortedException` and any exception originating from `Microsoft.EntityFrameworkCore.Design`, while still catching other unexpected startup errors. The final implementation is: `catch (Exception ex) when (ex is not HostAbortedException && ex.Source != "Microsoft.EntityFrameworkCore.Design")`.
-*   **Implemented a Data-Safe Migration:**
-    *   **Problem:** The default EF Core migration only alters table schemas (`ALTER TABLE ... ALTER COLUMN ...`) and does not handle the conversion of existing `int` data to `Guid`, which would break foreign key relationships and cause data loss.
-    *   **Solution:** Manually edited the generated migration file (`Up` method) to perform a safe data migration using raw SQL. The script now performs the following steps:
-        1.  **Creates a deterministic `uuid-ossp` function** (`temp_int_to_guid`) to ensure that each existing `int` ID maps to a unique, consistent `Guid`.
-        2.  **Drops all foreign key constraints** pointing to the old `Organizations.Id` integer column.
-        3.  **Drops the `IDENTITY` property** from the `Organizations.Id` column, which was a prerequisite for changing its type.
-        4.  **Alters the column type** of `Organizations.Id` and all `OrganizationId` foreign keys to `uuid`, using the temporary function to convert the existing integer values on the fly.
-        5.  **Re-creates all foreign key constraints** using the new `uuid` columns.
-        6.  **Drops the temporary function.**
-*   **Applied Migration:** Successfully applied the robust, data-safe migration to the development database using `dotnet ef database update`.
-**Key Decisions:**
-*   The `HostAbortedException` from EF Core tools should be explicitly ignored during application startup to prevent false failure reports.
-*   Complex data type migrations involving primary keys must be handled with custom SQL scripts within the migration file to ensure data integrity and preserve relationships. The auto-generated migration is insufficient for this task.
-*   The final migration script is idempotent and safe to run on both new (empty) and existing (populated) databases.
-**Outcome:** The database schema has been successfully and safely updated. The `OrganizationId` is now a `Guid`, and the `SubscriptionStatus` field is available, paving the way for future feature development. This process is now well-documented for future major migrations.
-
 ## (2025-06-26) - Refactored SignalRService Architecture & Fixed PDF Printing Issues
 **Context:** Addressed a critical PDF printing issue where webapp test prints to HTML/PDF printers were failing, and completely refactored the SignalRService which had grown to over 600 lines and violated the Single Responsibility Principle.
 **Accomplishments:**

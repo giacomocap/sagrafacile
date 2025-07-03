@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SagraFacile.NET.API.DTOs.Analytics; // Added for DTOs
 using SagraFacile.NET.API.Services;
-using System;
-using System.Collections.Generic; // Added for List results
 using System.ComponentModel.DataAnnotations;
 
 namespace SagraFacile.NET.API.Controllers

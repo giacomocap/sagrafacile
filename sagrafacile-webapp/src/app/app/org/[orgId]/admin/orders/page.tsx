@@ -40,7 +40,7 @@ const OrdersPage = () => {
         sortAscending: false,
         areaId: undefined,
         dayId: 'current',
-        organizationId: selectedOrganizationId ? Number(selectedOrganizationId) : undefined,
+        organizationId: selectedOrganizationId || undefined,
     });
 
     // State for Receipt Dialog
@@ -49,7 +49,7 @@ const OrdersPage = () => {
 
     useEffect(() => {
         if (selectedOrganizationId) {
-            setQueryParams(prev => ({ ...prev, organizationId: Number(selectedOrganizationId) }));
+            setQueryParams(prev => ({ ...prev, organizationId: selectedOrganizationId }));
         }
     }, [selectedOrganizationId]);
 

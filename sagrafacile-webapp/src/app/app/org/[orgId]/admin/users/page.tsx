@@ -65,7 +65,7 @@ interface RegisterPayload {
     lastName: string;
     password: string;
     confirmPassword: string;
-    organizationId?: number; // Opzionale per SuperAdmin
+    organizationId?: string; // Opzionale per SuperAdmin
 }
 
 // Definisce la struttura per il form di modifica

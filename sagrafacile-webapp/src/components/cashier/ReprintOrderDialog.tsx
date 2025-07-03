@@ -63,7 +63,7 @@ const ReprintOrderDialog: React.FC<ReprintOrderDialogProps> = ({ isOpen, onClose
             const [ordersResponse, areaResponse] = await Promise.all([
                 apiClient.get<PaginatedResult<OrderDto>>('/orders', {
                     params: {
-                        organizationId: parseInt(orgId, 10),
+                        organizationId: orgId,
                         areaId: areaId,
                     } as OrderQueryParameters // Cast to ensure type compatibility
                 }),

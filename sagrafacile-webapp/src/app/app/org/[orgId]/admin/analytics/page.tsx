@@ -16,7 +16,7 @@ import { DayDto } from '@/types';
 export default function AnalyticsPage() {
     const { currentDay } = useOrganization();
     const params = useParams();
-    const currentOrgId = parseInt(params.orgId as string, 10);
+    const currentOrgId = params.orgId as string;
     
     const [availableDays, setAvailableDays] = useState<DayDto[]>([]);
     const [selectedDayId, setSelectedDayId] = useState<number | undefined>(currentDay?.id);

@@ -31,7 +31,7 @@ export default function AdminDashboardPage() {
   const { user } = useAuth();
   const { currentDay } = useOrganization();
   const params = useParams();
-  const currentOrgId = parseInt(params.orgId as string, 10);
+  const currentOrgId = params.orgId as string;
 
   const managementSections = [
     {

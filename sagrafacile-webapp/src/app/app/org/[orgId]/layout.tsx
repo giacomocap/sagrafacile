@@ -27,8 +27,7 @@ export default function OrganizationLayout({
   const [isReady, setIsReady] = useState(false); // State to track if auth/org checks are done
 
   // Parse orgId from URL, ensuring it's a number
-  const currentOrgIdParam = params.orgId as string;
-  const currentOrgId = parseInt(currentOrgIdParam, 10);
+  const currentOrgId = params.orgId as string;
 
   useEffect(() => {
     // 1. Authentication Check
@@ -52,8 +51,8 @@ export default function OrganizationLayout({
     console.log("OrgLayout: Auth/Orgs loaded. Proceeding with checks.");
 
     // 2. Authorization & Org Context Sync
-    if (isNaN(currentOrgId)) {
-        console.error("OrgLayout: Invalid orgId in URL (NaN). Redirecting...");
+    if (!currentOrgId) { // Check for empty string or null/undefined
+        console.error("OrgLayout: Invalid orgId in URL (empty or null). Redirecting...");
         // Decide on a fallback - maybe user's own org or login?
         if (user?.organizationId) {
             router.replace(`/app/org/${user.organizationId}/admin`); // Redirect to user's org
@@ -63,7 +62,7 @@ export default function OrganizationLayout({
         return;
     }
 
-    const userOrgId = user?.organizationId ? parseInt(user.organizationId, 10) : null;
+    const userOrgId = user?.organizationId || null;
 
     if (isSuperAdmin) { // Use the locally determined isSuperAdmin flag
         // SuperAdmin Logic
@@ -81,7 +80,7 @@ export default function OrganizationLayout({
             if (organizations.length > 0) {
                 // Redirect to the first available org, preserving sub-path
                 const firstOrgId = organizations[0].id;
-                const newPath = pathname.replace(`/app/org/${currentOrgIdParam}`, `/app/org/${firstOrgId}`);
+                const newPath = pathname.replace(`/app/org/${currentOrgId}`, `/app/org/${firstOrgId}`);
                 router.replace(newPath);
             } else {
                 // No organizations available for SuperAdmin? Show error or redirect?
@@ -105,7 +104,7 @@ export default function OrganizationLayout({
             console.log(`OrgLayout: Non-SuperAdmin - Mismatched org ${currentOrgId} (user has ${userOrgId}). Redirecting...`);
             if (userOrgId) {
                  // Redirect to their correct org, preserving sub-path
-                 const newPath = pathname.replace(`/app/org/${currentOrgIdParam}`, `/app/org/${userOrgId}`);
+                 const newPath = pathname.replace(`/app/org/${currentOrgId}`, `/app/org/${userOrgId}`);
                  router.replace(newPath);
             } else {
                 // User doesn't have an org ID? Error state.
@@ -122,7 +121,7 @@ export default function OrganizationLayout({
 
   }, [ // Dependencies might need adjustment - remove isSuperAdminContext, keep user
     user, isAuthLoading, isLoadingOrgs, organizations,
-    currentOrgId, currentOrgIdParam, selectedOrganizationId,
+    currentOrgId, selectedOrganizationId,
     setSelectedOrganizationId, router, pathname // Removed isSuperAdminContext
   ]);
 

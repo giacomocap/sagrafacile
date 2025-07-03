@@ -7,14 +7,14 @@ import { DayDto } from '@/types'; // Import DayDto
 import { getCurrentOpenDay } from '@/services/dayService'; // Import API function
 
 interface Organization {
-    id: number;
+    id: string;
     name: string;
 }
 
 interface OrganizationContextType {
     organizations: Organization[];
-    selectedOrganizationId: number | null;
-    setSelectedOrganizationId: (id: number | null) => void;
+    selectedOrganizationId: string | null;
+    setSelectedOrganizationId: (id: string | null) => void;
     isLoadingOrgs: boolean;
     orgError: string | null;
     isSuperAdminContext: boolean; // Expose if the context is active for a SuperAdmin
@@ -31,7 +31,7 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(u
 export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const [organizations, setOrganizations] = useState<Organization[]>([]);
-    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | null>(null);
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
     const [isLoadingOrgs, setIsLoadingOrgs] = useState<boolean>(true); // Start true for initial load
     const [orgError, setOrgError] = useState<string | null>(null);
     // Day state
@@ -134,7 +134,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         // We fetch day state in a separate effect based on user and selectedOrgId
     }, [user, isSuperAdminContext]);
 
-    const handleSetSelectedOrganizationId = (id: number | null) => {
+    const handleSetSelectedOrganizationId = (id: string | null) => {
         setSelectedOrganizationId(id);
         // Potentially save to localStorage? Or rely on context state.
     };
