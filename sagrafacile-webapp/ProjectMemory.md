@@ -1,5 +1,24 @@
 # Project Memory - SagraFacile WebApp Frontend
 
+---
+# Session Summaries (Newest First)
+
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.
+**Accomplishments:**
+*   **Created `InstanceContext`:** A new global context (`src/contexts/InstanceContext.tsx`) was created to fetch and provide the application's running mode (`saas` or `opensource`). It uses a new `instanceService.ts` to call the backend's `/api/instance/info` endpoint. The main admin layout is now wrapped in the `InstanceProvider`.
+*   **Conditional Navigation:** The main admin sidebar (`src/components/admin/AdminNavigation.tsx`) now uses the `InstanceContext` to conditionally display a "Sottoscrizione" (Subscription) link. This link is only visible when the application is running in "saas" mode.
+*   **Subscription Page:**
+    *   A new page was created at `/app/org/[orgId]/admin/subscription`.
+    *   This page fetches the current organization's details, including the new `subscriptionStatus` field, using a new `organizationService.ts`.
+    *   It dynamically displays the subscription status, with appropriate loading and error states.
+*   **Type Definitions:** The frontend `OrganizationDto` in `src/types/index.ts` was updated to include `slug` and `subscriptionStatus` to match the backend DTO.
+**Key Decisions:**
+*   Using a global React Context is an efficient and scalable way to provide the instance mode information to any component that needs it without prop-drilling.
+*   Conditionally rendering UI elements based on this context is the core principle for separating SaaS features from the open-source UI.
+**Outcome:** The frontend now has a robust mechanism for detecting the application mode and displaying SaaS-specific UI elements and data. This completes the initial framework for building out the commercial features of SagraFacile Cloud.
+
+---
 # How to work on the project
 *   **Technology:** Next.js (App Router), TypeScript, Tailwind CSS, Shadcn/ui.
 *   **API Interaction:** Use `src/services/apiClient.ts` for backend calls. Ensure DTOs in `src/types/index.ts` match backend definitions. Handle loading and error states gracefully.

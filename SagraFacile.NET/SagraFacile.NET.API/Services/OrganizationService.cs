@@ -50,7 +50,8 @@ namespace SagraFacile.NET.API.Services
                                  {
                                      Id = org.Id,
                                      Name = org.Name,
-                                     Slug = org.Slug
+                                     Slug = org.Slug,
+                                     SubscriptionStatus = org.SubscriptionStatus
                                  })
                                  .ToListAsync();
 
@@ -58,7 +59,7 @@ namespace SagraFacile.NET.API.Services
             return organizations;
         }
 
-        public async Task<Organization?> GetOrganizationByIdAsync(Guid id)
+        public async Task<OrganizationDto?> GetOrganizationByIdAsync(Guid id)
         {
             _logger.LogInformation("Fetching organization by ID: {OrganizationId}.", id);
             var (userOrgId, isSuperAdmin) = GetUserContext();
@@ -75,11 +76,21 @@ namespace SagraFacile.NET.API.Services
             if (!isSuperAdmin && organization.Id != userOrgId)
             {
                 _logger.LogWarning("Unauthorized access attempt: User from Org {UserOrgId} tried to access Org {OrganizationId}.", userOrgId, id);
-                return null; // Return null to signify not found or not authorized
+                // Throwing an exception is better for security here, as it's a clear unauthorized action
+                // rather than just "not found". The controller will catch this and return a 403 Forbidden.
+                throw new UnauthorizedAccessException("User is not authorized to access this organization.");
             }
 
             _logger.LogInformation("Successfully retrieved and authorized organization {OrganizationId}.", id);
-            return organization;
+            
+            // Map to DTO
+            return new OrganizationDto
+            {
+                Id = organization.Id,
+                Name = organization.Name,
+                Slug = organization.Slug,
+                SubscriptionStatus = organization.SubscriptionStatus
+            };
         }
 
 
@@ -113,7 +124,8 @@ namespace SagraFacile.NET.API.Services
             {
                 Id = organization.Id,
                 Name = organization.Name,
-                Slug = organization.Slug
+                Slug = organization.Slug,
+                SubscriptionStatus = organization.SubscriptionStatus
             };
         }
 

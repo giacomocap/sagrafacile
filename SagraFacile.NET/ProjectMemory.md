@@ -3,6 +3,21 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Status Endpoint
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed to differentiate behavior. This session focused on creating the local testing infrastructure and the initial API endpoints required for SaaS-specific features.
+**Accomplishments:**
+*   **Created `docker-compose.saas-local.yml`:** A new Docker Compose file was added to the `sagrafacile` repository. This file inherits from the standard `docker-compose.yml` but crucially adds the `APP_MODE: saas` environment variable to the API service, enabling local development and testing of SaaS features without affecting the default open-source setup.
+*   **Created `InstanceController`:** A new, unauthenticated API endpoint `GET /api/instance/info` was created. This endpoint returns the current application mode (`saas` or `opensource`), allowing the frontend to dynamically adjust its UI and features.
+*   **Exposed `SubscriptionStatus` via API:**
+    *   The `OrganizationDto` was updated to include the `SubscriptionStatus` field.
+    *   The `IOrganizationService` interface and `OrganizationService` implementation were updated to ensure that `GetAllOrganizationsAsync` and `GetOrganizationByIdAsync` correctly map and return the `SubscriptionStatus` in the `OrganizationDto`.
+    *   The `OrganizationsController`'s `GetOrganization` endpoint was updated to return the `OrganizationDto`, securely exposing the subscription status to authorized frontend components.
+**Key Decisions:**
+*   The use of a separate `docker-compose.saas-local.yml` file is a clean and explicit way to manage different development environments, fully aligning with the "Phase 1: Local SaaS Simulation" strategy.
+*   Exposing the instance mode via a dedicated endpoint provides a clear and secure mechanism for the frontend to adapt its behavior.
+*   Returning DTOs from the API endpoints, rather than full data models, is a security best practice that gives us precise control over what data is exposed.
+**Outcome:** The backend is now fully equipped with the foundational logic to support a dual-mode (Open Source vs. SaaS) operation. The frontend can now query the instance mode and retrieve subscription-related data for specific organizations.
+
 ## (2025-07-03) - Major Database Migration: OrganizationId from int to Guid
 **Context:** A critical and complex database migration was required to change the `OrganizationId` primary key from an `int` to a `Guid` across the entire database. This change was necessary to ensure globally unique identifiers for organizations, a prerequisite for future SaaS features. The task also included adding a new `SubscriptionStatus` field to the `Organization` table.
 **Accomplishments:**

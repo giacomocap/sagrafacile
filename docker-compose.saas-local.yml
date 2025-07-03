@@ -1,0 +1,89 @@
+services:
+  # Caddy is the new public-facing entry point and reverse proxy
+  caddy:
+    image: ghcr.io/slothcroissant/caddy-cloudflaredns:latest # Using pre-built image with cloudflare plugin
+    container_name: sagrafacile-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"   # For HTTP traffic
+      - "443:443" # For HTTPS traffic
+      - "443:443/udp" # For HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - sagrafacile_caddy_data:/data # Persists certificates and Caddy data
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL} # Added as per slothcroissant image docs
+      - MY_DOMAIN=${MY_DOMAIN}
+      - ACME_AGREE=true # Added as per slothcroissant image docs, to agree to Let's Encrypt's SA
+    depends_on:
+      - api
+      # - frontend # Removed to break circular dependency with frontend's extra_hosts
+
+  # The C# API (NO LONGER EXPOSES PORTS TO HOST)
+  api: # Renamed from 'backend'
+    image: ghcr.io/giacomocap/sagrafacile-api:main # Using existing image
+    container_name: sagrafacile-api # New container name
+    restart: unless-stopped
+    # No 'ports' section here! Caddy will talk to it internally.
+    environment:
+      APP_MODE: saas # Added for SaaS mode
+      ASPNETCORE_ENVIRONMENT: Production # Preserved from existing
+      # Connection string will be read from this env var by appsettings.json
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-sagrafacile};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-changeme};" # Preserved from existing
+      JWT_SECRET: ${JWT_SECRET} # Preserved from existing
+      JWT_ISSUER: ${JWT_ISSUER:-SagraFacile} # Preserved from existing
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-SagraFacileApp} # Preserved from existing
+      ENABLE_PREORDER_POLLING_SERVICE: ${ENABLE_PREORDER_POLLING_SERVICE:-true} # Preserved from existing
+      SAGRAFACILE_SEED_DEMO_DATA: ${SAGRAFACILE_SEED_DEMO_DATA:-false} # Added for demo data seeding
+      INITIAL_ORGANIZATION_NAME: ${INITIAL_ORGANIZATION_NAME} # Added for initial org setup
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL} # Added for initial org setup
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD} # Added for initial org setup
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL} # Added for superadmin
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD} # Added for superadmin
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD} # Added for demo user password
+      # Add other backend-specific environment variables from .env if any were missed
+    volumes:
+      - sagrafacile_media_data:/app/wwwroot/media # Persist uploaded media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The Next.js Frontend (NO LONGER EXPOSES PORTS TO HOST)
+  frontend:
+    image: ghcr.io/giacomocap/sagrafacile-frontend:main # Using existing image
+    container_name: sagrafacile-frontend # New container name
+    restart: unless-stopped
+    # No 'ports' section here!
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: /api # Preserved from existing
+      NODE_ENV: production # Preserved from existing
+      MY_DOMAIN: ${MY_DOMAIN} # Added for Next.js Image optimization to know its public domain
+    extra_hosts:
+      - "${MY_DOMAIN}:host-gateway" # Make MY_DOMAIN resolve to the host's IP, which Caddy is mapped to
+    depends_on:
+      - api
+      - caddy # Add explicit dependency on caddy
+
+  # The PostgreSQL Database (no direct port exposure to host)
+  db:
+    image: postgres:15
+    container_name: sagrafacile-db # New container name
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-sagrafacile}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sagrafacile} # Preserved from existing (with fallback)
+      POSTGRES_USER: ${POSTGRES_USER:-postgres} # Preserved from existing (with fallback)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme} # Preserved from existing (with fallback)
+    volumes:
+      - sagrafacile_db_data:/var/lib/postgresql/data # Using existing volume name
+
+volumes:
+  sagrafacile_db_data: # Preserving existing volume name
+  sagrafacile_caddy_data: # Preserving existing volume name
+  sagrafacile_media_data: {} # Volume for API media uploads
+  # sagrafacile_caddy_config: is removed as it's not in the new Caddy setup

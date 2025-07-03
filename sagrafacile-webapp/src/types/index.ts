@@ -30,6 +30,8 @@ export interface MenuSyncResult {
 export interface OrganizationDto {
   id: string;
   name: string;
+  slug: string;
+  subscriptionStatus?: string | null;
 }
 
 export interface AreaDto {

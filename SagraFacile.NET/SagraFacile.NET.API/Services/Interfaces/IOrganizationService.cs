@@ -8,7 +8,7 @@ namespace SagraFacile.NET.API.Services.Interfaces
     public interface IOrganizationService
     {
         Task<IEnumerable<OrganizationDto>> GetAllOrganizationsAsync(); // Use DTO
-        Task<Organization?> GetOrganizationByIdAsync(Guid id);
+        Task<OrganizationDto?> GetOrganizationByIdAsync(Guid id);
         Task<OrganizationDto?> GetOrganizationBySlugAsync(string slug); // New method
         Task<Organization> CreateOrganizationAsync(Organization organization);
         Task<bool> UpdateOrganizationAsync(Guid id, Organization organization);

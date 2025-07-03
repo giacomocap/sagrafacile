@@ -45,24 +45,29 @@ namespace SagraFacile.NET.API.Controllers
         // GET: api/Organizations/5
         [HttpGet("{id}")]
         // [AllowAnonymous] // Removed - Requires authentication now
-        [ProducesResponseType(typeof(Organization), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(OrganizationDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<Organization>> GetOrganization(Guid id)
+        public async Task<ActionResult<OrganizationDto>> GetOrganization(Guid id)
         {
             _logger.LogInformation("Received request to get organization by ID: {OrganizationId}.", id);
             try
             {
-                var organization = await _organizationService.GetOrganizationByIdAsync(id);
+                var organizationDto = await _organizationService.GetOrganizationByIdAsync(id);
 
-                if (organization == null)
+                if (organizationDto == null)
                 {
-                    _logger.LogWarning("Organization with ID {OrganizationId} not found.", id);
-                    return NotFound($"Organization with ID {id} not found.");
+                    _logger.LogWarning("Organization with ID {OrganizationId} not found or access denied.", id);
+                    return NotFound($"Organization with ID {id} not found or access denied.");
                 }
 
                 _logger.LogInformation("Successfully retrieved organization {OrganizationId}.", id);
-                return Ok(organization);
+                return Ok(organizationDto);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access attempt for organization {OrganizationId}.", id);
+                return Forbid();
             }
             catch (Exception ex)
             {
