@@ -1,8 +1,10 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useInstance } from '@/contexts/InstanceContext';
 import apiClient from '@/services/apiClient';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login, user, isLoading: isAuthLoading } = useAuth();
+  const { instanceInfo, loading: instanceLoading } = useInstance();
   const router = useRouter();
 
   useEffect(() => {
@@ -128,12 +131,14 @@ export default function LoginPage() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>
-              <div className="mt-4 text-center text-sm">
-                Don't have an account?{" "}
-                <Link href="/app/signup" className="underline">
-                  Sign up
-                </Link>
-              </div>
+              {!instanceLoading && instanceInfo?.mode === 'saas' && (
+                <div className="mt-4 text-center text-sm">
+                  Don't have an account?{" "}
+                  <Link href="/app/signup" className="underline">
+                    Sign up
+                  </Link>
+                </div>
+              )}
             </div>
           </form>
         </div>

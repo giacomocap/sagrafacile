@@ -3,6 +3,22 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Backend)
+**Context:** Implemented the backend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
+**Accomplishments:**
+*   **`OrganizationProvisionRequestDto`:** Created a new DTO for the organization provisioning request.
+*   **`IOrganizationService`:** Added `ProvisionOrganizationAsync` method to the interface.
+*   **`OrganizationService`:**
+    *   Implemented `ProvisionOrganizationAsync` to handle the creation of a new `Organization` and associate the current user with it, assigning the 'Admin' role.
+    *   Updated `GenerateSlug` and introduced `GenerateUniqueSlugAsync` to ensure organization slugs are unique by appending a number if a collision is found.
+    *   Injected `UserManager<User>` to manage user updates (assigning `OrganizationId` and roles).
+*   **`OrganizationsController`:** Added a new `POST /api/organizations/provision` endpoint, protected by authentication, to expose the provisioning functionality. It retrieves the user ID from claims and handles `ServiceResult` responses.
+**Key Decisions:**
+*   The provisioning process is transactional to ensure data consistency (organization creation, user update, role assignment).
+*   Slugs are automatically generated and guaranteed unique, preventing conflicts.
+*   The endpoint is authenticated but does not require a specific role, allowing any newly registered user to provision their organization.
+**Outcome:** The backend is now ready to support the organization creation step of the SaaS onboarding wizard.
+
 ## (2025-07-03) - Implemented SaaS User Registration and Email Confirmation
 **Context:** As the first step in building the SaaS onboarding flow, the backend needed to support a public, unauthenticated sign-up process with mandatory email verification.
 **Accomplishments:**

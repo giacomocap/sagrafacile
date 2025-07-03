@@ -37,6 +37,7 @@ interface AuthContextType {
   login: (tokenResponse: TokenResponseDto) => void;
   logout: () => void;
   setTokens: (accessToken: string, refreshToken: string | null) => void; // For token refresh
+  refreshUser: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -139,8 +140,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     processAndSetToken(newAccessToken, newRefreshToken);
   };
 
+  const refreshUser = async () => {
+    const storedAccessToken = localStorage.getItem('authToken');
+    if (storedAccessToken) {
+        processAndSetToken(storedAccessToken);
+    }
+  }
+
   // Provide the context value to children
-  const value = { user, accessToken, refreshToken, isLoading, login, logout, setTokens };
+  const value = { user, accessToken, refreshToken, isLoading, login, logout, setTokens, refreshUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

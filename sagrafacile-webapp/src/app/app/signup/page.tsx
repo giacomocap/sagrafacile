@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/services/apiClient';
+import { useInstance } from '@/contexts/InstanceContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from 'next/link';
 
 export default function SignupPage() {
+  const { instanceInfo, loading: instanceLoading } = useInstance();
+  const router = useRouter();
+
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -19,7 +23,12 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
+
+  useEffect(() => {
+    if (!instanceLoading && instanceInfo?.mode !== 'saas') {
+      router.replace('/app/login');
+    }
+  }, [instanceInfo, instanceLoading, router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -66,6 +75,14 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
+
+  if (instanceLoading || instanceInfo?.mode !== 'saas') {
+    return (
+        <div className="flex items-center justify-center min-h-screen">
+            <p>Loading...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">

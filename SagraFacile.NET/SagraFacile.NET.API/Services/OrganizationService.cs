@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SagraFacile.NET.API.Data;
 using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
+using SagraFacile.NET.API.Models.Results;
 using SagraFacile.NET.API.Services.Interfaces;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,12 +16,14 @@ namespace SagraFacile.NET.API.Services
     public class OrganizationService : BaseService, IOrganizationService
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<User> _userManager;
         private readonly ILogger<OrganizationService> _logger;
 
-        public OrganizationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<OrganizationService> logger)
+        public OrganizationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, UserManager<User> userManager, ILogger<OrganizationService> logger)
             : base(httpContextAccessor)
         {
             _context = context;
+            _userManager = userManager;
             _logger = logger;
         }
 
@@ -133,9 +137,7 @@ namespace SagraFacile.NET.API.Services
         public async Task<Organization> CreateOrganizationAsync(Organization organization)
         {
             _logger.LogInformation("Attempting to create organization: {OrganizationName}.", organization.Name);
-            organization.Slug = GenerateSlug(organization.Name);
-            // Consider adding logic to ensure slug uniqueness if GenerateSlug isn't perfect
-            // or if names can be very similar. Could involve checking DB and appending a number.
+            organization.Slug = await GenerateUniqueSlugAsync(organization.Name);
             _context.Organizations.Add(organization);
             try
             {
@@ -172,8 +174,7 @@ namespace SagraFacile.NET.API.Services
             {
                 _logger.LogInformation("Organization {OrganizationId} name changed from '{OldName}' to '{NewName}'. Regenerating slug.", id, existingOrganization.Name, organization.Name);
                 existingOrganization.Name = organization.Name;
-                existingOrganization.Slug = GenerateSlug(organization.Name); // Regenerate slug if name changes
-                // Add uniqueness check/handling if necessary
+                existingOrganization.Slug = await GenerateUniqueSlugAsync(organization.Name); // Regenerate slug if name changes
             }
             // Update other properties as needed
 
@@ -236,16 +237,103 @@ namespace SagraFacile.NET.API.Services
             return await _context.Organizations.AnyAsync(e => e.Id == id);
         }
 
-        // Simple slug generation helper
+        private async Task<string> GenerateUniqueSlugAsync(string phrase)
+        {
+            string baseSlug = GenerateSlug(phrase);
+            string finalSlug = baseSlug;
+            int counter = 1;
+
+            while (await _context.Organizations.AnyAsync(o => o.Slug == finalSlug))
+            {
+                finalSlug = $"{baseSlug}-{counter}";
+                counter++;
+            }
+
+            return finalSlug;
+        }
+
         private static string GenerateSlug(string phrase)
         {
+            if (string.IsNullOrWhiteSpace(phrase))
+                return "n-a";
+
             string str = phrase.ToLowerInvariant();
-            // invalid chars           \s+
-            str = Regex.Replace(str, @"[^a-z0-9\s-]", ""); // remove invalid chars
-            str = Regex.Replace(str, @"\s+", " ").Trim(); // convert multiple spaces into one space
-            str = str.Substring(0, str.Length <= 100 ? str.Length : 100).Trim(); // cut and trim
-            str = Regex.Replace(str, @"\s", "-"); // replace spaces with hyphens
+            str = Regex.Replace(str, @"[^a-z0-9\s-]", ""); 
+            str = Regex.Replace(str, @"\s+", " ").Trim(); 
+            str = str.Length > 100 ? str.Substring(0, 100) : str;
+            str = Regex.Replace(str, @"\s", "-"); 
             return str;
+        }
+
+        public async Task<ServiceResult<OrganizationDto>> ProvisionOrganizationAsync(OrganizationProvisionRequestDto provisionDto, string userId)
+        {
+            _logger.LogInformation("Attempting to provision organization '{OrganizationName}' for user {UserId}", provisionDto.OrganizationName, userId);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("Provisioning failed: User with ID {UserId} not found.", userId);
+                return ServiceResult<OrganizationDto>.Fail("User not found.");
+            }
+
+            if (user.OrganizationId.HasValue)
+            {
+                _logger.LogWarning("Provisioning failed: User {UserId} already belongs to organization {OrganizationId}.", userId, user.OrganizationId);
+                return ServiceResult<OrganizationDto>.Fail("User already belongs to an organization.");
+            }
+
+            var newOrganization = new Organization
+            {
+                Name = provisionDto.OrganizationName,
+                Slug = await GenerateUniqueSlugAsync(provisionDto.OrganizationName),
+                SubscriptionStatus = "Trial" // Default to Trial for SaaS
+            };
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _context.Organizations.Add(newOrganization);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Organization '{OrganizationName}' created with ID {OrganizationId}.", newOrganization.Name, newOrganization.Id);
+
+                user.OrganizationId = newOrganization.Id;
+                var updateUserResult = await _userManager.UpdateAsync(user);
+                if (!updateUserResult.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError("Failed to assign organization to user {UserId}. Errors: {Errors}", userId, string.Join(", ", updateUserResult.Errors.Select(e => e.Description)));
+                    return ServiceResult<OrganizationDto>.Fail(updateUserResult.Errors.Select(e => e.Description));
+                }
+                _logger.LogInformation("Assigned user {UserId} to new organization {OrganizationId}.", userId, newOrganization.Id);
+
+                var addToRoleResult = await _userManager.AddToRoleAsync(user, "Admin");
+                if (!addToRoleResult.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError("Failed to assign 'Admin' role to user {UserId}. Errors: {Errors}", userId, string.Join(", ", addToRoleResult.Errors.Select(e => e.Description)));
+                    return ServiceResult<OrganizationDto>.Fail(addToRoleResult.Errors.Select(e => e.Description));
+                }
+                _logger.LogInformation("Assigned 'Admin' role to user {UserId}.", userId);
+
+                await transaction.CommitAsync();
+
+                var organizationDto = new OrganizationDto
+                {
+                    Id = newOrganization.Id,
+                    Name = newOrganization.Name,
+                    Slug = newOrganization.Slug,
+                    SubscriptionStatus = newOrganization.SubscriptionStatus
+                };
+
+                _logger.LogInformation("Successfully provisioned organization {OrganizationId} for user {UserId}.", newOrganization.Id, userId);
+                return ServiceResult<OrganizationDto>.Ok(organizationDto);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "An unexpected error occurred during organization provisioning for user {UserId}.", userId);
+                return ServiceResult<OrganizationDto>.Fail("An unexpected error occurred.");
+            }
         }
     }
 }

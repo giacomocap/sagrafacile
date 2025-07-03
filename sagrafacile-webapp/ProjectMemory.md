@@ -3,6 +3,27 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Frontend)
+**Context:** Implemented the frontend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
+**Accomplishments:**
+*   **`organizationService.ts`:** Added `provisionOrganization` function to call the new backend endpoint.
+*   **New Onboarding Page (`/app/onboarding`):**
+    *   Created `sagrafacile/sagrafacile-webapp/src/app/app/onboarding/page.tsx`.
+    *   This page provides a form for the user to enter their organization name.
+    *   Upon successful submission, it calls `organizationService.provisionOrganization`.
+    *   It uses `useAuth().refreshUser()` to update the user's `organizationId` in the global context after successful provisioning.
+    *   Redirects the user to their new organization's admin dashboard (`/app/org/[orgId]/admin`).
+*   **`AuthContext.tsx`:** Added a `refreshUser` function to the context to allow re-fetching and updating the user's claims (specifically `organizationId`) after provisioning.
+*   **`app/app/org/[orgId]/layout.tsx`:** Added redirection logic to automatically send users with a `null` or empty `organizationId` to the `/app/onboarding` page, ensuring they complete the onboarding flow.
+*   **`app/layout.tsx`:** Wrapped the `AuthProvider` and `OrganizationProvider` with `InstanceProvider` to make the application mode (`saas`/`opensource`) available globally.
+*   **`app/app/signup/page.tsx`:** Modified to use `useInstance` and redirect to `/app/login` if the application is not in `saas` mode, ensuring the signup page is only accessible in SaaS environments.
+*   **`app/app/login/page.tsx`:** Modified to conditionally display the "Sign up" link only when the application is in `saas` mode.
+**Key Decisions:**
+*   Leveraged existing `AuthContext` for user state management and `InstanceContext` for application mode detection.
+*   Implemented a clear redirection flow to guide new users through the onboarding process.
+*   Ensured SaaS-specific features (signup, onboarding) are only available in the correct application mode.
+**Outcome:** The frontend now provides a complete and guided onboarding experience for new SaaS users, from registration to initial organization setup.
+
 ## (2025-07-03) - Implemented SaaS User Sign-up and Email Confirmation Flow
 **Context:** To support the new SaaS onboarding process, the frontend required a public-facing sign-up page and a page to handle email confirmation links.
 **Accomplishments:**
@@ -24,6 +45,21 @@
 *   The sign-up and email confirmation pages are built as simple, focused components, following the existing project structure and style.
 *   The use of `Suspense` on the confirmation page ensures a good user experience while the client-side logic processes the URL parameters.
 **Outcome:** The frontend now fully supports the initial user registration and email confirmation steps of the SaaS onboarding flow.
+
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.
+**Accomplishments:**
+*   **Created `InstanceContext`:** A new global context (`src/contexts/InstanceContext.tsx`) was created to fetch and provide the application's running mode (`saas` or `opensource`). It uses a new `instanceService.ts` to call the backend's `/api/instance/info` endpoint. The main admin layout is now wrapped in the `InstanceProvider`.
+*   **Conditional Navigation:** The main admin sidebar (`src/components/admin/AdminNavigation.tsx`) now uses the `InstanceContext` to conditionally display a "Sottoscrizione" (Subscription) link. This link is only visible when the application is running in "saas" mode.
+*   **Subscription Page:**
+    *   A new page was created at `/app/org/[orgId]/admin/subscription`.
+    *   This page fetches the current organization's details, including the new `subscriptionStatus` field, using a new `organizationService.ts`.
+    *   It dynamically displays the subscription status, with appropriate loading and error states.
+*   **Type Definitions:** The frontend `OrganizationDto` in `src/types/index.ts` was updated to include `slug` and `subscriptionStatus` to match the backend DTO.
+**Key Decisions:**
+*   Using a global React Context is an efficient and scalable way to provide the instance mode information to any component that needs it without prop-drilling.
+*   Conditionally rendering UI elements based on this context is the core principle for separating SaaS features from the open-source UI.
+**Outcome:** The frontend now has a robust mechanism for detecting the application mode and displaying SaaS-specific UI elements and data. This completes the initial framework for building out the commercial features of SagraFacile Cloud.
 
 ## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
 **Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.

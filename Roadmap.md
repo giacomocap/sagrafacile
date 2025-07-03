@@ -540,7 +540,7 @@ This document outlines the planned development phases for the SagraFacile system
 *   **Key Features & Tasks:**
     *   `[~]` **SaaS User Onboarding Flow:**
         *   `[x]` Implement a new user sign-up process with mandatory email confirmation and consent to Terms of Service/Privacy Policy.
-        *   `[ ]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan.
+        *   `[~]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan. (Organization creation implemented, subscription plan selection pending)
     *   `[ ]` **Billing & Subscription Integration:**
         *   `[ ]` Integrate with a payment provider (e.g., Stripe).
         *   `[ ]` Implement a "Trial Tier" with usage-based limits (e.g., limited orders per day).

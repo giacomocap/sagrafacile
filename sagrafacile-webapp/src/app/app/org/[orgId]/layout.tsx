@@ -50,14 +50,21 @@ export default function OrganizationLayout({
     // User is authenticated and orgs (if needed) are loaded
     console.log("OrgLayout: Auth/Orgs loaded. Proceeding with checks.");
 
-    // 2. Authorization & Org Context Sync
+    // 2. Onboarding Check
+    if (user && !user.organizationId && !pathname.startsWith('/app/onboarding')) {
+        console.log("OrgLayout: User has no organization, redirecting to onboarding.");
+        router.replace('/app/onboarding');
+        return;
+    }
+
+    // 3. Authorization & Org Context Sync
     if (!currentOrgId) { // Check for empty string or null/undefined
         console.error("OrgLayout: Invalid orgId in URL (empty or null). Redirecting...");
         // Decide on a fallback - maybe user's own org or login?
         if (user?.organizationId) {
             router.replace(`/app/org/${user.organizationId}/admin`); // Redirect to user's org
-        } else {
-            router.replace('/app/login'); // Fallback to login
+        } else if (!pathname.startsWith('/app/onboarding')) {
+             router.replace('/app/onboarding');
         }
         return;
     }

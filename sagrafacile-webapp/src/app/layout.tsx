@@ -3,9 +3,10 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { cn } from "../lib/utils"; // Import cn utility
-import { AuthProvider } from "../contexts/AuthContext"; // Import AuthProvider
-import { OrganizationProvider } from "../contexts/OrganizationContext"; // Import OrganizationProvider
-import { Toaster } from "@/components/ui/sonner"; // Import Toaster
+import { AuthProvider } from "../contexts/AuthContext";
+import { OrganizationProvider } from "../contexts/OrganizationContext";
+import { InstanceProvider } from "../contexts/InstanceContext";
+import { Toaster } from "@/components/ui/sonner";
 
 // Define font variables using the recommended geist/font/* imports
 const geistSans = GeistSans;
@@ -31,9 +32,11 @@ export default function RootLayout({
           geistMono.variable  // Use the variable property from the font object
         )}
       >
-        <AuthProvider>
-          <OrganizationProvider>{children}</OrganizationProvider>
-        </AuthProvider>
+        <InstanceProvider>
+          <AuthProvider>
+            <OrganizationProvider>{children}</OrganizationProvider>
+          </AuthProvider>
+        </InstanceProvider>
         {/* Move toast position to avoid overlap */}
         <Toaster richColors position="top-center" />
       </body>
