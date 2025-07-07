@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from 'next/link';
 
+const landingPageUrl = process.env.NEXT_PUBLIC_LANDING_PAGE_URL || 'https://sagrafacile.it';
+
 export default function SignupPage() {
   const { instanceInfo, loading: instanceLoading } = useInstance();
   const router = useRouter();
@@ -136,7 +138,7 @@ export default function SignupPage() {
                   <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(checked) => setTermsAccepted(!!checked)} disabled={isLoading} />
                   <div className="grid gap-1.5 leading-none">
                     <label htmlFor="terms" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Accetto i <a href="/terms" target="_blank" className="underline">Termini di Servizio</a>
+                      Accetto i <a href={`${landingPageUrl}/terms-of-service`} target="_blank" rel="noopener noreferrer" className="underline">Termini di Servizio</a>
                     </label>
                   </div>
                 </div>
@@ -144,7 +146,7 @@ export default function SignupPage() {
                   <Checkbox id="privacy" checked={privacyAccepted} onCheckedChange={(checked) => setPrivacyAccepted(!!checked)} disabled={isLoading} />
                   <div className="grid gap-1.5 leading-none">
                     <label htmlFor="privacy" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      Accetto la <a href="/privacy" target="_blank" className="underline">Informativa sulla Privacy</a>
+                      Accetto la <a href={`${landingPageUrl}/privacy-policy`} target="_blank" rel="noopener noreferrer" className="underline">Informativa sulla Privacy</a>
                     </label>
                   </div>
                 </div>

@@ -58,6 +58,14 @@ Here's a glimpse of SagraFacile in action:
 
 To create a robust, easy-to-deploy, and customizable POS and event management system that can be run entirely on local infrastructure.
 
+## Architettura dell'Ecosistema
+
+SagraFacile è più di un semplice software; è parte di un ecosistema progettato per offrire flessibilità agli organizzatori di eventi. Questo repository contiene il **core open-source e auto-ospitato**.
+
+Per una comprensione completa di come questo progetto si integra con i nostri servizi cloud opzionali (come SagraPreOrdine e la futura piattaforma SaaS), ti invitiamo a consultare la nostra documentazione dettagliata sull'architettura.
+
+**[Leggi la documentazione completa dell'ecosistema su sagrafacile.it](https://sagrafacile.it/documentazione/ecosistema)**
+
 ## Architecture Overview
 
 The system consists of two main components:
