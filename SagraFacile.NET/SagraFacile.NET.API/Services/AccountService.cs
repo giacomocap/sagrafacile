@@ -11,6 +11,7 @@ using SagraFacile.NET.API.Data; // Added for ApplicationDbContext
 using System.Security.Cryptography; // Added for RandomNumberGenerator
 using Microsoft.Extensions.Logging; // Added for ILogger
 using System.Web;
+using Microsoft.AspNetCore.WebUtilities; // Added for WebEncoders
 
 namespace SagraFacile.NET.API.Services;
 
@@ -52,7 +53,7 @@ public class AccountService : BaseService, IAccountService
     {
         _logger.LogInformation("Attempting to register user with email {Email}.", registerDto.Email);
 
-        var appMode = _configuration["APP_MODE"];
+        var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
         var isSaaSMode = appMode == "saas";
         var isApiCallAuthenticated = _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false; // Check if the call is from an already logged-in user
 
@@ -78,13 +79,16 @@ public class AccountService : BaseService, IAccountService
             }
 
             _logger.LogInformation("SaaS user {Email} created successfully with ID {UserId}. Generating confirmation token.", user.Email, user.Id);
-            
+
             // Send confirmation email
             try
             {
                 var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? "https://app.sagrafacile.it";
-                var confirmationLink = $"{frontendBaseUrl}/conferma-email?userId={user.Id}&token={HttpUtility.UrlEncode(token)}";
+                var tokenBytes = Encoding.UTF8.GetBytes(token);
+                var urlSafeToken = WebEncoders.Base64UrlEncode(tokenBytes); // Generate a URL-safe token
+
+                var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+                var confirmationLink = $"{frontendBaseUrl}/conferma-email?userId={user.Id}&token={urlSafeToken}";
 
                 await _emailService.SendEmailAsync(
                     user.Email,
@@ -103,57 +107,58 @@ public class AccountService : BaseService, IAccountService
 
             return new AccountResult { Succeeded = true, Data = new { UserId = user.Id, Message = "Registration successful. Please check your email to confirm your account." } };
         }
-
-        // Admin-initiated Registration Flow (for both Self-Hosted and SaaS)
-        _logger.LogInformation("Executing admin-initiated registration flow for {Email}.", registerDto.Email);
-        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
-        Guid? organizationIdToAssign;
-
-        if (isCallerSuperAdmin)
+        else // This is the Admin-initiated Registration Flow (for both Self-Hosted and SaaS)
         {
-            if (!registerDto.OrganizationId.HasValue)
+            _logger.LogInformation("Executing admin-initiated registration flow for {Email}.", registerDto.Email);
+            var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext(); // Get user context here
+            Guid? organizationIdToAssign;
+
+            if (isCallerSuperAdmin)
             {
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId." } } };
+                if (!registerDto.OrganizationId.HasValue)
+                {
+                    return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId." } } };
+                }
+                organizationIdToAssign = registerDto.OrganizationId.Value;
             }
-            organizationIdToAssign = registerDto.OrganizationId.Value;
-        }
-        else
-        {
-            if (!callerOrganizationId.HasValue)
+            else
             {
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Admin user context is missing OrganizationId." } } };
+                if (!callerOrganizationId.HasValue)
+                {
+                    return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Admin user context is missing OrganizationId." } } };
+                }
+                organizationIdToAssign = callerOrganizationId.Value;
             }
-            organizationIdToAssign = callerOrganizationId.Value;
-        }
 
-        var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
-        if (!organizationExists)
-        {
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
-        }
+            var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
+            if (!organizationExists)
+            {
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
+            }
 
-        var adminCreatedUser = new User
-        {
-            UserName = registerDto.Email,
-            Email = registerDto.Email,
-            FirstName = registerDto.FirstName,
-            LastName = registerDto.LastName,
-            OrganizationId = organizationIdToAssign.Value,
-            EmailConfirmed = true // Admin-created users are confirmed by default
-        };
+            var adminCreatedUser = new User
+            {
+                UserName = registerDto.Email,
+                Email = registerDto.Email,
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                OrganizationId = organizationIdToAssign.Value,
+                EmailConfirmed = true // Admin-created users are confirmed by default
+            };
 
-        var adminCreateResult = await _userManager.CreateAsync(adminCreatedUser, registerDto.Password);
-        if (adminCreateResult.Succeeded)
-        {
-            _logger.LogInformation("Admin-created user {Email} registered successfully in organization {OrganizationId}.", adminCreatedUser.Email, adminCreatedUser.OrganizationId);
-            return new AccountResult { Succeeded = true, Data = new { UserId = adminCreatedUser.Id } };
+            var adminCreateResult = await _userManager.CreateAsync(adminCreatedUser, registerDto.Password);
+            if (adminCreateResult.Succeeded)
+            {
+                _logger.LogInformation("Admin-created user {Email} registered successfully in organization {OrganizationId}.", adminCreatedUser.Email, adminCreatedUser.OrganizationId);
+                return new AccountResult { Succeeded = true, Data = new { UserId = adminCreatedUser.Id } };
+            }
+            else
+            {
+                _logger.LogWarning("Admin-initiated registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", adminCreateResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = adminCreateResult.Errors };
+            }
         }
-        else
-        {
-            _logger.LogWarning("Admin-initiated registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", adminCreateResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = adminCreateResult.Errors };
-        }
-    }
+    } // Close the else block for admin-initiated flow
 
     public async Task<LoginResult> LoginUserAsync(LoginDto loginDto)
     {
@@ -227,16 +232,27 @@ public class AccountService : BaseService, IAccountService
             return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User not found." } } };
         }
 
-        var result = await _userManager.ConfirmEmailAsync(user, token);
-        if (result.Succeeded)
+        try
         {
-            _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
-            return new AccountResult { Succeeded = true };
+            var decodedTokenBytes = WebEncoders.Base64UrlDecode(token);
+            var originalToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
+            var result = await _userManager.ConfirmEmailAsync(user, originalToken);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogWarning("Email confirmation failed for user {UserId}. Errors: {Errors}", userId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = result.Errors };
+            }
         }
-        else
+        catch (FormatException ex)
         {
-            _logger.LogWarning("Email confirmation failed for user {UserId}. Errors: {Errors}", userId, string.Join(", ", result.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = result.Errors };
+            _logger.LogError(ex, "Failed to decode Base64Url token for user {UserId}.", userId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid token format." } } };
         }
     }
 

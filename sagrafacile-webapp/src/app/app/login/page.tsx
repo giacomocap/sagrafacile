@@ -22,33 +22,48 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isAuthLoading && user) {
-      console.log("Login Page Effect: User detected, determining redirect...");
+    // Wait for both auth and instance info to be loaded
+    if (isAuthLoading || instanceLoading) {
+      return;
+    }
+
+    if (user) {
+      console.log("Login Page Effect: User detected, determining redirect...", { user, instanceInfo });
       const isSuperAdmin = user.roles?.includes('SuperAdmin');
       const isCashier = user.roles?.includes('Cashier');
-      const organizationId = user.organizationId ? parseInt(user.organizationId, 10) : null;
+      const organizationId = user.organizationId; // This is now a string (Guid)
 
-      if (organizationId && !isNaN(organizationId)) {
+      // Handle new SaaS user who needs to go through onboarding
+      if (instanceInfo?.mode === 'saas' && !organizationId && !isSuperAdmin) {
+        console.log("Login Page Effect: Redirecting new SaaS user to onboarding.");
+        router.replace('/app/onboarding');
+        return;
+      }
+
+      // Handle regular user with an organization
+      if (organizationId) {
         if (isCashier) {
           console.log(`Login Page Effect: Redirecting Cashier for Org ${organizationId} to select area...`);
           router.replace(`/app/org/${organizationId}/cashier`);
         } else if (isSuperAdmin) {
-          console.log("Login Page Effect: Redirecting SuperAdmin...");
+          // A SuperAdmin might have an associated org, but for simplicity/consistency, we can send them to a default place.
+          // Or, we could respect their orgId if it exists. Let's stick to the existing logic for now.
+          console.log("Login Page Effect: Redirecting SuperAdmin to default org admin...");
           router.replace(`/app/org/1/admin`);
         } else {
           console.log(`Login Page Effect: Redirecting Admin/Other User for Org ${organizationId} to admin...`);
           router.replace(`/app/org/${organizationId}/admin`);
         }
-      } else if (isSuperAdmin && !organizationId) {
+      } else if (isSuperAdmin) { // SuperAdmin without an organizationId
         console.log("Login Page Effect: Redirecting SuperAdmin (no specific orgId) to default org admin...");
         router.replace(`/app/org/1/admin`);
-      }
-      else {
+      } else {
+        // This path is now an explicit error state (e.g., non-SaaS user with no org, which shouldn't happen)
         console.error("Login Page Effect: User exists but cannot determine redirect path (OrgID missing or invalid?).", user);
-        setError("Logged in, but could not determine your destination.");
+        setError("Logged in, but could not determine your destination. Please contact support.");
       }
     }
-  }, [user, isAuthLoading, router]);
+  }, [user, isAuthLoading, router, instanceInfo, instanceLoading]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -93,9 +108,9 @@ export default function LoginPage() {
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
-            <h1 className="text-3xl font-bold">Login</h1>
+            <h1 className="text-3xl font-bold">Accedi</h1>
             <p className="text-balance text-muted-foreground">
-              Enter your email below to login to your SagraFacile account
+              Inserisci la tua email per accedere al tuo account SagraFacile
             </p>
           </div>
           <form onSubmit={handleSubmit}>
@@ -129,13 +144,13 @@ export default function LoginPage() {
                 <p className="text-sm font-medium text-destructive">{error}</p>
               )}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Login'}
+                {isLoading ? 'Accesso in corso...' : 'Accedi'}
               </Button>
               {!instanceLoading && instanceInfo?.mode === 'saas' && (
                 <div className="mt-4 text-center text-sm">
-                  Don't have an account?{" "}
+                  Non hai un account?{" "}
                   <Link href="/app/signup" className="underline">
-                    Sign up
+                    Registrati
                   </Link>
                 </div>
               )}

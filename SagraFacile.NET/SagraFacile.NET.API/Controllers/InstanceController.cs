@@ -32,7 +32,7 @@ namespace SagraFacile.NET.API.Controllers
             _logger.LogInformation("Received request for instance info.");
             try
             {
-                var appMode = _configuration["APP_MODE"]?.ToLower() ?? "opensource";
+                var appMode = (_configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"])?.ToLower() ?? "opensource";
                 _logger.LogInformation("Instance mode determined as '{AppMode}'.", appMode);
                 return Ok(new { mode = appMode });
             }

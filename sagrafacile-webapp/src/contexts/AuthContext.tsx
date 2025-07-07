@@ -141,9 +141,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
-    const storedAccessToken = localStorage.getItem('authToken');
-    if (storedAccessToken) {
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    if (storedRefreshToken) {
+      try {
+        // Import apiClient dynamically to avoid circular dependency
+        const { default: apiClient } = await import('@/services/apiClient');
+        
+        const response = await apiClient.post('/accounts/refresh-token', {
+          refreshToken: storedRefreshToken
+        });
+
+        const tokenResponse = response.data;
+        if (tokenResponse && tokenResponse.accessToken) {
+          // Update tokens and user info with the new token that contains updated claims
+          processAndSetToken(tokenResponse.accessToken, tokenResponse.refreshToken);
+        }
+      } catch (error) {
+        console.error('Failed to refresh user token:', error);
+        // If refresh fails, clear tokens and force re-login
+        logout();
+      }
+    } else {
+      // No refresh token available, just re-decode the existing access token
+      const storedAccessToken = localStorage.getItem('authToken');
+      if (storedAccessToken) {
         processAndSetToken(storedAccessToken);
+      }
     }
   }
 

@@ -12,6 +12,7 @@ using System.Security.Claims; // Added for Encoding
 using SagraFacile.NET.API.BackgroundServices; // Add this using
 using SagraFacile.NET.API.Models.Enums;
 using SagraFacile.NET.API.Services.SaaS; // Add this using for SaaSSubscriptionService
+using Microsoft.AspNetCore.DataProtection; // Added for Data Protection
 using PuppeteerSharp; // Added for Puppeteer
 using Serilog; // Added for Serilog
 
@@ -19,7 +20,7 @@ using Serilog; // Added for Serilog
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // Check if running in design-time mode (EF tools)
-var isDesignTime = args.Contains("--design-time") || 
+var isDesignTime = args.Contains("--design-time") ||
                    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "DesignTime" ||
                    args.Any(arg => arg.Contains("ef")) ||
                    AppDomain.CurrentDomain.GetAssemblies().Any(a => a.FullName?.Contains("EntityFrameworkCore.Design") == true);
@@ -86,7 +87,7 @@ try // Added for Serilog try-finally block
             Console.WriteLine("ERROR: Connection string 'DefaultConnection' not found or is empty. Please check configuration (environment variables or appsettings.json)."); // Replaced Log.Error
             throw new InvalidOperationException("Connection string 'DefaultConnection' not found or is empty.");
         }
-        Console.WriteLine($"Using ConnectionString: {connectionString}"); // Replaced Log.Information
+        // Console.WriteLine($"Found connection string"); // This log is redundant
         builder.Services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString)); // Use PostgreSQL provider
     }
@@ -97,7 +98,20 @@ try // Added for Serilog try-finally block
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders(); // Add default token providers
 
-    // 2a. Add Authentication and JWT Bearer Configuration (skip during design-time)
+    // 2a. Configure Data Protection
+    // This ensures that tokens (like for email confirmation) are valid across container restarts.
+    // It stores the keys in a shared volume defined in docker-compose.
+    var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "keys");
+    if (!Directory.Exists(dataProtectionKeysPath))
+    {
+        Directory.CreateDirectory(dataProtectionKeysPath);
+    }
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath))
+        .SetApplicationName("SagraFacile");
+
+
+    // 2b. Add Authentication and JWT Bearer Configuration (skip during design-time)
     if (!isDesignTime)
     {
         builder.Services.AddAuthentication(options =>
@@ -151,16 +165,19 @@ try // Added for Serilog try-finally block
     builder.Services.AddScoped<IInitialDataSeeder, InitialDataSeeder>(); // Register InitialDataSeeder
 
     // Conditional Dependency Injection for ISubscriptionService based on APP_MODE
-    var appMode = builder.Configuration["APP_MODE"];
+    var appMode = builder.Configuration["APP_MODE"] ?? builder.Configuration["AppSettings:AppMode"];
+    // Log the detected app mode for debugging
+    Console.WriteLine($"[CONFIG] Reading APP_MODE. Value: '{appMode}'");
+
     if (appMode?.ToLower() == "saas")
     {
         builder.Services.AddScoped<ISubscriptionService, SaaSSubscriptionService>();
-        Console.WriteLine("SaaS mode detected. Registered SaaSSubscriptionService.");
+        Console.WriteLine("[CONFIG] SaaS mode enabled. Registered SaaSSubscriptionService.");
     }
     else
     {
         builder.Services.AddScoped<ISubscriptionService, OpenSourceSubscriptionService>();
-        Console.WriteLine("Open Source mode detected. Registered OpenSourceSubscriptionService.");
+        Console.WriteLine("[CONFIG] Open Source mode enabled (or APP_MODE not set). Registered OpenSourceSubscriptionService.");
     }
 
     // Register the Background Service conditionally
@@ -231,7 +248,7 @@ try // Added for Serilog try-finally block
     });
 
     Console.WriteLine("All services configured. Attempting to build the application..."); // Replaced Log.Information
-    
+
     var app = builder.Build();
     Console.WriteLine("Application built successfully. Configuring HTTP request pipeline..."); // Replaced Log.Information
 

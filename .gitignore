@@ -363,5 +363,7 @@ FodyWeavers.xsd
 
 # SagraFacile specific
 SagraFacile.NET/SagraFacile.NET.API/wwwroot/media/promo
+SagraFacile.NET/SagraFacile.NET.API/appsettings.Development.json
 .env
 sagrafacile-release-key-androidstudio
+SagraFacile.NET/SagraFacile.NET.API/keys/*

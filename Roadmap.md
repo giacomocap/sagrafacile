@@ -538,10 +538,11 @@ This document outlines the planned development phases for the SagraFacile system
 
 *   **Goal:** Develop and launch a fully managed, commercial SaaS offering of SagraFacile to provide a zero-installation, easy-to-use version of the product for non-technical users.
 *   **Key Features & Tasks:**
-    *   `[~]` **SaaS User Onboarding Flow:**
+    *   `[x]` **SaaS User Onboarding Flow:**
         *   `[x]` Implement a new user sign-up process with mandatory email confirmation and consent to Terms of Service/Privacy Policy.
-        *   `[~]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan. (Organization creation implemented, subscription plan selection pending)
-    *   `[ ]` **Billing & Subscription Integration:**
+        *   `[x]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan. (Organization creation and redirection implemented, subscription plan selection pending)
+    *   `[~]` **Billing & Subscription Integration:**
+        *   `[x]` Implement Subscription Management UI (`/admin/subscription`).
         *   `[ ]` Integrate with a payment provider (e.g., Stripe).
         *   `[ ]` Implement a "Trial Tier" with usage-based limits (e.g., limited orders per day).
         *   `[ ]` Implement a "Pay-Per-Day" pricing model for paid plans.

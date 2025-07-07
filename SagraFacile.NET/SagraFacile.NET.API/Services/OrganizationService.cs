@@ -286,7 +286,8 @@ namespace SagraFacile.NET.API.Services
             {
                 Name = provisionDto.OrganizationName,
                 Slug = await GenerateUniqueSlugAsync(provisionDto.OrganizationName),
-                SubscriptionStatus = "Trial" // Default to Trial for SaaS
+                SubscriptionStatus = "Trial", // Default to Trial for SaaS
+                Id = Guid.NewGuid() 
             };
 
             await using var transaction = await _context.Database.BeginTransactionAsync();

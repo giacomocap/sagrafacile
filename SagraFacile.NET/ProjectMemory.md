@@ -200,6 +200,14 @@
 *   Introduced status-based filtering for orders via the `Statuses` query parameter, enabling more granular control over fetched data.
 **Outcome:** The backend API is now more flexible for order retrieval, supporting both paginated and full-list fetches, and allowing filtering by order statuses.
 
+## (2025-07-07) - Fixed SaaS Onboarding Redirection & Token Refresh
+**Context:** Addressed a critical issue where newly provisioned SaaS users were not being redirected to their organization dashboard because the frontend's JWT token was not updated with the new `organizationId` claim.
+**Accomplishments:**
+*   **`AccountService.cs` (`RefreshTokenAsync`):** Confirmed that the backend's `RefreshTokenAsync` method correctly generates a new JWT token with the user's latest claims (including `organizationId`) from the database.
+**Key Decisions:**
+*   Leveraged the existing refresh token mechanism to ensure updated user claims are propagated to the frontend.
+**Outcome:** The backend is correctly providing updated tokens. The frontend changes (documented in `sagrafacile-webapp/ProjectMemory.md`) now correctly utilize this.
+
 ## (2025-06-20) - Resolved JWT Authentication Issues
 **Context:** After a fresh server deployment, users could log in, but subsequent API calls failed with `SecurityTokenSignatureKeyNotFoundException` (401 Unauthorized). This indicated a mismatch in JWT configuration between token generation and validation.
 **Accomplishments:**
