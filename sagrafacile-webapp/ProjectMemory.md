@@ -3,6 +3,19 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Cashier UI Enhancements and Prerequisite Warnings
+**Context:** Optimized the Cashier interface by relocating key action buttons and implemented a clear warning system for missing operational prerequisites.
+**Accomplishments:**
+*   **Cashier Button Relocation:** Moved "Scansiona QR" and "Carica Pre-Ordine" buttons from `CashierOrderPanel.tsx` to `CashierMenuPanel.tsx`, placing them next to the "Giornata aperta" badge. This optimizes vertical space and improves layout.
+*   **Cashier Station Prerequisite Warning:** Added a prominent yellow warning box to the cashier station page (`sagrafacile-webapp/src/app/app/org/[orgId]/cashier/area/[areaId]/page.tsx`) that:
+    *   Clearly explains missing configurations (e.g., no stations, missing areas/printers).
+    *   Provides direct navigation buttons to the Areas (`/app/org/${orgId}/admin/areas`) and Printers (`/app/org/${orgId}/admin/printers`) configuration pages.
+    *   Uses specific, actionable language about required setup.
+**Key Decisions:**
+*   Improved cashier workflow by consolidating related actions in the menu panel.
+*   Enhanced user guidance for initial setup by providing clear warnings and direct links to configuration.
+**Outcome:** The cashier interface is more streamlined and user-friendly, and administrators are better guided through the initial setup process.
+
 ## (2025-07-08) - Implemented Password Reset and User Invitation Management (Frontend)
 **Context:** Implemented the frontend UI for the password reset flow and the management of user invitations, including viewing and revoking pending invitations.
 **Accomplishments:**
@@ -555,6 +568,32 @@ Adjusted styling in `CashierOrderPanel.tsx` to reduce horizontal and vertical sp
 **Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
 **Next Steps:**
 *   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
+## (2025-07-08) - Implemented Navigation Header for Cashier and Waiter Interfaces
+**Context:** Users with cashier/waiter roles were redirected directly to their area-specific pages but lacked navigation controls to go back to area selection or logout from their accounts, unlike the admin interface which had these features.
+**Accomplishments:**
+*   **Created `OperationalHeader` Component (`src/components/shared/OperationalHeader.tsx`):**
+    *   Designed a reusable header component for operational interfaces (cashier/waiter).
+    *   Implemented two variants: compact (for cashier where vertical space is limited) and standard (for waiter).
+    *   **Compact Version Features:** Minimal height with small back button, compact title/area display, and dropdown menu for user info and actions.
+    *   **Standard Version Features:** More spacious layout with visible "Cambia Area" button, larger title, and separate logout button.
+    *   **Navigation Functions:** "Cambia Area" button navigates back to area selection page, logout button clears auth and redirects to login.
+    *   **User Information Display:** Shows current user name/email and current area name.
+*   **Updated Waiter Area Page (`src/app/app/org/[orgId]/waiter/area/[areaId]/page.tsx`):**
+    *   Integrated `OperationalHeader` with standard layout.
+    *   Added `useMenuAndAreaLoader` hook to get current area information for the header.
+    *   Restructured layout to include header at top with flex layout for proper spacing.
+*   **Updated Cashier Area Page (`src/app/app/org/[orgId]/cashier/area/[areaId]/page.tsx`):**
+    *   Integrated `OperationalHeader` with compact layout to preserve vertical space.
+    *   Adjusted main container height calculation to account for the new header.
+    *   Used compact variant specifically designed for space-constrained cashier interface.
+**Key Decisions:**
+*   Created a single reusable component with variant support rather than separate components for each role.
+*   Prioritized vertical space conservation for cashier interface with compact design.
+*   Used dropdown menu in compact version to save horizontal space while providing full functionality.
+*   Maintained consistent navigation patterns with admin interface (back button + logout).
+*   Leveraged existing `useMenuAndAreaLoader` hook for area information rather than creating new API calls.
+**Outcome:** Cashier and waiter users now have proper navigation controls to change areas and logout, resolving the missing functionality issue. The compact design ensures the cashier interface remains space-efficient while providing essential navigation features.
 
 ## (Next Session) - Planned Work
 Current session paused debugging of USB thermal printer due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.

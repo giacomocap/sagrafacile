@@ -20,26 +20,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Info } from 'lucide-react'; // Import Info icon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { PrinterDto, AreaDto } from '@/types';
+import { PrinterDto, AreaDto, AreaUpsertDto } from '@/types';
 import printerService from '@/services/printerService';
 
 // Special value to represent "None" selection for printers
 const NONE_PRINTER_VALUE = "__NONE__";
-
-// DTO for creating/updating Areas - can remain local if specific to this form structure
-// or be replaced if AreaDto covers its needs for POST/PUT. For now, let's assume AreaDto is sufficient for POST/PUT.
-interface AreaUpsertDto {
-    name: string;
-    organizationId: number;
-    enableWaiterConfirmation: boolean;
-    enableKds: boolean;
-    enableCompletionConfirmation: boolean;
-    receiptPrinterId?: number | null;
-    printComandasAtCashier: boolean;
-    enableQueueSystem: boolean;
-    guestCharge: number;
-    takeawayCharge: number;
-}
 
 export default function AreasPage() {
     const { user } = useAuth();
@@ -142,7 +127,7 @@ export default function AreasPage() {
 
         const dataToSend: AreaUpsertDto = {
             name: newAreaData.name.trim(),
-            organizationId: parseInt(user.organizationId, 10),
+            organizationId: user.organizationId,
             enableWaiterConfirmation: newAreaData.enableWaiterConfirmation || false,
             enableKds: newAreaData.enableKds || false,
             enableCompletionConfirmation: newAreaData.enableCompletionConfirmation || false,
@@ -153,7 +138,7 @@ export default function AreasPage() {
             takeawayCharge: newAreaData.takeawayCharge || 0,
         };
 
-        if (isNaN(dataToSend.organizationId) || dataToSend.organizationId <= 0) {
+        if (!(dataToSend.organizationId?.length > 0)) {
             setAddError("ID organizzazione non valido.");
             return;
         }

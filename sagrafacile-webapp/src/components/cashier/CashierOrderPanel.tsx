@@ -2,7 +2,7 @@
 
 import React from 'react';
 import {
-    Card, CardContent, CardHeader, CardFooter
+    Card, CardContent, CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-    PlusCircle, MinusCircle, XCircle, StickyNote, Loader2, CreditCard, Coins, ScanLine, AlertCircle, Ticket, ChevronRight, Volume2
+    PlusCircle, MinusCircle, XCircle, StickyNote, Loader2, CreditCard, Coins, AlertCircle, Ticket, ChevronRight, Volume2
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CartItem, MenuItemDto, CashierStationDto, QueueStateDto } from '@/types'; // Assuming CartItem is defined in types or passed fully
@@ -37,8 +37,6 @@ interface CashierOrderPanelProps {
     };
     onClearEntireOrder: () => void;
     onOpenPaymentDialog: (paymentMethod: 'Contanti' | 'POS') => void;
-    onScanPreOrderClick: () => void;
-    onScanQrClick: () => void;
     isSubmittingOrder: boolean;
     isFetchingPreOrder: boolean;
     // showScanner: boolean; // Parent controls scanner visibility, this component just needs to disable button
@@ -73,8 +71,6 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
     orderTotals,
     onClearEntireOrder,
     onOpenPaymentDialog,
-    onScanPreOrderClick,
-    onScanQrClick,
     isSubmittingOrder,
     isFetchingPreOrder,
     selectedCashierStationId,
@@ -133,26 +129,6 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
 
     return (
         <Card className="w-full md:w-2/5 flex flex-col m-2 overflow-hidden py-2 gap-2">
-            <CardHeader className="relative pt-4 pb-2 flex justify-end gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onScanQrClick}
-                    disabled={isSubmittingOrder || isFetchingPreOrder || isPanelDisabled}
-                >
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Scansiona QR
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onScanPreOrderClick}
-                    disabled={isSubmittingOrder || isFetchingPreOrder || isPanelDisabled}
-                >
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Carica Pre-Ordine
-                </Button>
-            </CardHeader>
 
             {!isLoadingCashierStations && !cashierStationError && !selectedCashierStationId && availableCashierStations.length > 1 && (
                 <CardContent className="p-4 border-b bg-orange-50 dark:bg-orange-900/30">

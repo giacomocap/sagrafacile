@@ -31,6 +31,7 @@ export default function LoginPage() {
       console.log("Login Page Effect: User detected, determining redirect...", { user, instanceInfo });
       const isSuperAdmin = user.roles?.includes('SuperAdmin');
       const isCashier = user.roles?.includes('Cashier');
+      const isWaiter = user.roles?.includes('Waiter');
       const organizationId = user.organizationId; // This is now a string (Guid)
 
       // Handle new SaaS user who needs to go through onboarding
@@ -42,7 +43,11 @@ export default function LoginPage() {
 
       // Handle regular user with an organization
       if (organizationId) {
-        if (isCashier) {
+        if (isWaiter) {
+          console.log(`Login Page Effect: Redirecting Waiter for Org ${organizationId} to select area...`);
+          router.replace(`/app/org/${organizationId}/waiter`);
+        }
+        else if (isCashier) {
           console.log(`Login Page Effect: Redirecting Cashier for Org ${organizationId} to select area...`);
           router.replace(`/app/org/${organizationId}/cashier`);
         } else if (isSuperAdmin) {

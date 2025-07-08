@@ -59,6 +59,18 @@ export interface AreaResponseDto {
   isActive: boolean;
 }
 
+export interface AreaUpsertDto {
+  name: string;
+  organizationId: string;
+  enableWaiterConfirmation: boolean;
+  enableKds: boolean;
+  enableCompletionConfirmation: boolean;
+  receiptPrinterId?: number | null;
+  printComandasAtCashier: boolean;
+  enableQueueSystem: boolean;
+  guestCharge: number;
+  takeawayCharge: number;
+}
 
 // ==================
 // KDS
@@ -555,23 +567,23 @@ export interface AppCartItem extends CartItem {
 // Ad Carousel
 // ==================
 export interface AdMediaItemDto {
-    id: string;
-    organizationId: string;
-    name: string;
-    mediaType: 'Image' | 'Video';
-    filePath: string;
-    mimeType: string;
-    uploadedAt: string;
+  id: string;
+  organizationId: string;
+  name: string;
+  mediaType: 'Image' | 'Video';
+  filePath: string;
+  mimeType: string;
+  uploadedAt: string;
 }
 
 export interface AdAreaAssignmentDto {
-    id: string;
-    adMediaItemId: string;
-    areaId: number;
-    displayOrder: number;
-    durationSeconds: number | null;
-    isActive: boolean;
-    adMediaItem: AdMediaItemDto;
+  id: string;
+  adMediaItemId: string;
+  areaId: number;
+  displayOrder: number;
+  durationSeconds: number | null;
+  isActive: boolean;
+  adMediaItem: AdMediaItemDto;
 }
 
 export interface AdMediaItemUpsertDto {

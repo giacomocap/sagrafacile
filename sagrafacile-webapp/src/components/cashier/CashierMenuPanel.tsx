@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, CheckCircle, StickyNote, History, Edit3 } from 'lucide-react';
+import { Loader2, CheckCircle, StickyNote, History, Edit3, ScanLine } from 'lucide-react';
 import DayStatusIndicator from '@/components/DayStatusIndicator';
 import { AreaDto, MenuItemDto, MenuCategoryDto, CashierStationDto } from '@/types';
 
@@ -31,6 +31,10 @@ interface CashierMenuPanelProps {
     orderedCategoryNames: string[]; // Pass pre-ordered names
     itemsGroupedByCategory: GroupedMenuItems; // Pass pre-grouped items
     onRequestChangeStation: () => void; // New prop for requesting station change
+    onScanPreOrderClick: () => void;
+    onScanQrClick: () => void;
+    isSubmittingOrder: boolean;
+    isFetchingPreOrder: boolean;
 }
 
 const CashierMenuPanel: React.FC<CashierMenuPanelProps> = ({
@@ -51,16 +55,43 @@ const CashierMenuPanel: React.FC<CashierMenuPanelProps> = ({
     orderedCategoryNames,
     itemsGroupedByCategory,
     onRequestChangeStation, // Destructure new prop
+    onScanPreOrderClick,
+    onScanQrClick,
+    isSubmittingOrder,
+    isFetchingPreOrder,
 }) => {
     const isSearchDisabled = isLoadingMenu || !selectedArea || (!selectedCashierStationId && !cashierStationError && availableCashierStations.length > 0);
     const canChangeStation = selectedCashierStationId !== null && availableCashierStations.length > 1;
+    const isActionDisabled = isSubmittingOrder || isFetchingPreOrder || isSearchDisabled;
 
     return (
         <Card className="w-full md:w-3/5 flex flex-col m-2">
             <CardHeader className="space-y-3">
                 <div className="flex items-center justify-between">
                     <CardTitle>Menu: {selectedArea?.name || 'Area non selezionata'}</CardTitle>
-                    <DayStatusIndicator />
+                    <div className="flex items-center gap-2">
+                        <DayStatusIndicator />
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onScanQrClick}
+                            disabled={isActionDisabled}
+                            className="text-xs px-2 py-1 h-7"
+                        >
+                            <ScanLine className="mr-1 h-3 w-3" />
+                            Scansiona QR
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onScanPreOrderClick}
+                            disabled={isActionDisabled}
+                            className="text-xs px-2 py-1 h-7"
+                        >
+                            <ScanLine className="mr-1 h-3 w-3" />
+                            Pre-Ordine
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="h-6">

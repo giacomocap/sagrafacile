@@ -791,7 +791,7 @@ public class AccountService : BaseService, IAccountService
         await _context.SaveChangesAsync();
 
         var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
-        var invitationLink = $"{frontendBaseUrl}/accept-invitation?token={token}";
+        var invitationLink = $"{frontendBaseUrl}/accetta-invito?token={token}";
 
         await _emailService.SendEmailAsync(
             invitation.Email,
