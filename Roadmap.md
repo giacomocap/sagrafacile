@@ -550,8 +550,12 @@ This document outlines the planned development phases for the SagraFacile system
         *   `[ ]` Deprecate the `SuperAdmin` role to enhance security and GDPR compliance.
         *   `[ ]` Develop a separate, secure "Platform Admin" application for internal management of tenants and subscriptions.
         *   `[ ]` Implement a dedicated, secure API for platform administration tasks.
-    *   `[ ]` **First-Time Use Wizard:**
-        *   `[ ]` Implement a universal "First-Time Setup" wizard for all new organizations (both SaaS and self-hosted) to guide admins through creating their first Area and Menu Category.
+    *   `[x]` **First-Time Use Wizard:**
+        *   `[x]` Implement a universal "First-Time Setup" wizard for all new organizations (both SaaS and self-hosted) to guide admins through creating their first Area, Printer, Cashier Station, and Menu Category.
+        *   `[x]` Created comprehensive wizard with 6 steps: Welcome, Area, Printer, Cashier Station, Menu, and Completion.
+        *   `[x]` Enhanced workflow explanations in both wizard (`sagrafacile-webapp/src/components/admin/setup-wizard/StepArea.tsx`) and admin area page (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/areas/page.tsx`) to better explain operational options.
+        *   `[x]` Implemented GUID generation for Windows USB printers in the wizard.
+        *   `[x]` Integrated wizard into admin dashboard (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`) with automatic detection for new organizations (if no areas exist).
     *   `[x]` **Password Reset Flow (SaaS Only):**
         *   `[x]` **Backend:**
             *   `[x]` Implement logic to generate and store a secure, time-limited password reset token.

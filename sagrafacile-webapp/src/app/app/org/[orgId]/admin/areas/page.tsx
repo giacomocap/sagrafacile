@@ -362,6 +362,33 @@ export default function AreasPage() {
                     </Dialog>
                 </CardHeader>
                 <CardContent>
+                    {/* Workflow explanation */}
+                    <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h4 className="text-sm font-medium text-blue-900 mb-3">💡 Configurazione del Flusso Operativo</h4>
+                        <div className="text-sm text-blue-800 space-y-2">
+                            <p><strong>Flusso Base:</strong> Cliente ordina → Pagamento → Preparazione → Consegna</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <div>
+                                    <p><strong>Opzioni Workflow:</strong></p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                        <li><strong>Conferma Cameriere:</strong> Richiede scansione QR (per abbinare tavolo e ricevuta) prima della preparazione</li>
+                                        <li><strong>KDS (Kitchen Display):</strong> Gli chef confermano ogni piatto pronto per la consegna su schermo</li>
+                                        <li><strong>Conferma Ritiro:</strong> Conferma esplicita quando il cliente ritira</li>
+                                        <li><strong>Sistema Code:</strong> Gestione numeretti per chiamare i clienti</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p><strong>Configurazioni Stampa:</strong></p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                        <li><strong>Stampante Predefinita:</strong> Per scontrini e backup comande</li>
+                                        <li><strong>Stampa Comande:</strong> Dove stampare le comande (predefinita vs categoria)</li>
+                                        <li><strong>Costi Aggiuntivi:</strong> Coperto per persona e supplemento asporto</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {isLoading ? <p>Caricamento aree...</p> : error ? <p className="text-red-500">{error}</p> : areas.length > 0 ? (
                         <Table>
                             <TableHeader>

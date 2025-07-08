@@ -8,6 +8,7 @@ import { useOrganization } from '@/contexts/OrganizationContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from 'react';
 import { 
   Users, 
   MapPin, 
@@ -26,12 +27,59 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { DashboardKPIs } from '@/components/charts/dashboard/DashboardKPIs';
+import SetupWizard from '@/components/admin/setup-wizard/SetupWizard';
+import apiClient from '@/services/apiClient';
+import { AreaDto } from '@/types';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
-  const { currentDay } = useOrganization();
+  const { currentOrganization, currentDay } = useOrganization();
   const params = useParams();
   const currentOrgId = params.orgId as string;
+
+  const [hasAreas, setHasAreas] = useState(true);
+  const [isLoadingAreas, setIsLoadingAreas] = useState(true);
+
+  useEffect(() => {
+    const checkAreas = async () => {
+      if (currentOrganization?.id) {
+        setIsLoadingAreas(true);
+        try {
+          const response = await apiClient.get<AreaDto[]>(`/Areas`);
+          setHasAreas(response.data.length > 0);
+        } catch (error) {
+          console.error("Error checking for existing areas:", error);
+          setHasAreas(true); // Assume true to not block if API fails
+        } finally {
+          setIsLoadingAreas(false);
+        }
+      }
+    };
+
+    checkAreas();
+  }, [currentOrganization?.id]);
+
+  const handleWizardFinish = () => {
+    // After wizard finishes, re-check areas to hide the wizard
+    setIsLoadingAreas(true);
+    apiClient.get<AreaDto[]>(`/Areas`)
+      .then(response => setHasAreas(response.data.length > 0))
+      .catch(error => console.error("Error re-checking areas after wizard:", error))
+      .finally(() => setIsLoadingAreas(false));
+  };
+
+  // If loading areas or no areas found, show the wizard
+  if (isLoadingAreas) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
+        <p>Caricamento...</p>
+      </div>
+    );
+  }
+
+  if (!hasAreas) {
+    return <SetupWizard onFinish={handleWizardFinish} />;
+  }
 
   const managementSections = [
     {

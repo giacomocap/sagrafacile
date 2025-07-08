@@ -3,6 +3,32 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Implemented First-Time Setup Wizard & Enhanced Area Explanations
+**Context:** Implemented a comprehensive first-time setup wizard to guide new organization administrators through initial configuration, and enhanced explanations for workflow options on area management pages.
+**Accomplishments:**
+*   **First-Time Setup Wizard:**
+    *   Created `sagrafacile-webapp/src/components/admin/setup-wizard/SetupWizard.tsx` to orchestrate the multi-step process.
+    *   Developed individual steps:
+        *   `StepWelcome.tsx`: Introduction to the wizard.
+        *   `StepArea.tsx`: Guides creation of the first operational area.
+        *   `StepPrinter.tsx`: Guides creation of the first printer (network or USB), including GUID generation for Windows USB printers.
+        *   `StepCashierStation.tsx`: Guides creation of the first cashier station, linking the created area and printer.
+        *   `StepMenu.tsx`: Guides creation of the first menu category and item.
+        *   `StepComplete.tsx`: Provides a summary of created items and quick links to next actions.
+    *   Integrated the wizard into the admin dashboard (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`) to automatically appear for new organizations without existing areas.
+    *   Ensured proper state management and data passing between wizard steps.
+*   **Enhanced Workflow Explanations:**
+    *   Updated `sagrafacile-webapp/src/components/admin/setup-wizard/StepArea.tsx` with a detailed explanation of order workflow options (Base, Waiter, KDS, Queue System) and printing configurations.
+    *   Added a similar comprehensive explanation section to `sagrafacile-webapp/src/app/app/org/[orgId]/admin/areas/page.tsx` to provide context for the workflow switches.
+*   **Organization Context Enhancement:**
+    *   Modified `sagrafacile-webapp/src/contexts/OrganizationContext.tsx` to expose `currentOrganization` for easier access to organization details.
+**Key Decisions:**
+*   Prioritized a guided, step-by-step onboarding experience for new users.
+*   Used existing API services for creating entities, ensuring consistency.
+*   Improved clarity of complex workflow options through in-context explanations and tooltips.
+*   Ensured the wizard is triggered correctly when an organization has no areas.
+**Outcome:** New administrators now have a clear and intuitive path to set up their organization's basic operations. The area management pages provide better context for configuring operational workflows. The wizard correctly triggers for new organizations.
+
 ## (2025-07-08) - Cashier UI Enhancements and Prerequisite Warnings
 **Context:** Optimized the Cashier interface by relocating key action buttons and implemented a clear warning system for missing operational prerequisites.
 **Accomplishments:**
