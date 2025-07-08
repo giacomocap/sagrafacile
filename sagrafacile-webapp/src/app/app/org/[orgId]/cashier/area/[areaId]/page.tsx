@@ -460,7 +460,7 @@ const CashierPage = () => {
                 role="cashier"
                 compact={true}
             />
-            <div className="flex flex-col md:flex-row h-[calc(100vh-100px)]">
+            <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
                 <CashierMenuPanel
                     selectedArea={currentArea}
                     isLoadingMenu={isLoadingMenuAndArea}
@@ -487,6 +487,12 @@ const CashierPage = () => {
                     }}
                     isSubmittingOrder={isSubmittingOrder}
                     isFetchingPreOrder={isFetchingPreOrder}
+                    areaSupportsQueue={currentArea?.enableQueueSystem}
+                    queueState={queueState}
+                    isLoadingQueueState={isLoadingQueueState}
+                    onCallNext={handleCallNext}
+                    onCallSpecific={handleCallSpecific}
+                    onRespeakLastCalled={handleRespeakLastCalled}
                 />
 
                 <CashierOrderPanel
@@ -513,12 +519,6 @@ const CashierPage = () => {
                     isLoadingCashierStations={isLoadingCashierStations}
                     cashierStationError={cashierStationError}
                     onSelectCashierStation={handleSelectCashierStation}
-                    areaSupportsQueue={currentArea?.enableQueueSystem}
-                    queueState={queueState}
-                    isLoadingQueueState={isLoadingQueueState}
-                    onCallNext={handleCallNext}
-                    onCallSpecific={handleCallSpecific}
-                    onRespeakLastCalled={handleRespeakLastCalled}
                 />
 
                 <Dialog open={isNoteDialogOpen} onOpenChange={closeNoteDialog}>

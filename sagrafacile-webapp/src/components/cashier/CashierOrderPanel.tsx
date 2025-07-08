@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Card, CardContent, CardFooter
 } from '@/components/ui/card';
@@ -10,10 +10,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
-    PlusCircle, MinusCircle, XCircle, StickyNote, Loader2, CreditCard, Coins, AlertCircle, Ticket, ChevronRight, Volume2
+    PlusCircle, MinusCircle, XCircle, StickyNote, Loader2, CreditCard, Coins, AlertCircle
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CartItem, MenuItemDto, CashierStationDto, QueueStateDto } from '@/types'; // Assuming CartItem is defined in types or passed fully
+import { CartItem, MenuItemDto, CashierStationDto } from '@/types'; // Assuming CartItem is defined in types or passed fully
 
 interface CashierOrderPanelProps {
     currentOrder: CartItem[];
@@ -45,13 +45,6 @@ interface CashierOrderPanelProps {
     isLoadingCashierStations: boolean;
     cashierStationError: string | null;
     onSelectCashierStation: (stationId: number) => void;
-    // Queue System Props
-    areaSupportsQueue: boolean;
-    queueState: QueueStateDto | null;
-    isLoadingQueueState: boolean;
-    onCallNext: () => void;
-    onCallSpecific: (numberToCall: number) => void;
-    onRespeakLastCalled?: () => void; // Optional for now, will be made required if parent implements it
 }
 
 const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
@@ -78,20 +71,12 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
     isLoadingCashierStations,
     cashierStationError,
     onSelectCashierStation,
-    // Queue System Props
-    areaSupportsQueue,
-    queueState,
-    isLoadingQueueState,
-    onCallNext,
-    onCallSpecific,
-    onRespeakLastCalled,
 }) => {
     const isPanelDisabled = !selectedCashierStationId && !cashierStationError && availableCashierStations.length > 0;
-    const [specificNumberInput, setSpecificNumberInput] = React.useState('');
     const [guestInput, setGuestInput] = React.useState(String(numberOfGuests));
 
     // Effect to sync local input state when the parent prop changes from an external source
-    React.useEffect(() => {
+    useEffect(() => {
         const localNumber = parseInt(guestInput, 10);
         // If the local value is already what the parent wants, do nothing.
         // This handles the case where the user clears the input (local is '', parent is 0).
@@ -119,13 +104,6 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
         }
     };
 
-    const handleCallSpecificClick = () => {
-        const num = parseInt(specificNumberInput, 10);
-        if (!isNaN(num) && num > 0) {
-            onCallSpecific(num);
-            setSpecificNumberInput(''); // Clear input after calling
-        }
-    };
 
     return (
         <Card className="w-full md:w-2/5 flex flex-col m-2 overflow-hidden py-2 gap-2">
@@ -157,80 +135,6 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
                 </CardContent>
             )}
 
-            {/* Customer Queue System Section */}
-            {areaSupportsQueue && (
-                <CardContent className="p-3 border-b bg-slate-50 dark:bg-slate-800/30">
-                    {isLoadingQueueState ? (
-                        <div className="flex items-center text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" /> Caricamento stato coda...
-                        </div>
-                    ) : queueState ? (
-                        queueState.isQueueSystemEnabled ? (
-                            <div className="space-y-1">
-                                <div className="flex items-stretch gap-2">
-                                    <div className="flex-1 grid grid-cols-2 gap-2 text-center p-2 rounded-md bg-slate-100 dark:bg-slate-900/70">
-                                        <div>
-                                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Serviamo</p>
-                                            <p className="text-2xl font-bold">{queueState.lastCalledNumber || '--'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground uppercase tracking-wider">Prossimo</p>
-                                            <p className="text-2xl font-bold">{queueState.nextSequentialNumber}</p>
-                                        </div>
-                                    </div>
-                                    <Button
-                                        className="w-1/3 text-base"
-                                        onClick={onCallNext}
-                                        disabled={isSubmittingOrder || isPanelDisabled}
-                                    >
-                                        <Ticket className="mr-2 h-5 w-5" /> Chiama Prossimo
-                                    </Button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-1">
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={onRespeakLastCalled}
-                                        disabled={isSubmittingOrder || isPanelDisabled || !queueState.lastCalledNumber}
-                                    >
-                                        <Volume2 className="mr-2 h-4 w-4" /> Ripeti
-                                    </Button>
-                                    <div className="flex items-center space-x-1">
-                                        <Input
-                                            type="number"
-                                            placeholder="N. specifico"
-                                            value={specificNumberInput}
-                                            onChange={(e) => setSpecificNumberInput(e.target.value)}
-                                            className="flex-grow h-9"
-                                            disabled={isSubmittingOrder || isPanelDisabled}
-                                            min={1}
-                                        />
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={handleCallSpecificClick}
-                                            disabled={!specificNumberInput || isSubmittingOrder || isPanelDisabled}
-                                        >
-                                            <ChevronRight className="mr-1 h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <Alert variant="default" className="bg-amber-50 border-amber-300 dark:bg-amber-900/50 dark:border-amber-700">
-                                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                                <AlertTitle className="text-amber-700 dark:text-amber-300">Sistema Coda Disabilitato</AlertTitle>
-                                <AlertDescription className="text-amber-600 dark:text-amber-400">
-                                    Il sistema di gestione code clienti non è attivo per quest'area.
-                                </AlertDescription>
-                            </Alert>
-                        )
-                    ) : (
-                        <p className="text-sm text-muted-foreground">Impossibile caricare lo stato della coda.</p>
-                    )}
-                </CardContent>
-            )}
 
             <ScrollArea className="flex-grow p-4 border-t border-b min-h-0">
                 {isFetchingPreOrder ? (
@@ -262,7 +166,7 @@ const CashierOrderPanel: React.FC<CashierOrderPanelProps> = ({
                                                     €{item.unitPrice.toFixed(2)} x {item.quantity}
                                                     {item.note && <span className="italic text-blue-600 ml-2">(Nota)</span>}
                                                 </p>
-                                                {item.isOutOfStock&& <p className="text-xs text-red-500">Prodotto Esaurito!</p>}
+                                                {item.isOutOfStock && <p className="text-xs text-red-500">Prodotto Esaurito!</p>}
                                                 {item.isNoteRequired && !item.note?.trim() && <p className="text-xs text-red-500">Nota richiesta!</p>}
                                             </div>
                                             <div className="flex items-center space-x-2">
