@@ -24,7 +24,8 @@ import {
   Wallet,
   FileText,
   ClipboardList,
-  ArrowRight
+  ArrowRight,
+  Cog
 } from 'lucide-react';
 import { DashboardKPIs } from '@/components/charts/dashboard/DashboardKPIs';
 import SetupWizard from '@/components/admin/setup-wizard/SetupWizard';
@@ -158,6 +159,13 @@ export default function AdminDashboardPage() {
       icon: Settings,
       href: `/app/org/${currentOrgId}/admin/sync`,
       color: 'bg-teal-500'
+    },
+    {
+      title: 'Impostazioni',
+      description: 'Gestisci impostazioni organizzazione e GDPR',
+      icon: Cog,
+      href: `/app/org/${currentOrgId}/admin/settings`,
+      color: 'bg-gray-600'
     }
   ];
 

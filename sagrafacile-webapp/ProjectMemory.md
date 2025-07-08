@@ -42,6 +42,22 @@
 *   Enhanced user guidance for initial setup by providing clear warnings and direct links to configuration.
 **Outcome:** The cashier interface is more streamlined and user-friendly, and administrators are better guided through the initial setup process.
 
+## (2025-07-08) - Implemented Smart Re-invitation Frontend Handling
+**Context:** Updated the frontend to correctly handle the new response from the backend's `inviteUser` endpoint, differentiating between a new invitation being sent and a soft-deleted user being restored.
+**Accomplishments:**
+*   **`invitationService.ts`:**
+    *   Modified `inviteUser` method to return `Promise<any>` instead of `Promise<void>` to correctly capture the backend's response data (which includes `Action` and `Message`).
+*   **`users/page.tsx` (User Management Page):**
+    *   Updated `handleInviteSubmit` to check the `result.data.Action` property from the `inviteUser` call.
+    *   If `Action` is `"UserRestored"`, it triggers a `fetchUsers()` call to refresh the user list, ensuring the restored user's status is immediately reflected in the UI.
+    *   If `Action` is anything else (e.g., `"InvitationSent"`), it proceeds as a normal invitation, without refreshing the user list (as the invited user is not yet active).
+    *   Added console logs to indicate whether a user was restored or an invitation was sent.
+**Key Decisions:**
+*   Ensured frontend correctly interprets the backend's "smart re-invitation" logic.
+*   Improved UI responsiveness by refreshing the user list only when a user is actually restored.
+*   Maintained consistency with backend's new response structure.
+**Outcome:** The frontend now provides a more accurate and responsive experience for administrators when inviting users, correctly reflecting whether a new invitation was sent or an existing soft-deleted user was restored.
+
 ## (2025-07-08) - Implemented Password Reset and User Invitation Management (Frontend)
 **Context:** Implemented the frontend UI for the password reset flow and the management of user invitations, including viewing and revoking pending invitations.
 **Accomplishments:**

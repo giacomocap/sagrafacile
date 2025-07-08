@@ -370,12 +370,23 @@ export default function UserManagementPage() {
         setIsInviting(true);
 
         try {
-            await invitationService.inviteUser({
+            const result = await invitationService.inviteUser({
                 email: inviteEmail,
                 roles: selectedRolesList,
             });
+            
             setIsInviteDialogOpen(false);
-            // Non aggiorniamo la lista utenti perché l'invitato non è ancora un utente registrato
+            
+            // Check if this was a user restoration vs. new invitation
+            if (result.data?.Action === "UserRestored") {
+                // User was restored from soft-deletion, refresh the user list
+                await fetchUsers();
+                // You could also show a success toast here if you have a toast system
+                console.log("User restored successfully:", result.data.Message);
+            } else {
+                // Normal invitation sent, no need to refresh user list
+                console.log("Invitation sent successfully");
+            }
         } catch (err: unknown) {
             console.error("Invito fallito:", err);
             const error = err as { response?: { data?: { message?: string } }, message?: string };

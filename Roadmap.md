@@ -578,4 +578,37 @@ This document outlines the planned development phases for the SagraFacile system
             *   `[x]` Create a new public page for invited users to complete their sign-up.
             *   `[x]` Implement UI for viewing and revoking pending invitations.
 
+### Phase 12: Data Lifecycle & GDPR Compliance
+
+*   **Goal:** Implement robust features for user and organization data deletion and export, ensuring compliance with GDPR principles like the "Right to Erasure" and "Right to Portability".
+*   **Key Tasks:**
+    *   `[~]` **User Deletion (Soft & Hard/Anonymization):**
+        *   `[x]` **Backend:**
+            *   `[x]` Add a `Status` field (e.g., `Active`, `Deleted`) to the `User` model and create migration.
+            *   `[x]` Implement a "soft delete" (SaaS) / "hard delete" (self-hosted) mechanism in `AccountService`.
+            *   `[x]` Create a background job (`DataRetentionService`) to anonymize personal data of soft-deleted users after a 30-day grace period.
+            *   `[x]` Add a secure `DELETE /api/users/{userId}` endpoint.
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Add a "Delete User" button and confirmation dialog to the User Management page.
+            *   `[ ]` Ensure the UI correctly displays "Deleted User" for historical records (e.g., orders created by a deleted user).
+    *   `[~]` **Organization Deletion (Soft & Hard):**
+        *   `[x]` **Backend:**
+            *   `[x]` Add `Status` (`Active`, `PendingDeletion`) and `DeletionScheduledAt` fields to the `Organization` model and create migration.
+            *   `[x]` Implement a "soft delete" (SaaS) / "hard delete" (self-hosted) mechanism in `OrganizationService`.
+            *   `[x]` Create a background job (`DataRetentionService`) to perform a hard, cascading delete of the organization and all its associated data after a 30-day grace period.
+            *   `[x]` Add a secure `DELETE /api/organizations/{orgId}` endpoint, potentially requiring multi-factor confirmation (e.g., typing org name).
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Create a "Danger Zone" in the organization settings page.
+            *   `[ ]` Implement a "Delete Organization" button with a multi-step confirmation modal.
+    *   `[ ]` **Data Export (Right to Portability):**
+        *   `[ ]` **Backend:**
+            *   `[ ]` Implement a background job triggered by an admin request to export all organization data (Orders, Menu, Users, etc.) into a structured format (e.g., a ZIP file of multiple JSONs).
+            *   `[ ]` Implement an email notification service to send a secure, time-limited download link to the admin once the export is ready.
+            *   `[ ]` Add a `POST /api/organizations/{orgId}/export` endpoint to trigger the export process.
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Add an "Export All Data" button to the "Danger Zone" in organization settings.
+            *   `[ ]` Display appropriate feedback to the user (e.g., "Your data export has started. You will receive an email when it's complete.").
+    *   `[x]` **Documentation:**
+        *   `[x]` Update `privacy-policy.md` and `terms-of-service.md` to reflect the new data deletion and export procedures.
+
 *(This roadmap is a living document and will be updated as the project progresses.)*

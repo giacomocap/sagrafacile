@@ -3,6 +3,30 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Implemented Smart Re-invitation Feature for User Restoration
+**Context:** Enhanced the user invitation system to intelligently handle attempts to invite users who have been soft-deleted, allowing administrators to restore users during the 30-day grace period instead of being blocked by "user already exists" errors.
+**Accomplishments:**
+*   **Smart Re-invitation Logic in `InviteUserAsync`:**
+    *   Modified the method to detect soft-deleted users (`UserStatus.PendingDeletion`) within the same organization.
+    *   When a soft-deleted user is found, the system automatically restores them instead of creating a new invitation.
+    *   Restoration process includes: setting status to `Active`, clearing deletion schedule, re-enabling email confirmation, removing lockout, clearing old refresh tokens for security.
+    *   Role management: Updates user roles to match the invitation request (adds new roles, removes unspecified roles).
+    *   Enhanced logging throughout the process for better debugging and audit trails.
+*   **Improved User Experience:**
+    *   Returns different response data based on action taken: `"UserRestored"` vs `"InvitationSent"`.
+    *   Sends appropriate notification emails: restoration notification for restored users, invitation email for new users.
+    *   Provides detailed error handling and logging for both success and failure scenarios.
+*   **Enhanced Error Handling:**
+    *   Added comprehensive try-catch blocks for email sending with proper logging.
+    *   Returns meaningful error messages when email sending fails.
+    *   Maintains transaction integrity during user restoration process.
+**Key Decisions:**
+*   Prioritized user experience by automatically detecting and handling soft-deleted users.
+*   Maintained security by clearing old authentication tokens during restoration.
+*   Implemented role synchronization to ensure restored users have current role assignments.
+*   Added comprehensive logging for audit trails and debugging.
+**Outcome:** Administrators can now seamlessly "undo" user deletions during the grace period by simply re-inviting them, eliminating the previous UX friction where admins were blocked from re-inviting soft-deleted users.
+
 ## (2025-07-08) - Implemented Password Reset and User Invitation System (Backend)
 **Context:** Implemented a comprehensive password reset and user invitation system for the SaaS offering, including backend API endpoints, service logic, and database model updates.
 **Accomplishments:**

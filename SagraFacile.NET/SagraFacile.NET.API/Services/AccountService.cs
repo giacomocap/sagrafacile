@@ -534,20 +534,49 @@ public class AccountService : BaseService, IAccountService
         {
             _logger.LogDebug("Caller is SuperAdmin. Access granted for deleting user {UserId}.", userId);
         }
-
-        // Perform deletion
-        _logger.LogInformation("Deleting user {UserId}.", userId);
-        var identityResult = await _userManager.DeleteAsync(user);
-
-        if (identityResult.Succeeded)
+        var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
+        var isSaaSMode = appMode == "saas";
+        if (isSaaSMode)
         {
-            _logger.LogInformation("User {UserId} deleted successfully.", userId);
-            return new AccountResult { Succeeded = true };
+            // Perform soft deletion for SaaS mode
+            _logger.LogInformation("SaaS Mode: Soft-deleting user {UserId}.", userId);
+
+            user.Status = UserStatus.PendingDeletion;
+            user.DeletionScheduledAt = DateTime.UtcNow.AddDays(30); // 30-day grace period for anonymization
+            user.RefreshToken = null; // Invalidate refresh token
+            user.RefreshTokenExpiryTime = null;
+            user.EmailConfirmed = false; // Prevent login
+            user.LockoutEnd = DateTimeOffset.MaxValue; // Lock the account permanently
+
+            var softDeleteResult = await _userManager.UpdateAsync(user);
+
+            if (softDeleteResult.Succeeded)
+            {
+                _logger.LogInformation("User {UserId} soft-deleted successfully. Anonymization scheduled for {DeletionDate}.", userId, user.DeletionScheduledAt);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogError("Failed to soft-delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", softDeleteResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = softDeleteResult.Errors };
+            }
         }
         else
         {
-            _logger.LogError("Failed to delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
+            // Perform hard deletion for self-hosted mode
+            _logger.LogInformation("Self-Hosted Mode: Hard-deleting user {UserId}.", userId);
+            var hardDeleteResult = await _userManager.DeleteAsync(user);
+
+            if (hardDeleteResult.Succeeded)
+            {
+                _logger.LogInformation("User {UserId} hard-deleted successfully.", userId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogError("Failed to hard-delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", hardDeleteResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = hardDeleteResult.Errors };
+            }
         }
     }
 
@@ -764,6 +793,7 @@ public class AccountService : BaseService, IAccountService
 
     public async Task<AccountResult> InviteUserAsync(UserInvitationRequestDto invitationRequestDto)
     {
+        _logger.LogInformation("Attempting to invite user with email {Email}.", invitationRequestDto.Email);
         var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
         if (!callerOrganizationId.HasValue)
         {
@@ -773,9 +803,80 @@ public class AccountService : BaseService, IAccountService
         var existingUser = await _userManager.FindByEmailAsync(invitationRequestDto.Email);
         if (existingUser != null)
         {
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "A user with this email already exists." } } };
+            // Smart re-invitation: Check if this is a soft-deleted user that can be restored
+            if (existingUser.Status == UserStatus.PendingDeletion && 
+                existingUser.OrganizationId == callerOrganizationId.Value)
+            {
+                _logger.LogInformation("Found soft-deleted user {UserId} with email {Email}. Attempting to restore user instead of creating invitation.", existingUser.Id, invitationRequestDto.Email);
+                
+                // Restore the soft-deleted user
+                existingUser.Status = UserStatus.Active;
+                existingUser.DeletionScheduledAt = null;
+                existingUser.EmailConfirmed = true;
+                existingUser.LockoutEnd = null; // Remove lockout
+                existingUser.RefreshToken = null; // Clear old refresh token for security
+                existingUser.RefreshTokenExpiryTime = null;
+
+                // Update roles to match the invitation request
+                var currentRoles = await _userManager.GetRolesAsync(existingUser);
+                var rolesToAdd = invitationRequestDto.Roles.Except(currentRoles).ToList();
+                var rolesToRemove = currentRoles.Except(invitationRequestDto.Roles).ToList();
+
+                if (rolesToAdd.Any())
+                {
+                    await _userManager.AddToRolesAsync(existingUser, rolesToAdd);
+                }
+
+                if (rolesToRemove.Any())
+                {
+                    await _userManager.RemoveFromRolesAsync(existingUser, rolesToRemove);
+                }
+
+                var restoreResult = await _userManager.UpdateAsync(existingUser);
+                if (restoreResult.Succeeded)
+                {
+                    _logger.LogInformation("User {UserId} with email {Email} has been successfully restored from soft-deletion.", existingUser.Id, invitationRequestDto.Email);
+                    
+                    // Send restoration notification email
+                    try
+                    {
+                        await _emailService.SendEmailAsync(
+                            existingUser.Email,
+                            "Il tuo account SagraFacile è stato ripristinato",
+                            $"<h1>Account Ripristinato</h1><p>Il tuo account SagraFacile è stato ripristinato e puoi nuovamente accedere al sistema. I tuoi ruoli sono stati aggiornati come richiesto dall'amministratore.</p><p>Puoi accedere utilizzando la tua password esistente.</p>"
+                        );
+                        _logger.LogInformation("Restoration notification email sent to {Email}.", existingUser.Email);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send restoration notification email to {Email}. User was restored successfully.", existingUser.Email);
+                    }
+
+                    return new AccountResult { 
+                        Succeeded = true, 
+                        Data = new { 
+                            UserId = existingUser.Id, 
+                            Message = "User account has been restored from deletion and roles have been updated.",
+                            Action = "UserRestored"
+                        } 
+                    };
+                }
+                else
+                {
+                    _logger.LogError("Failed to restore user {UserId}. Errors: {Errors}", existingUser.Id, string.Join(", ", restoreResult.Errors.Select(e => e.Description)));
+                    return new AccountResult { Succeeded = false, Errors = restoreResult.Errors };
+                }
+            }
+            else
+            {
+                // User exists and is not soft-deleted, or belongs to different organization
+                _logger.LogWarning("Cannot invite user {Email}: User already exists and is not eligible for restoration.", invitationRequestDto.Email);
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "A user with this email already exists." } } };
+            }
         }
 
+        // No existing user found, proceed with normal invitation flow
+        _logger.LogInformation("No existing user found for {Email}. Creating new invitation.", invitationRequestDto.Email);
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         var invitation = new UserInvitation
         {
@@ -793,13 +894,28 @@ public class AccountService : BaseService, IAccountService
         var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
         var invitationLink = $"{frontendBaseUrl}/accetta-invito?token={token}";
 
-        await _emailService.SendEmailAsync(
-            invitation.Email,
-            "Sei stato invitato a SagraFacile",
-            $"<h1>Invito a SagraFacile</h1><p>Sei stato invitato a unirti a un'organizzazione su SagraFacile. Clicca sul seguente link per accettare l'invito e creare il tuo account: <a href='{invitationLink}'>Accetta Invito</a></p>"
-        );
+        try
+        {
+            await _emailService.SendEmailAsync(
+                invitation.Email,
+                "Sei stato invitato a SagraFacile",
+                $"<h1>Invito a SagraFacile</h1><p>Sei stato invitato a unirti a un'organizzazione su SagraFacile. Clicca sul seguente link per accettare l'invito e creare il tuo account: <a href='{invitationLink}'>Accetta Invito</a></p>"
+            );
+            _logger.LogInformation("Invitation email sent to {Email}.", invitation.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send invitation email to {Email}. Invitation was created but email failed.", invitation.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Could not send invitation email. Please try again later." } } };
+        }
 
-        return new AccountResult { Succeeded = true };
+        return new AccountResult { 
+            Succeeded = true, 
+            Data = new { 
+                Message = "Invitation sent successfully.",
+                Action = "InvitationSent"
+            } 
+        };
     }
 
     public async Task<AccountResult> AcceptInvitationAsync(AcceptInvitationDto acceptDto)

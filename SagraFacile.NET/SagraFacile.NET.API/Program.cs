@@ -166,10 +166,11 @@ try // Added for Serilog try-finally block
 
     // Conditional Dependency Injection for ISubscriptionService based on APP_MODE
     var appMode = builder.Configuration["APP_MODE"] ?? builder.Configuration["AppSettings:AppMode"];
+    var isSaaSMode = appMode?.ToLower() == "saas";
     // Log the detected app mode for debugging
     Console.WriteLine($"[CONFIG] Reading APP_MODE. Value: '{appMode}'");
 
-    if (appMode?.ToLower() == "saas")
+    if (isSaaSMode)
     {
         builder.Services.AddScoped<ISubscriptionService, SaaSSubscriptionService>();
         Console.WriteLine("[CONFIG] SaaS mode enabled. Registered SaaSSubscriptionService.");
@@ -201,6 +202,13 @@ try // Added for Serilog try-finally block
 
         // Register the new PrintJobProcessor background service
         builder.Services.AddHostedService<PrintJobProcessor>();
+
+        if (isSaaSMode)
+        {
+            // Register the new DataRetentionService background service
+            builder.Services.AddHostedService<DataRetentionService>();
+            Console.WriteLine("[CONFIG] SaaS mode enabled. Registered DataRetentionService background service.");
+        }
     }
 
 

@@ -18,13 +18,15 @@ namespace SagraFacile.NET.API.Services
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly ILogger<OrganizationService> _logger;
+        private readonly IConfiguration _configuration;
 
-        public OrganizationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, UserManager<User> userManager, ILogger<OrganizationService> logger)
+        public OrganizationService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, UserManager<User> userManager, ILogger<OrganizationService> logger, IConfiguration configuration)
             : base(httpContextAccessor)
         {
             _context = context;
             _userManager = userManager;
             _logger = logger;
+            _configuration = configuration;
         }
 
         public async Task<IEnumerable<OrganizationDto>> GetAllOrganizationsAsync()
@@ -86,7 +88,7 @@ namespace SagraFacile.NET.API.Services
             }
 
             _logger.LogInformation("Successfully retrieved and authorized organization {OrganizationId}.", id);
-            
+
             // Map to DTO
             return new OrganizationDto
             {
@@ -215,18 +217,33 @@ namespace SagraFacile.NET.API.Services
                 return false; // Not found
             }
 
+            var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
+            var isSaaSMode = appMode == "saas";
+
             try
             {
-                // Consider adding checks here if DeleteBehavior.Restrict isn't sufficient
-                // e.g., check if organization.Areas.Any() before removing
-                _context.Organizations.Remove(organization);
+                if (isSaaSMode)
+                {
+                    _logger.LogInformation("SaaS Mode: Soft-deleting organization {OrganizationId}.", id);
+                    organization.Status = OrganizationStatus.PendingDeletion;
+                    organization.DeletionScheduledAt = DateTime.UtcNow.AddDays(30);
+                    _context.Organizations.Update(organization);
+                }
+                else
+                {
+                    _logger.LogInformation("Self-Hosted Mode: Hard-deleting organization {OrganizationId}.", id);
+                    // Consider adding checks here if DeleteBehavior.Restrict isn't sufficient
+                    // e.g., check if organization.Areas.Any() before removing
+                    _context.Organizations.Remove(organization);
+                }
+
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("Organization {OrganizationId} deleted successfully.", id);
+                _logger.LogInformation("Organization {OrganizationId} deletion processed successfully (Mode: {AppMode}).", id, appMode);
                 return true;
             }
             catch (DbUpdateException ex)
             {
-                _logger.LogError(ex, "Error deleting organization with ID {OrganizationId}. It might be in use.", id);
+                _logger.LogError(ex, "Error processing deletion for organization with ID {OrganizationId}. It might be in use.", id);
                 return false;
             }
         }
@@ -258,10 +275,10 @@ namespace SagraFacile.NET.API.Services
                 return "n-a";
 
             string str = phrase.ToLowerInvariant();
-            str = Regex.Replace(str, @"[^a-z0-9\s-]", ""); 
-            str = Regex.Replace(str, @"\s+", " ").Trim(); 
+            str = Regex.Replace(str, @"[^a-z0-9\s-]", "");
+            str = Regex.Replace(str, @"\s+", " ").Trim();
             str = str.Length > 100 ? str.Substring(0, 100) : str;
-            str = Regex.Replace(str, @"\s", "-"); 
+            str = Regex.Replace(str, @"\s", "-");
             return str;
         }
 
@@ -287,7 +304,7 @@ namespace SagraFacile.NET.API.Services
                 Name = provisionDto.OrganizationName,
                 Slug = await GenerateUniqueSlugAsync(provisionDto.OrganizationName),
                 SubscriptionStatus = "Trial", // Default to Trial for SaaS
-                Id = Guid.NewGuid() 
+                Id = Guid.NewGuid()
             };
 
             await using var transaction = await _context.Database.BeginTransactionAsync();

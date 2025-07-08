@@ -3,19 +3,14 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect, useCallback } from 'react';
 import apiClient from '@/services/apiClient';
 import { useAuth } from './AuthContext'; // To check if user is SuperAdmin
-import { DayDto } from '@/types'; // Import DayDto
+import { DayDto, OrganizationDto } from '@/types'; // Import DayDto and OrganizationDto
 import { getCurrentOpenDay } from '@/services/dayService'; // Import API function
 
-interface Organization {
-    id: string;
-    name: string;
-}
-
 interface OrganizationContextType {
-    organizations: Organization[];
+    organizations: OrganizationDto[];
     selectedOrganizationId: string | null;
     setSelectedOrganizationId: (id: string | null) => void;
-    currentOrganization: Organization | null;
+    currentOrganization: OrganizationDto | null;
     isLoadingOrgs: boolean;
     orgError: string | null;
     isSuperAdminContext: boolean; // Expose if the context is active for a SuperAdmin
@@ -31,9 +26,9 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(u
 
 export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user } = useAuth();
-    const [organizations, setOrganizations] = useState<Organization[]>([]);
+    const [organizations, setOrganizations] = useState<OrganizationDto[]>([]);
     const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null);
-    const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
+    const [currentOrganization, setCurrentOrganization] = useState<OrganizationDto | null>(null);
     const [isLoadingOrgs, setIsLoadingOrgs] = useState<boolean>(true); // Start true for initial load
     const [orgError, setOrgError] = useState<string | null>(null);
     // Day state
@@ -54,7 +49,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setIsLoadingOrgs(true);
         setOrgError(null);
         try {
-            const response = await apiClient.get<Organization[]>('/Organizations');
+            const response = await apiClient.get<OrganizationDto[]>('/Organizations');
             setOrganizations(response.data);
             // Optionally set a default selection or leave null
             if (response.data.length > 0) {

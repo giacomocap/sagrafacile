@@ -162,6 +162,14 @@ export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationPr
             Pubblicità Display
           </Button>
         </Link>
+        <Link href={`/app/org/${currentOrgId}/admin/settings`} onClick={handleLinkClick}>
+          <Button 
+            variant={pathname.includes('/admin/settings') ? 'secondary' : 'ghost'} 
+            className="w-full justify-start h-9 px-3 text-sm font-normal"
+          >
+            Impostazioni
+          </Button>
+        </Link>
       </div>
 
       <div className="space-y-1">

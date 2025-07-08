@@ -3,8 +3,9 @@ import { UserInvitationRequestDto, PendingInvitationDto, InvitationDetailsDto, A
 
 export const invitationService = {
   // Send an invitation
-  async inviteUser(invitation: UserInvitationRequestDto): Promise<void> {
-    await apiClient.post('/accounts/invite', invitation);
+  async inviteUser(invitation: UserInvitationRequestDto): Promise<any> {
+    const response = await apiClient.post('/accounts/invite', invitation);
+    return response.data;
   },
 
   // Get pending invitations for the current organization
