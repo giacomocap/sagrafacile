@@ -12,6 +12,7 @@ using System.Security.Cryptography; // Added for RandomNumberGenerator
 using Microsoft.Extensions.Logging; // Added for ILogger
 using System.Web;
 using Microsoft.AspNetCore.WebUtilities; // Added for WebEncoders
+using SagraFacile.NET.API.Models.Results;
 
 namespace SagraFacile.NET.API.Services;
 
@@ -56,6 +57,16 @@ public class AccountService : BaseService, IAccountService
         var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
         var isSaaSMode = appMode == "saas";
         var isApiCallAuthenticated = _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false; // Check if the call is from an already logged-in user
+
+        // Check for pending invitations before allowing public sign-up
+        var pendingInvitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Email == registerDto.Email && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
+
+        if (pendingInvitation != null)
+        {
+            _logger.LogWarning("Registration blocked for {Email} due to a pending invitation.", registerDto.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "An invitation has already been sent to this email address. Please use the link in the invitation email to register." } } };
+        }
 
         // SaaS Public Sign-up Flow
         if (isSaaSMode && !isApiCallAuthenticated)
@@ -677,5 +688,225 @@ public class AccountService : BaseService, IAccountService
         var randomNumber = new byte[64];
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
+    }
+
+    public async Task<AccountResult> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+    {
+        _logger.LogInformation("Password reset requested for email {Email}.", forgotPasswordDto.Email);
+        var user = await _userManager.FindByEmailAsync(forgotPasswordDto.Email);
+        if (user == null)
+        {
+            // Don't reveal that the user does not exist.
+            _logger.LogWarning("Password reset request for non-existent email {Email}.", forgotPasswordDto.Email);
+            return new AccountResult { Succeeded = true };
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var tokenBytes = Encoding.UTF8.GetBytes(token);
+        var urlSafeToken = WebEncoders.Base64UrlEncode(tokenBytes);
+
+        var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+        var resetLink = $"{frontendBaseUrl}/reset-password?userId={user.Id}&token={urlSafeToken}";
+
+        try
+        {
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Reset della tua password per SagraFacile",
+                $"<h1>Reset Password</h1><p>Per resettare la tua password, clicca sul seguente link: <a href='{resetLink}'>Reset Password</a></p><p>Se non hai richiesto tu il reset, ignora questa email.</p>"
+            );
+            _logger.LogInformation("Password reset link sent to {Email}.", user.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email to {Email}.", user.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Could not send reset email. Please try again later." } } };
+        }
+
+        return new AccountResult { Succeeded = true };
+    }
+
+    public async Task<AccountResult> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+    {
+        _logger.LogInformation("Attempting to reset password for user {UserId}.", resetPasswordDto.UserId);
+        var user = await _userManager.FindByIdAsync(resetPasswordDto.UserId);
+        if (user == null)
+        {
+            // Don't reveal that the user does not exist
+            _logger.LogWarning("Password reset attempt for non-existent user ID {UserId}.", resetPasswordDto.UserId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid password reset request." } } };
+        }
+
+        try
+        {
+            var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDto.Token);
+            var originalToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
+            var result = await _userManager.ResetPasswordAsync(user, originalToken, resetPasswordDto.Password);
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Password for user {UserId} has been reset successfully.", resetPasswordDto.UserId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogWarning("Password reset failed for user {UserId}. Errors: {Errors}", resetPasswordDto.UserId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = result.Errors };
+            }
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogError(ex, "Failed to decode Base64Url password reset token for user {UserId}.", resetPasswordDto.UserId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid token format." } } };
+        }
+    }
+
+    public async Task<AccountResult> InviteUserAsync(UserInvitationRequestDto invitationRequestDto)
+    {
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+        if (!callerOrganizationId.HasValue)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User context is missing OrganizationId." } } };
+        }
+
+        var existingUser = await _userManager.FindByEmailAsync(invitationRequestDto.Email);
+        if (existingUser != null)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "A user with this email already exists." } } };
+        }
+
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var invitation = new UserInvitation
+        {
+            Email = invitationRequestDto.Email,
+            OrganizationId = callerOrganizationId.Value,
+            Roles = string.Join(",", invitationRequestDto.Roles),
+            Token = token,
+            ExpiryDate = DateTime.UtcNow.AddDays(7),
+            IsUsed = false
+        };
+
+        _context.UserInvitations.Add(invitation);
+        await _context.SaveChangesAsync();
+
+        var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+        var invitationLink = $"{frontendBaseUrl}/accept-invitation?token={token}";
+
+        await _emailService.SendEmailAsync(
+            invitation.Email,
+            "Sei stato invitato a SagraFacile",
+            $"<h1>Invito a SagraFacile</h1><p>Sei stato invitato a unirti a un'organizzazione su SagraFacile. Clicca sul seguente link per accettare l'invito e creare il tuo account: <a href='{invitationLink}'>Accetta Invito</a></p>"
+        );
+
+        return new AccountResult { Succeeded = true };
+    }
+
+    public async Task<AccountResult> AcceptInvitationAsync(AcceptInvitationDto acceptDto)
+    {
+        var invitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Token == acceptDto.Token && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
+
+        if (invitation == null)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid or expired invitation token." } } };
+        }
+
+        var user = new User
+        {
+            UserName = invitation.Email,
+            Email = invitation.Email,
+            FirstName = acceptDto.FirstName,
+            LastName = acceptDto.LastName,
+            OrganizationId = invitation.OrganizationId,
+            EmailConfirmed = true
+        };
+
+        var result = await _userManager.CreateAsync(user, acceptDto.Password);
+        if (!result.Succeeded)
+        {
+            return new AccountResult { Succeeded = false, Errors = result.Errors };
+        }
+
+        var roles = invitation.Roles.Split(',');
+        await _userManager.AddToRolesAsync(user, roles);
+
+        invitation.IsUsed = true;
+        await _context.SaveChangesAsync();
+
+        return new AccountResult { Succeeded = true, Data = new { UserId = user.Id } };
+    }
+
+    public async Task<ServiceResult<InvitationDetailsDto>> GetInvitationDetailsAsync(string token)
+    {
+        var invitation = await _context.UserInvitations
+            .Include(i => i.Organization)
+            .FirstOrDefaultAsync(i => i.Token == token && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
+
+        if (invitation == null || invitation.Organization == null)
+        {
+            return ServiceResult<InvitationDetailsDto>.Fail("Invalid or expired invitation token.");
+        }
+
+        var details = new InvitationDetailsDto
+        {
+            Email = invitation.Email,
+            OrganizationName = invitation.Organization.Name
+        };
+
+        return ServiceResult<InvitationDetailsDto>.Ok(details);
+    }
+
+    public async Task<IEnumerable<PendingInvitationDto>> GetPendingInvitationsAsync()
+    {
+        _logger.LogInformation("Fetching pending invitations.");
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+
+        if (!callerOrganizationId.HasValue)
+        {
+            _logger.LogError("User organization context is missing when fetching pending invitations.");
+            throw new InvalidOperationException("User organization context is missing.");
+        }
+
+        var pendingInvitations = await _context.UserInvitations
+            .Where(i => i.OrganizationId == callerOrganizationId.Value && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow)
+            .Select(i => new PendingInvitationDto
+            {
+                Id = i.Id,
+                Email = i.Email,
+                Roles = i.Roles,
+                ExpiryDate = i.ExpiryDate,
+                InvitedAt = i.CreatedAt
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Successfully fetched {InvitationCount} pending invitations.", pendingInvitations.Count);
+        return pendingInvitations;
+    }
+
+    public async Task<AccountResult> RevokeInvitationAsync(Guid invitationId)
+    {
+        _logger.LogInformation("Attempting to revoke invitation with ID {InvitationId}.", invitationId);
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+
+        if (!callerOrganizationId.HasValue)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User context is missing OrganizationId." } } };
+        }
+
+        var invitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Id == invitationId && i.OrganizationId == callerOrganizationId.Value && !i.IsUsed);
+
+        if (invitation == null)
+        {
+            _logger.LogWarning("Invitation with ID {InvitationId} not found or already used.", invitationId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invitation not found or already used." } } };
+        }
+
+        _context.UserInvitations.Remove(invitation);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Invitation with ID {InvitationId} revoked successfully.", invitationId);
+        return new AccountResult { Succeeded = true };
     }
 }

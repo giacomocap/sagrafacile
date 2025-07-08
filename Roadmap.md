@@ -552,5 +552,26 @@ This document outlines the planned development phases for the SagraFacile system
         *   `[ ]` Implement a dedicated, secure API for platform administration tasks.
     *   `[ ]` **First-Time Use Wizard:**
         *   `[ ]` Implement a universal "First-Time Setup" wizard for all new organizations (both SaaS and self-hosted) to guide admins through creating their first Area and Menu Category.
+    *   `[x]` **Password Reset Flow (SaaS Only):**
+        *   `[x]` **Backend:**
+            *   `[x]` Implement logic to generate and store a secure, time-limited password reset token.
+            *   `[x]` Add a public API endpoint to request a password reset email.
+            *   `[x]` Add a public API endpoint to validate the token and update the user's password.
+            *   `[x]` Integrate with `IEmailService` to send the reset link.
+        *   `[x]` **Frontend:**
+            *   `[x]` Add a "Forgot Password?" link to the login page.
+            *   `[x]` Create a page to request the password reset.
+            *   `[x]` Create a page to handle the reset link, allowing the user to enter a new password.
+    *   `[x]` **Invitation-Based User Management (SaaS Only):**
+        *   `[x]` **Backend:**
+            *   `[x]` Create a new `UserInvitation` entity to store invitation tokens, target email, and roles.
+            *   `[x]` Modify `AccountService` to create invitations and send invitation emails.
+            *   `[x]` Add a public API endpoint for an invited user to accept the invitation and complete their registration (setting their own password).
+            *   `[x]` Update `RegisterUserAsync` to handle the invitation acceptance flow.
+        *   `[x]` **Frontend:**
+            *   `[x]` Modify the "Gestione Utenti" page to have an "Invita Utente" (Invite User) button instead of "Aggiungi Utente" for SaaS mode.
+            *   `[x]` Create a dialog for admins to enter an email and select roles for the invitation.
+            *   `[x]` Create a new public page for invited users to complete their sign-up.
+            *   `[x]` Implement UI for viewing and revoking pending invitations.
 
 *(This roadmap is a living document and will be updated as the project progresses.)*

@@ -14,6 +14,8 @@ This single Next.js application serves multiple interfaces for the SagraFacile s
     *   Kitchen Display System (KDS) (`/app/org/[orgId]/area/[areaId]/kds/[kdsId]`) - See `../../KdsArchitecture.md` for details.
     *   Waiter Interface (`/app/org/[orgId]/waiter`) - See `../../WaiterArchitecture.md` for details.
     *   SuperAdmin Management
+    *   Password Reset (`/app/forgot-password`, `/app/reset-password`)
+    *   User Invitation Management (`/app/org/[orgId]/admin/users` - for admins to invite and manage pending invitations)
 
 It interacts with the SagraFacile .NET Backend API for data and business logic.
 

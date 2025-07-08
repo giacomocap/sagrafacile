@@ -53,14 +53,14 @@ namespace SagraFacile.NET.API.Controllers
             {
                 var result = await _adAreaAssignmentService.CreateAssignmentAsync(assignmentDto);
 
-                if (!result.Success)
+                if (result.IsFailure)
                 {
-                    _logger.LogWarning("Failed to create ad area assignment for AreaId: {AreaId}, AdMediaItemId: {AdMediaItemId}. Error: {Error}", assignmentDto.AreaId, assignmentDto.AdMediaItemId, result.Error);
-                    return BadRequest(new { message = result.Error });
+                    _logger.LogWarning("Failed to create ad area assignment for AreaId: {AreaId}, AdMediaItemId: {AdMediaItemId}. Errors: {Errors}", assignmentDto.AreaId, assignmentDto.AdMediaItemId, string.Join(", ", result.Errors));
+                    return BadRequest(new { errors = result.Errors });
                 }
 
-                _logger.LogInformation("Successfully created ad area assignment with Id: {AssignmentId} for AreaId: {AreaId}", result.Data.Id, result.Data.AreaId);
-                return CreatedAtAction(nameof(GetAssignments), new { areaId = result.Data.AreaId }, result.Data);
+                _logger.LogInformation("Successfully created ad area assignment with Id: {AssignmentId} for AreaId: {AreaId}", result.Value.Id, result.Value.AreaId);
+                return CreatedAtAction(nameof(GetAssignments), new { areaId = result.Value.AreaId }, result.Value);
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -83,14 +83,15 @@ namespace SagraFacile.NET.API.Controllers
             {
                 var result = await _adAreaAssignmentService.UpdateAssignmentAsync(assignmentId, assignmentDto);
 
-                if (!result.Success)
+                if (result.IsFailure)
                 {
-                    _logger.LogWarning("Failed to update ad area assignment with Id: {AssignmentId}. Error: {Error}", assignmentId, result.Error);
-                    if (result.Error.Contains("not found"))
+                    var errorMessage = string.Join(", ", result.Errors);
+                    _logger.LogWarning("Failed to update ad area assignment with Id: {AssignmentId}. Errors: {Errors}", assignmentId, errorMessage);
+                    if (errorMessage.Contains("not found"))
                     {
-                        return NotFound(new { message = result.Error });
+                        return NotFound(new { errors = result.Errors });
                     }
-                    return BadRequest(new { message = result.Error });
+                    return BadRequest(new { errors = result.Errors });
                 }
 
                 _logger.LogInformation("Successfully updated ad area assignment with Id: {AssignmentId}", assignmentId);
@@ -117,14 +118,15 @@ namespace SagraFacile.NET.API.Controllers
             {
                 var result = await _adAreaAssignmentService.DeleteAssignmentAsync(assignmentId);
 
-                if (!result.Success)
+                if (result.IsFailure)
                 {
-                    _logger.LogWarning("Failed to delete ad area assignment with Id: {AssignmentId}. Error: {Error}", assignmentId, result.Error);
-                    if (result.Error.Contains("not found"))
+                    var errorMessage = string.Join(", ", result.Errors);
+                    _logger.LogWarning("Failed to delete ad area assignment with Id: {AssignmentId}. Errors: {Errors}", assignmentId, errorMessage);
+                    if (errorMessage.Contains("not found"))
                     {
-                        return NotFound(new { message = result.Error });
+                        return NotFound(new { errors = result.Errors });
                     }
-                    return BadRequest(new { message = result.Error });
+                    return BadRequest(new { errors = result.Errors });
                 }
 
                 _logger.LogInformation("Successfully deleted ad area assignment with Id: {AssignmentId}", assignmentId);

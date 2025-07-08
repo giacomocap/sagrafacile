@@ -3,6 +3,30 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Implemented Password Reset and User Invitation System (Backend)
+**Context:** Implemented a comprehensive password reset and user invitation system for the SaaS offering, including backend API endpoints, service logic, and database model updates.
+**Accomplishments:**
+*   **Password Reset System:**
+    *   Created `ForgotPasswordDto` and `ResetPasswordDto` DTOs.
+    *   Implemented `ForgotPasswordAsync` and `ResetPasswordAsync` methods in `AccountService` for secure token generation, validation, and password updates.
+    *   Added public, anonymous API endpoints (`POST /api/accounts/forgot-password`, `POST /api/accounts/reset-password`) in `AccountsController`.
+*   **User Invitation System:**
+    *   Created `UserInvitation` model with `Id` (Guid), `Email`, `Roles`, `Token`, `ExpiryDate`, `OrganizationId`, and `CreatedAt` properties.
+    *   Implemented `InviteUserAsync`, `AcceptInvitationAsync`, `GetInvitationDetailsAsync`, `GetPendingInvitationsAsync`, and `RevokeInvitationAsync` methods in `AccountService`.
+    *   Added corresponding API endpoints in `AccountsController` (`POST /api/accounts/invite`, `GET /api/accounts/invitation-details`, `POST /api/accounts/accept-invitation`, `GET /api/accounts/pending-invitations`, `DELETE /api/accounts/invitations/{invitationId}`).
+    *   Updated `RegisterUserAsync` to check for pending invitations and prevent public sign-up if an invitation exists for the email.
+    *   Created and applied EF Core migration `AddCreatedAtToUserInvitation` to add the `CreatedAt` field to the `UserInvitation` model.
+*   **Security Enhancements:**
+    *   Ensured all tokens are URL-safe Base64 encoded.
+    *   Implemented organization-scoped invitations and role-based access control for invitation management.
+    *   Enforced email confirmation for SaaS public sign-ups.
+**Key Decisions:**
+*   Adopted industry-standard token-based approach for password resets.
+*   Designed invitation system to allow admins to pre-assign roles and manage pending invitations.
+*   Prioritized security by ensuring token validity, expiration, and proper authorization for invitation endpoints.
+*   Integrated invitation checks into the existing registration flow to prevent duplicate accounts.
+**Outcome:** The backend now fully supports secure password resets and a robust invitation-based user onboarding process, crucial for the SaaS platform.
+
 ## (2025-07-07) - Enhanced Windows Printer Service UI/UX and Logging
 **Context:** Addressed the next step in improving the `SagraFacile.WindowsPrinterService` companion app by enhancing UI/UX for connection status and settings, and implementing comprehensive logging for better debugging of USB thermal printer issues.
 **Accomplishments:**

@@ -642,3 +642,32 @@ export interface OrderStatusTimelineEventDto {
   previousStatus: string | null;
   durationInPreviousStatusMinutes: number | null;
 }
+
+// ==================
+// User Invitations
+// ==================
+export interface UserInvitationRequestDto {
+  email: string;
+  roles: string[];
+}
+
+export interface AcceptInvitationDto {
+  token: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface InvitationDetailsDto {
+  email: string;
+  organizationName: string;
+}
+
+export interface PendingInvitationDto {
+  id: string;
+  email: string;
+  roles: string;
+  expiryDate: string;
+  invitedAt: string;
+}

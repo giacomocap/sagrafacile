@@ -3,6 +3,25 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Implemented Password Reset and User Invitation Management (Frontend)
+**Context:** Implemented the frontend UI for the password reset flow and the management of user invitations, including viewing and revoking pending invitations.
+**Accomplishments:**
+*   **Password Reset Flow:**
+    *   Created `sagrafacile-webapp/src/app/app/forgot-password/page.tsx` to allow users to request a password reset email.
+    *   Created `sagrafacile-webapp/src/app/app/reset-password/page.tsx` for users to set a new password using a token from the reset email.
+    *   Updated `sagrafacile-webapp/src/app/app/login/page.tsx` to include a "Password dimenticata?" link pointing to the new forgot password page.
+*   **User Invitation Management:**
+    *   Created `sagrafacile-webapp/src/services/invitationService.ts` to encapsulate API calls related to user invitations (invite, get pending, revoke, get details, accept).
+    *   Created `sagrafacile-webapp/src/components/admin/PendingInvitationsSection.tsx` component to display a list of pending invitations and allow admins to revoke them.
+    *   Integrated `PendingInvitationsSection` into `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx`, making it visible only in SaaS mode.
+    *   Enhanced the "Invita Utente" dialog in `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx` to use the new `invitationService`.
+*   **Type Definitions:** Ensured `src/types/index.ts` included all necessary DTOs for invitation management (`PendingInvitationDto`, `UserInvitationRequestDto`, `AcceptInvitationDto`, `InvitationDetailsDto`).
+**Key Decisions:**
+*   Separated invitation management into a dedicated service and component for modularity.
+*   Used conditional rendering to display invitation features only in SaaS mode.
+*   Implemented clear success/error messages and loading states for all new forms and tables.
+**Outcome:** The frontend now provides a complete and user-friendly interface for password recovery and managing user invitations, aligning with the backend capabilities.
+
 ## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Frontend)
 **Context:** Implemented the frontend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
 **Accomplishments:**

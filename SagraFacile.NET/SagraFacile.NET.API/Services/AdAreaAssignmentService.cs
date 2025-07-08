@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using SagraFacile.NET.API.Data;
 using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
+using SagraFacile.NET.API.Models.Results;
 using SagraFacile.NET.API.Services.Interfaces;
-using SagraFacile.NET.API.Utils;
 
 namespace SagraFacile.NET.API.Services
 {

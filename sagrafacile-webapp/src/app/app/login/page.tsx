@@ -130,6 +130,12 @@ export default function LoginPage() {
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/app/forgot-password"
+                    className="ml-auto inline-block text-sm underline"
+                  >
+                    Password dimenticata?
+                  </Link>
                 </div>
                 <Input
                   id="password"

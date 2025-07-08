@@ -1,8 +1,5 @@
 using SagraFacile.NET.API.DTOs;
-using SagraFacile.NET.API.Utils;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using SagraFacile.NET.API.Models.Results;
 
 namespace SagraFacile.NET.API.Services.Interfaces
 {
