@@ -44,6 +44,7 @@ services:
       # Add other backend-specific environment variables from .env if any were missed
     volumes:
       - sagrafacile_media_data:/app/wwwroot/media # Persist uploaded media
+      - sagrafacile_keys_data:/app/keys # Persist data protection keys
     depends_on:
       db:
         condition: service_healthy
@@ -85,4 +86,5 @@ volumes:
   sagrafacile_db_data: # Preserving existing volume name
   sagrafacile_caddy_data: # Preserving existing volume name
   sagrafacile_media_data: {} # Volume for API media uploads
+  sagrafacile_keys_data: {} # Volume for data protection keys
   # sagrafacile_caddy_config: is removed as it's not in the new Caddy setup
