@@ -38,7 +38,7 @@ interface AdUpsertDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   adToEdit?: AdMediaItemDto | null;
   onSaveSuccess: () => void;
-  organizationId: number;
+  organizationId: string;
 }
 
 export default function AdUpsertDialog({ isOpen, onOpenChange, adToEdit, onSaveSuccess, organizationId }: AdUpsertDialogProps) {

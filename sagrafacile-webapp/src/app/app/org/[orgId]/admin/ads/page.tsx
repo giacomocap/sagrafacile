@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useEffect, useState, useCallback } from 'react'; // Added useCallback
@@ -294,7 +295,7 @@ export default function AdManagementPage() {
                     onOpenChange={setIsAdDialogOpen}
                     adToEdit={adToEdit}
                     onSaveSuccess={handleSaveAdSuccess}
-                    organizationId={parseInt(orgId, 10)}
+                    organizationId={orgId}
                 />
             )}
 

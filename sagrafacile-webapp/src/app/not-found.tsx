@@ -31,10 +31,10 @@ export default function NotFound() {
 
     if (user) {
       // User is logged in, redirect to their admin dashboard
-      const organizationId = user.organizationId ? parseInt(user.organizationId, 10) : null;
+      const organizationId = user.organizationId;
       const isSuperAdmin = user.roles?.includes('SuperAdmin');
 
-      if (organizationId && !isNaN(organizationId)) {
+      if (organizationId) {
         console.log(`NotFound Redirect: User is logged in. Redirecting to org ${organizationId} admin page.`);
         router.replace(`/app/org/${organizationId}/admin`);
       } else if (isSuperAdmin) {
