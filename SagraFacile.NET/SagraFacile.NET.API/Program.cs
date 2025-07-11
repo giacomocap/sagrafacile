@@ -241,7 +241,7 @@ try // Added for Serilog try-finally block
                               policy.WithOrigins(
                                         "http://localhost:3000",
                                         "https://localhost:3000",
-                                        "https://192.168.1.230:3000"
+                                        "https://192.168.1.236:3000"
                                     )
                                     .AllowAnyHeader()
                                     .AllowAnyMethod()
