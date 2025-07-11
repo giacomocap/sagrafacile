@@ -30,6 +30,8 @@ export interface MenuSyncResult {
 export interface OrganizationDto {
   id: string;
   name: string;
+  slug: string;
+  subscriptionStatus?: string | null;
 }
 
 export interface AreaDto {
@@ -57,6 +59,18 @@ export interface AreaResponseDto {
   isActive: boolean;
 }
 
+export interface AreaUpsertDto {
+  name: string;
+  organizationId: string;
+  enableWaiterConfirmation: boolean;
+  enableKds: boolean;
+  enableCompletionConfirmation: boolean;
+  receiptPrinterId?: number | null;
+  printComandasAtCashier: boolean;
+  enableQueueSystem: boolean;
+  guestCharge: number;
+  takeawayCharge: number;
+}
 
 // ==================
 // KDS
@@ -553,23 +567,23 @@ export interface AppCartItem extends CartItem {
 // Ad Carousel
 // ==================
 export interface AdMediaItemDto {
-    id: string;
-    organizationId: string;
-    name: string;
-    mediaType: 'Image' | 'Video';
-    filePath: string;
-    mimeType: string;
-    uploadedAt: string;
+  id: string;
+  organizationId: string;
+  name: string;
+  mediaType: 'Image' | 'Video';
+  filePath: string;
+  mimeType: string;
+  uploadedAt: string;
 }
 
 export interface AdAreaAssignmentDto {
-    id: string;
-    adMediaItemId: string;
-    areaId: number;
-    displayOrder: number;
-    durationSeconds: number | null;
-    isActive: boolean;
-    adMediaItem: AdMediaItemDto;
+  id: string;
+  adMediaItemId: string;
+  areaId: number;
+  displayOrder: number;
+  durationSeconds: number | null;
+  isActive: boolean;
+  adMediaItem: AdMediaItemDto;
 }
 
 export interface AdMediaItemUpsertDto {
@@ -639,4 +653,33 @@ export interface OrderStatusTimelineEventDto {
   timestamp: string; // ISO Date string
   previousStatus: string | null;
   durationInPreviousStatusMinutes: number | null;
+}
+
+// ==================
+// User Invitations
+// ==================
+export interface UserInvitationRequestDto {
+  email: string;
+  roles: string[];
+}
+
+export interface AcceptInvitationDto {
+  token: string;
+  firstName: string;
+  lastName: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface InvitationDetailsDto {
+  email: string;
+  organizationName: string;
+}
+
+export interface PendingInvitationDto {
+  id: string;
+  email: string;
+  roles: string;
+  expiryDate: string;
+  invitedAt: string;
 }

@@ -3,6 +3,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SagraFacile.NET.API.Models
 {
+    public enum OrganizationStatus
+    {
+        Active,
+        PendingDeletion
+    }
+
     public class Organization
     {
         public Guid Id { get; set; }
@@ -18,6 +24,10 @@ namespace SagraFacile.NET.API.Models
         // New field for SaaS subscription status
         [StringLength(50)] // e.g., "Trial", "Active", "Expired", "Cancelled"
         public string SubscriptionStatus { get; set; } = "Trial"; // Default to "Trial"
+
+        // Fields for soft-delete functionality
+        public OrganizationStatus Status { get; set; } = OrganizationStatus.Active;
+        public DateTime? DeletionScheduledAt { get; set; }
 
         // Navigation properties
         public virtual ICollection<Area> Areas { get; set; } = new List<Area>();

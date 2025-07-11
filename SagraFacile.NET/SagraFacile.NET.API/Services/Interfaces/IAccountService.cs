@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using SagraFacile.NET.API.DTOs;
-using System.Collections.Generic; // Added for IEnumerable
-using System.ComponentModel.DataAnnotations; // Added for Required attribute
-using System.Threading.Tasks;
+using SagraFacile.NET.API.Models.Results;
 
 namespace SagraFacile.NET.API.Services.Interfaces;
 
@@ -33,4 +31,12 @@ public interface IAccountService
     Task<IEnumerable<string>> GetRolesAsync(); // List all available roles
     Task<AccountResult> CreateRoleAsync(CreateRoleDto createRoleDto); // Create a new role
     Task<TokenResponseDto?> RefreshTokenAsync(string refreshToken);
+    Task<AccountResult> ConfirmEmailAsync(string userId, string token);
+    Task<AccountResult> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto);
+    Task<AccountResult> ResetPasswordAsync(ResetPasswordDto resetPasswordDto);
+    Task<AccountResult> InviteUserAsync(UserInvitationRequestDto invitationRequestDto);
+    Task<AccountResult> AcceptInvitationAsync(AcceptInvitationDto acceptInvitationDto);
+    Task<ServiceResult<InvitationDetailsDto>> GetInvitationDetailsAsync(string token);
+    Task<IEnumerable<PendingInvitationDto>> GetPendingInvitationsAsync();
+    Task<AccountResult> RevokeInvitationAsync(Guid invitationId);
 }

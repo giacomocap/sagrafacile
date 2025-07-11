@@ -1,5 +1,226 @@
 # Project Memory - SagraFacile WebApp Frontend
 
+---
+# Session Summaries (Newest First)
+
+## (2025-07-08) - Implemented First-Time Setup Wizard & Enhanced Area Explanations
+**Context:** Implemented a comprehensive first-time setup wizard to guide new organization administrators through initial configuration, and enhanced explanations for workflow options on area management pages.
+**Accomplishments:**
+*   **First-Time Setup Wizard:**
+    *   Created `sagrafacile-webapp/src/components/admin/setup-wizard/SetupWizard.tsx` to orchestrate the multi-step process.
+    *   Developed individual steps:
+        *   `StepWelcome.tsx`: Introduction to the wizard.
+        *   `StepArea.tsx`: Guides creation of the first operational area.
+        *   `StepPrinter.tsx`: Guides creation of the first printer (network or USB), including GUID generation for Windows USB printers.
+        *   `StepCashierStation.tsx`: Guides creation of the first cashier station, linking the created area and printer.
+        *   `StepMenu.tsx`: Guides creation of the first menu category and item.
+        *   `StepComplete.tsx`: Provides a summary of created items and quick links to next actions.
+    *   Integrated the wizard into the admin dashboard (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`) to automatically appear for new organizations without existing areas.
+    *   Ensured proper state management and data passing between wizard steps.
+*   **Enhanced Workflow Explanations:**
+    *   Updated `sagrafacile-webapp/src/components/admin/setup-wizard/StepArea.tsx` with a detailed explanation of order workflow options (Base, Waiter, KDS, Queue System) and printing configurations.
+    *   Added a similar comprehensive explanation section to `sagrafacile-webapp/src/app/app/org/[orgId]/admin/areas/page.tsx` to provide context for the workflow switches.
+*   **Organization Context Enhancement:**
+    *   Modified `sagrafacile-webapp/src/contexts/OrganizationContext.tsx` to expose `currentOrganization` for easier access to organization details.
+**Key Decisions:**
+*   Prioritized a guided, step-by-step onboarding experience for new users.
+*   Used existing API services for creating entities, ensuring consistency.
+*   Improved clarity of complex workflow options through in-context explanations and tooltips.
+*   Ensured the wizard is triggered correctly when an organization has no areas.
+**Outcome:** New administrators now have a clear and intuitive path to set up their organization's basic operations. The area management pages provide better context for configuring operational workflows. The wizard correctly triggers for new organizations.
+
+## (2025-07-08) - Cashier UI Enhancements and Prerequisite Warnings
+**Context:** Optimized the Cashier interface by relocating key action buttons and implemented a clear warning system for missing operational prerequisites.
+**Accomplishments:**
+*   **Cashier Button Relocation:** Moved "Scansiona QR" and "Carica Pre-Ordine" buttons from `CashierOrderPanel.tsx` to `CashierMenuPanel.tsx`, placing them next to the "Giornata aperta" badge. This optimizes vertical space and improves layout.
+*   **Cashier Station Prerequisite Warning:** Added a prominent yellow warning box to the cashier station page (`sagrafacile-webapp/src/app/app/org/[orgId]/cashier/area/[areaId]/page.tsx`) that:
+    *   Clearly explains missing configurations (e.g., no stations, missing areas/printers).
+    *   Provides direct navigation buttons to the Areas (`/app/org/${orgId}/admin/areas`) and Printers (`/app/org/${orgId}/admin/printers`) configuration pages.
+    *   Uses specific, actionable language about required setup.
+**Key Decisions:**
+*   Improved cashier workflow by consolidating related actions in the menu panel.
+*   Enhanced user guidance for initial setup by providing clear warnings and direct links to configuration.
+**Outcome:** The cashier interface is more streamlined and user-friendly, and administrators are better guided through the initial setup process.
+
+## (2025-07-08) - Implemented Smart Re-invitation Frontend Handling
+**Context:** Updated the frontend to correctly handle the new response from the backend's `inviteUser` endpoint, differentiating between a new invitation being sent and a soft-deleted user being restored.
+**Accomplishments:**
+*   **`invitationService.ts`:**
+    *   Modified `inviteUser` method to return `Promise<any>` instead of `Promise<void>` to correctly capture the backend's response data (which includes `Action` and `Message`).
+*   **`users/page.tsx` (User Management Page):**
+    *   Updated `handleInviteSubmit` to check the `result.data.Action` property from the `inviteUser` call.
+    *   If `Action` is `"UserRestored"`, it triggers a `fetchUsers()` call to refresh the user list, ensuring the restored user's status is immediately reflected in the UI.
+    *   If `Action` is anything else (e.g., `"InvitationSent"`), it proceeds as a normal invitation, without refreshing the user list (as the invited user is not yet active).
+    *   Added console logs to indicate whether a user was restored or an invitation was sent.
+**Key Decisions:**
+*   Ensured frontend correctly interprets the backend's "smart re-invitation" logic.
+*   Improved UI responsiveness by refreshing the user list only when a user is actually restored.
+*   Maintained consistency with backend's new response structure.
+**Outcome:** The frontend now provides a more accurate and responsive experience for administrators when inviting users, correctly reflecting whether a new invitation was sent or an existing soft-deleted user was restored.
+
+## (2025-07-08) - Implemented Password Reset and User Invitation Management (Frontend)
+**Context:** Implemented the frontend UI for the password reset flow and the management of user invitations, including viewing and revoking pending invitations.
+**Accomplishments:**
+*   **Password Reset Flow:**
+    *   Created `sagrafacile-webapp/src/app/app/forgot-password/page.tsx` to allow users to request a password reset email.
+    *   Created `sagrafacile-webapp/src/app/app/reset-password/page.tsx` for users to set a new password using a token from the reset email.
+    *   Updated `sagrafacile-webapp/src/app/app/login/page.tsx` to include a "Password dimenticata?" link pointing to the new forgot password page.
+*   **User Invitation Management:**
+    *   Created `sagrafacile-webapp/src/services/invitationService.ts` to encapsulate API calls related to user invitations (invite, get pending, revoke, get details, accept).
+    *   Created `sagrafacile-webapp/src/components/admin/PendingInvitationsSection.tsx` component to display a list of pending invitations and allow admins to revoke them.
+    *   Integrated `PendingInvitationsSection` into `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx`, making it visible only in SaaS mode.
+    *   Enhanced the "Invita Utente" dialog in `sagrafacile-webapp/src/app/app/org/[orgId]/admin/users/page.tsx` to use the new `invitationService`.
+*   **Type Definitions:** Ensured `src/types/index.ts` included all necessary DTOs for invitation management (`PendingInvitationDto`, `UserInvitationRequestDto`, `AcceptInvitationDto`, `InvitationDetailsDto`).
+**Key Decisions:**
+*   Separated invitation management into a dedicated service and component for modularity.
+*   Used conditional rendering to display invitation features only in SaaS mode.
+*   Implemented clear success/error messages and loading states for all new forms and tables.
+**Outcome:** The frontend now provides a complete and user-friendly interface for password recovery and managing user invitations, aligning with the backend capabilities.
+
+## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Frontend)
+**Context:** Implemented the frontend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
+**Accomplishments:**
+*   **`organizationService.ts`:** Added `provisionOrganization` function to call the new backend endpoint.
+*   **New Onboarding Page (`/app/onboarding`):**
+    *   Created `sagrafacile/sagrafacile-webapp/src/app/app/onboarding/page.tsx`.
+    *   This page provides a form for the user to enter their organization name.
+    *   Upon successful submission, it calls `organizationService.provisionOrganization`.
+    *   It uses `useAuth().refreshUser()` to update the user's `organizationId` in the global context after successful provisioning.
+    *   Redirects the user to their new organization's admin dashboard (`/app/org/[orgId]/admin`).
+*   **`AuthContext.tsx`:** Added a `refreshUser` function to the context to allow re-fetching and updating the user's claims (specifically `organizationId`) after provisioning.
+*   **`app/app/org/[orgId]/layout.tsx`:** Added redirection logic to automatically send users with a `null` or empty `organizationId` to the `/app/onboarding` page, ensuring they complete the onboarding flow.
+*   **`app/layout.tsx`:** Wrapped the `AuthProvider` and `OrganizationProvider` with `InstanceProvider` to make the application mode (`saas`/`opensource`) available globally.
+*   **`app/app/signup/page.tsx`:** Modified to use `useInstance` and redirect to `/app/login` if the application is not in `saas` mode, ensuring the signup page is only accessible in SaaS environments.
+*   **`app/app/login/page.tsx`:** Modified to conditionally display the "Sign up" link only when the application is in `saas` mode.
+**Key Decisions:**
+*   Leveraged existing `AuthContext` for user state management and `InstanceContext` for application mode detection.
+*   Implemented a clear redirection flow to guide new users through the onboarding process.
+*   Ensured SaaS-specific features (signup, onboarding) are only available in the correct application mode.
+**Outcome:** The frontend now provides a complete and guided onboarding experience for new SaaS users, from registration to initial organization setup.
+
+## (2025-07-03) - Implemented SaaS User Sign-up and Email Confirmation Flow
+**Context:** To support the new SaaS onboarding process, the frontend required a public-facing sign-up page and a page to handle email confirmation links.
+**Accomplishments:**
+*   **New Sign-up Page (`/app/signup`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/app/signup/page.tsx`.
+    *   The page features a form with fields for First Name, Last Name, Email, and Password.
+    *   Includes two mandatory, unticked checkboxes for the user to accept the Terms of Service and Privacy Policy before they can create an account.
+    *   The form calls the backend's `/api/accounts/register` endpoint.
+    *   Upon successful registration, it displays the confirmation message returned from the backend and informs the user to check their email.
+    *   A link to the existing Login page is provided.
+*   **New Email Confirmation Page (`/conferma-email`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/conferma-email/page.tsx`.
+    *   This page uses a `Suspense` boundary to handle client-side rendering and reads the `userId` and `token` from the URL search parameters.
+    *   It calls the backend's `GET /api/accounts/confirm-email` endpoint to verify the user's email.
+    *   It displays appropriate success or failure messages to the user based on the API response.
+    *   On success, it provides a direct link to the login page.
+*   **Login Page Update:** Added a "Don't have an account? Sign up" link to `sagrafacile/sagrafacile-webapp/src/app/app/login/page.tsx` to direct new users to the registration page.
+**Key Decisions:**
+*   The sign-up and email confirmation pages are built as simple, focused components, following the existing project structure and style.
+*   The use of `Suspense` on the confirmation page ensures a good user experience while the client-side logic processes the URL parameters.
+**Outcome:** The frontend now fully supports the initial user registration and email confirmation steps of the SaaS onboarding flow.
+
+## (2025-07-07) - Fixed SaaS Onboarding Redirection & Token Refresh
+**Context:** Addressed a critical issue where newly provisioned SaaS users were not being redirected to their organization dashboard because the frontend's JWT token was not updated with the new `organizationId` claim.
+**Accomplishments:**
+*   **`AuthContext.tsx`:** Modified the `refreshUser` function to call the backend's `/accounts/refresh-token` endpoint, ensuring the JWT token is updated with the latest claims (including the new `organizationId`) after organization provisioning. Added error handling to log out the user if token refresh fails.
+*   **`app/app/onboarding/page.tsx`:** Refined redirection logic to use the organization ID directly from the API response, avoiding timing issues with React state updates. Added debugging console logs.
+*   **`app/app/login/page.tsx`:** Updated redirection logic to correctly identify new SaaS users without an `organizationId` and direct them to the onboarding page.
+**Key Decisions:**
+*   Ensured the frontend's user context is immediately updated with the correct `organizationId` after provisioning.
+*   Improved the robustness of the redirection flow for new SaaS users.
+**Outcome:** New SaaS users are now correctly redirected to their organization dashboard after creating their organization.
+
+## (2025-07-07) - Enhanced Subscription Page UI/UX
+**Context:** Improved the user interface and experience of the subscription management page to align with the modern design of the admin dashboard.
+**Accomplishments:**
+*   **`app/app/org/[orgId]/admin/subscription/page.tsx`:** Completely redesigned the page with:
+    *   A modern header section.
+    *   An enhanced current plan overview card with status badges and detailed billing info.
+    *   A comprehensive plans comparison section (Trial vs. Pro) with feature lists and pricing.
+    *   Dynamic status badges with appropriate icons and colors.
+    *   A placeholder section for usage monitoring.
+    *   A dedicated support section.
+*   **Visual Consistency:** Applied consistent color schemes, icons (Lucide React), and design patterns from the admin dashboard.
+**Key Decisions:**
+*   Prioritized visual consistency and user-friendliness to make the subscription page feel integrated with the rest of the admin interface.
+*   Used a card-based layout similar to the main admin dashboard for a cohesive experience.
+**Outcome:** The subscription page now offers a professional, intuitive, and visually appealing experience for managing subscription plans.
+
+## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Frontend)
+**Context:** Implemented the frontend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
+**Accomplishments:**
+*   **`organizationService.ts`:** Added `provisionOrganization` function to call the new backend endpoint.
+*   **New Onboarding Page (`/app/onboarding`):**
+    *   Created `sagrafacile/sagrafacile-webapp/src/app/app/onboarding/page.tsx`.
+    *   This page provides a form for the user to enter their organization name.
+    *   Upon successful submission, it calls `organizationService.provisionOrganization`.
+    *   It uses `useAuth().refreshUser()` to update the user's `organizationId` in the global context after successful provisioning.
+    *   Redirects the user to their new organization's admin dashboard (`/app/org/[orgId]/admin`).
+*   **`AuthContext.tsx`:** Added a `refreshUser` function to the context to allow re-fetching and updating the user's claims (specifically `organizationId`) after provisioning.
+*   **`app/app/org/[orgId]/layout.tsx`:** Added redirection logic to automatically send users with a `null` or empty `organizationId` to the `/app/onboarding` page, ensuring they complete the onboarding flow.
+*   **`app/layout.tsx`:** Wrapped the `AuthProvider` and `OrganizationProvider` with `InstanceProvider` to make the application mode (`saas`/`opensource`) available globally.
+*   **`app/app/signup/page.tsx`:** Modified to use `useInstance` and redirect to `/app/login` if the application is not in `saas` mode, ensuring the signup page is only accessible in SaaS environments.
+*   **`app/app/login/page.tsx`:** Modified to conditionally display the "Sign up" link only when the application is in `saas` mode.
+**Key Decisions:**
+*   Leveraged existing `AuthContext` for user state management and `InstanceContext` for application mode detection.
+*   Implemented a clear redirection flow to guide new users through the onboarding process.
+*   Ensured SaaS-specific features (signup, onboarding) are only available in the correct application mode.
+**Outcome:** The frontend now provides a complete and guided onboarding experience for new SaaS users, from registration to initial organization setup.
+
+## (2025-07-03) - Implemented SaaS User Sign-up and Email Confirmation Flow
+**Context:** To support the new SaaS onboarding process, the frontend required a public-facing sign-up page and a page to handle email confirmation links.
+**Accomplishments:**
+*   **New Sign-up Page (`/app/signup`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/app/signup/page.tsx`.
+    *   The page features a form with fields for First Name, Last Name, Email, and Password.
+    *   Includes two mandatory, unticked checkboxes for the user to accept the Terms of Service and Privacy Policy before they can create an account.
+    *   The form calls the backend's `/api/accounts/register` endpoint.
+    *   Upon successful registration, it displays the confirmation message returned from the backend and informs the user to check their email.
+    *   A link to the existing Login page is provided.
+*   **New Email Confirmation Page (`/conferma-email`):**
+    *   Created a new page at `sagrafacile/sagrafacile-webapp/src/app/conferma-email/page.tsx`.
+    *   This page uses a `Suspense` boundary to handle client-side rendering and reads the `userId` and `token` from the URL search parameters.
+    *   It calls the backend's `GET /api/accounts/confirm-email` endpoint to verify the user's email.
+    *   It displays appropriate success or failure messages to the user based on the API response.
+    *   On success, it provides a direct link to the login page.
+*   **Login Page Update:** Added a "Don't have an account? Sign up" link to `sagrafacile/sagrafacile-webapp/src/app/app/login/page.tsx` to direct new users to the registration page.
+**Key Decisions:**
+*   The sign-up and email confirmation pages are built as simple, focused components, following the existing project structure and style.
+*   The use of `Suspense` on the confirmation page ensures a good user experience while the client-side logic processes the URL parameters.
+**Outcome:** The frontend now fully supports the initial user registration and email confirmation steps of the SaaS onboarding flow.
+
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.
+**Accomplishments:**
+*   **Created `InstanceContext`:** A new global context (`src/contexts/InstanceContext.tsx`) was created to fetch and provide the application's running mode (`saas` or `opensource`). It uses a new `instanceService.ts` to call the backend's `/api/instance/info` endpoint. The main admin layout is now wrapped in the `InstanceProvider`.
+*   **Conditional Navigation:** The main admin sidebar (`src/components/admin/AdminNavigation.tsx`) now uses the `InstanceContext` to conditionally display a "Sottoscrizione" (Subscription) link. This link is only visible when the application is running in "saas" mode.
+*   **Subscription Page:**
+    *   A new page was created at `/app/org/[orgId]/admin/subscription`.
+    *   This page fetches the current organization's details, including the new `subscriptionStatus` field, using a new `organizationService.ts`.
+    *   It dynamically displays the subscription status, with appropriate loading and error states.
+*   **Type Definitions:** The frontend `OrganizationDto` in `src/types/index.ts` was updated to include `slug` and `subscriptionStatus` to match the backend DTO.
+**Key Decisions:**
+*   Using a global React Context is an efficient and scalable way to provide the instance mode information to any component that needs it without prop-drilling.
+*   Conditionally rendering UI elements based on this context is the core principle for separating SaaS features from the open-source UI.
+**Outcome:** The frontend now has a robust mechanism for detecting the application mode and displaying SaaS-specific UI elements and data. This completes the initial framework for building out the commercial features of SagraFacile Cloud.
+
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Page
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed in the frontend to consume SaaS-specific data and render UI elements conditionally.
+**Accomplishments:**
+*   **Created `InstanceContext`:** A new global context (`src/contexts/InstanceContext.tsx`) was created to fetch and provide the application's running mode (`saas` or `opensource`). It uses a new `instanceService.ts` to call the backend's `/api/instance/info` endpoint. The main admin layout is now wrapped in the `InstanceProvider`.
+*   **Conditional Navigation:** The main admin sidebar (`src/components/admin/AdminNavigation.tsx`) now uses the `InstanceContext` to conditionally display a "Sottoscrizione" (Subscription) link. This link is only visible when the application is running in "saas" mode.
+*   **Subscription Page:**
+    *   A new page was created at `/app/org/[orgId]/admin/subscription`.
+    *   This page fetches the current organization's details, including the new `subscriptionStatus` field, using a new `organizationService.ts`.
+    *   It dynamically displays the subscription status, with appropriate loading and error states.
+*   **Type Definitions:** The frontend `OrganizationDto` in `src/types/index.ts` was updated to include `slug` and `subscriptionStatus` to match the backend DTO.
+**Key Decisions:**
+*   Using a global React Context is an efficient and scalable way to provide the instance mode information to any component that needs it without prop-drilling.
+*   Conditionally rendering UI elements based on this context is the core principle for separating SaaS features from the open-source UI.
+**Outcome:** The frontend now has a robust mechanism for detecting the application mode and displaying SaaS-specific UI elements and data. This completes the initial framework for building out the commercial features of SagraFacile Cloud.
+
+---
 # How to work on the project
 *   **Technology:** Next.js (App Router), TypeScript, Tailwind CSS, Shadcn/ui.
 *   **API Interaction:** Use `src/services/apiClient.ts` for backend calls. Ensure DTOs in `src/types/index.ts` match backend definitions. Handle loading and error states gracefully.
@@ -389,6 +610,32 @@ Adjusted styling in `CashierOrderPanel.tsx` to reduce horizontal and vertical sp
 **Outcome:** The system now has a functional Admin UI for monitoring the status of print jobs, allowing administrators to track print operations and manually intervene if necessary.
 **Next Steps:**
 *   (Future Phase 2) Implement real-time alerts and notifications for print job failures.
+
+## (2025-07-08) - Implemented Navigation Header for Cashier and Waiter Interfaces
+**Context:** Users with cashier/waiter roles were redirected directly to their area-specific pages but lacked navigation controls to go back to area selection or logout from their accounts, unlike the admin interface which had these features.
+**Accomplishments:**
+*   **Created `OperationalHeader` Component (`src/components/shared/OperationalHeader.tsx`):**
+    *   Designed a reusable header component for operational interfaces (cashier/waiter).
+    *   Implemented two variants: compact (for cashier where vertical space is limited) and standard (for waiter).
+    *   **Compact Version Features:** Minimal height with small back button, compact title/area display, and dropdown menu for user info and actions.
+    *   **Standard Version Features:** More spacious layout with visible "Cambia Area" button, larger title, and separate logout button.
+    *   **Navigation Functions:** "Cambia Area" button navigates back to area selection page, logout button clears auth and redirects to login.
+    *   **User Information Display:** Shows current user name/email and current area name.
+*   **Updated Waiter Area Page (`src/app/app/org/[orgId]/waiter/area/[areaId]/page.tsx`):**
+    *   Integrated `OperationalHeader` with standard layout.
+    *   Added `useMenuAndAreaLoader` hook to get current area information for the header.
+    *   Restructured layout to include header at top with flex layout for proper spacing.
+*   **Updated Cashier Area Page (`src/app/app/org/[orgId]/cashier/area/[areaId]/page.tsx`):**
+    *   Integrated `OperationalHeader` with compact layout to preserve vertical space.
+    *   Adjusted main container height calculation to account for the new header.
+    *   Used compact variant specifically designed for space-constrained cashier interface.
+**Key Decisions:**
+*   Created a single reusable component with variant support rather than separate components for each role.
+*   Prioritized vertical space conservation for cashier interface with compact design.
+*   Used dropdown menu in compact version to save horizontal space while providing full functionality.
+*   Maintained consistent navigation patterns with admin interface (back button + logout).
+*   Leveraged existing `useMenuAndAreaLoader` hook for area information rather than creating new API calls.
+**Outcome:** Cashier and waiter users now have proper navigation controls to change areas and logout, resolving the missing functionality issue. The compact design ensures the cashier interface remains space-efficient while providing essential navigation features.
 
 ## (Next Session) - Planned Work
 Current session paused debugging of USB thermal printer due to `SagraFacile.WindowsPrinterService` companion app registration issues. Next steps: Enhance companion app UI/UX for connection status and settings, improve logging. Then, resume USB thermal printer debugging, focusing on correct registration with `OrderHub` and print job dispatch/receipt verification.

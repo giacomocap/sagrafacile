@@ -532,4 +532,83 @@ This document outlines the planned development phases for the SagraFacile system
         *   `[ ]` Review and confirm `app_name` in `strings.xml`.
 
 
+        *   `[ ]` Review and confirm `app_name` in `strings.xml`.
+
+### Phase 11: SaaS (Software-as-a-Service) Platform
+
+*   **Goal:** Develop and launch a fully managed, commercial SaaS offering of SagraFacile to provide a zero-installation, easy-to-use version of the product for non-technical users.
+*   **Key Features & Tasks:**
+    *   `[x]` **SaaS User Onboarding Flow:**
+        *   `[x]` Implement a new user sign-up process with mandatory email confirmation and consent to Terms of Service/Privacy Policy.
+        *   `[x]` Develop a guided "Onboarding Wizard" for new users to create their organization and select a subscription plan. (Organization creation and redirection implemented, subscription plan selection pending)
+    *   `[~]` **Billing & Subscription Integration:**
+        *   `[x]` Implement Subscription Management UI (`/admin/subscription`).
+        *   `[ ]` Integrate with a payment provider (e.g., Stripe).
+        *   `[ ]` Implement a "Trial Tier" with usage-based limits (e.g., limited orders per day).
+        *   `[ ]` Implement a "Pay-Per-Day" pricing model for paid plans.
+    *   `[ ]` **Platform Administration & Security:**
+        *   `[ ]` Deprecate the `SuperAdmin` role to enhance security and GDPR compliance.
+        *   `[ ]` Develop a separate, secure "Platform Admin" application for internal management of tenants and subscriptions.
+        *   `[ ]` Implement a dedicated, secure API for platform administration tasks.
+    *   `[x]` **First-Time Use Wizard:**
+        *   `[x]` Implement a universal "First-Time Setup" wizard for all new organizations (both SaaS and self-hosted) to guide admins through creating their first Area, Printer, Cashier Station, and Menu Category.
+        *   `[x]` Created comprehensive wizard with 6 steps: Welcome, Area, Printer, Cashier Station, Menu, and Completion.
+        *   `[x]` Enhanced workflow explanations in both wizard (`sagrafacile-webapp/src/components/admin/setup-wizard/StepArea.tsx`) and admin area page (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/areas/page.tsx`) to better explain operational options.
+        *   `[x]` Implemented GUID generation for Windows USB printers in the wizard.
+        *   `[x]` Integrated wizard into admin dashboard (`sagrafacile-webapp/src/app/app/org/[orgId]/admin/page.tsx`) with automatic detection for new organizations (if no areas exist).
+    *   `[x]` **Password Reset Flow (SaaS Only):**
+        *   `[x]` **Backend:**
+            *   `[x]` Implement logic to generate and store a secure, time-limited password reset token.
+            *   `[x]` Add a public API endpoint to request a password reset email.
+            *   `[x]` Add a public API endpoint to validate the token and update the user's password.
+            *   `[x]` Integrate with `IEmailService` to send the reset link.
+        *   `[x]` **Frontend:**
+            *   `[x]` Add a "Forgot Password?" link to the login page.
+            *   `[x]` Create a page to request the password reset.
+            *   `[x]` Create a page to handle the reset link, allowing the user to enter a new password.
+    *   `[x]` **Invitation-Based User Management (SaaS Only):**
+        *   `[x]` **Backend:**
+            *   `[x]` Create a new `UserInvitation` entity to store invitation tokens, target email, and roles.
+            *   `[x]` Modify `AccountService` to create invitations and send invitation emails.
+            *   `[x]` Add a public API endpoint for an invited user to accept the invitation and complete their registration (setting their own password).
+            *   `[x]` Update `RegisterUserAsync` to handle the invitation acceptance flow.
+        *   `[x]` **Frontend:**
+            *   `[x]` Modify the "Gestione Utenti" page to have an "Invita Utente" (Invite User) button instead of "Aggiungi Utente" for SaaS mode.
+            *   `[x]` Create a dialog for admins to enter an email and select roles for the invitation.
+            *   `[x]` Create a new public page for invited users to complete their sign-up.
+            *   `[x]` Implement UI for viewing and revoking pending invitations.
+
+### Phase 12: Data Lifecycle & GDPR Compliance
+
+*   **Goal:** Implement robust features for user and organization data deletion and export, ensuring compliance with GDPR principles like the "Right to Erasure" and "Right to Portability".
+*   **Key Tasks:**
+    *   `[~]` **User Deletion (Soft & Hard/Anonymization):**
+        *   `[x]` **Backend:**
+            *   `[x]` Add a `Status` field (e.g., `Active`, `Deleted`) to the `User` model and create migration.
+            *   `[x]` Implement a "soft delete" (SaaS) / "hard delete" (self-hosted) mechanism in `AccountService`.
+            *   `[x]` Create a background job (`DataRetentionService`) to anonymize personal data of soft-deleted users after a 30-day grace period.
+            *   `[x]` Add a secure `DELETE /api/users/{userId}` endpoint.
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Add a "Delete User" button and confirmation dialog to the User Management page.
+            *   `[ ]` Ensure the UI correctly displays "Deleted User" for historical records (e.g., orders created by a deleted user).
+    *   `[~]` **Organization Deletion (Soft & Hard):**
+        *   `[x]` **Backend:**
+            *   `[x]` Add `Status` (`Active`, `PendingDeletion`) and `DeletionScheduledAt` fields to the `Organization` model and create migration.
+            *   `[x]` Implement a "soft delete" (SaaS) / "hard delete" (self-hosted) mechanism in `OrganizationService`.
+            *   `[x]` Create a background job (`DataRetentionService`) to perform a hard, cascading delete of the organization and all its associated data after a 30-day grace period.
+            *   `[x]` Add a secure `DELETE /api/organizations/{orgId}` endpoint, potentially requiring multi-factor confirmation (e.g., typing org name).
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Create a "Danger Zone" in the organization settings page.
+            *   `[ ]` Implement a "Delete Organization" button with a multi-step confirmation modal.
+    *   `[ ]` **Data Export (Right to Portability):**
+        *   `[ ]` **Backend:**
+            *   `[ ]` Implement a background job triggered by an admin request to export all organization data (Orders, Menu, Users, etc.) into a structured format (e.g., a ZIP file of multiple JSONs).
+            *   `[ ]` Implement an email notification service to send a secure, time-limited download link to the admin once the export is ready.
+            *   `[ ]` Add a `POST /api/organizations/{orgId}/export` endpoint to trigger the export process.
+        *   `[ ]` **Frontend:**
+            *   `[ ]` Add an "Export All Data" button to the "Danger Zone" in organization settings.
+            *   `[ ]` Display appropriate feedback to the user (e.g., "Your data export has started. You will receive an email when it's complete.").
+    *   `[x]` **Documentation:**
+        *   `[x]` Update `privacy-policy.md` and `terms-of-service.md` to reflect the new data deletion and export procedures.
+
 *(This roadmap is a living document and will be updated as the project progresses.)*

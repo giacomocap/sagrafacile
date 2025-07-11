@@ -29,6 +29,7 @@ namespace SagraFacile.WindowsPrinterService.Services
 
         private ProfileSettings? _activeProfileSettings; // To store the loaded profile
         public string? CurrentProfileName => _activeProfileSettings?.ProfileName;
+        public ProfileSettings? ActiveProfileSettings => _activeProfileSettings; // Expose active profile settings
 
         private PrintMode _currentPrintMode = PrintMode.Immediate;
         private string? _configuredWindowsPrinterName; 

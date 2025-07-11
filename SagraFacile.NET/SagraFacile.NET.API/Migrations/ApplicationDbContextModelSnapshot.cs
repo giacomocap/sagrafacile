@@ -673,6 +673,9 @@ namespace SagraFacile.NET.API.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("DeletionScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -682,6 +685,9 @@ namespace SagraFacile.NET.API.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<string>("SubscriptionStatus")
                         .IsRequired()
@@ -904,6 +910,9 @@ namespace SagraFacile.NET.API.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("DeletionScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -956,6 +965,9 @@ namespace SagraFacile.NET.API.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
 
@@ -975,6 +987,46 @@ namespace SagraFacile.NET.API.Migrations
                     b.HasIndex("OrganizationId");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("SagraFacile.NET.API.Models.UserInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("ExpiryDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Roles")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrganizationId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("UserInvitations");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -1400,6 +1452,17 @@ namespace SagraFacile.NET.API.Migrations
                         .WithMany("Users")
                         .HasForeignKey("OrganizationId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("SagraFacile.NET.API.Models.UserInvitation", b =>
+                {
+                    b.HasOne("SagraFacile.NET.API.Models.Organization", "Organization")
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Organization");
                 });

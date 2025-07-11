@@ -3,20 +3,20 @@ using SagraFacile.WindowsPrinterService.Services;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
-// using Microsoft.Extensions.Logging; // ILogger removed for simplicity for now
+using Microsoft.Extensions.Logging; // Re-introduce ILogger
 
 namespace SagraFacile.WindowsPrinterService
 {
     public partial class PrintStationForm : Form
     {
         private readonly SignalRService _signalRService;
-        // private readonly ILogger<PrintStationForm> _logger; // Logger removed for now
+        private readonly ILogger<PrintStationForm> _logger; // Re-introduce Logger
 
-        public PrintStationForm(SignalRService signalRService /*, ILogger<PrintStationForm> logger */)
+        public PrintStationForm(SignalRService signalRService, ILogger<PrintStationForm> logger)
         {
             InitializeComponent();
             _signalRService = signalRService ?? throw new ArgumentNullException(nameof(signalRService));
-            // _logger = logger ?? throw new ArgumentNullException(nameof(logger)); // Logger removed
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger)); // Initialize Logger
 
             // Subscribe to events
             _signalRService.OnDemandQueueCountChanged += SignalRService_OnDemandQueueCountChanged;
@@ -28,15 +28,24 @@ namespace SagraFacile.WindowsPrinterService
         private void PrintStationForm_Load(object sender, EventArgs e)
         {
             // Set initial state when form is loaded and handle is created
+            UpdateProfileAndPrinterLabels(); // New method to update profile and printer name
             UpdateQueueCountLabel();
             UpdateConnectionStatusLabel();
             LogActivity("Finestra Stazione di Stampa aperta.");
             this.AcceptButton = btnPrintNext; // Ensure Enter key triggers the button
         }
 
+        private void UpdateProfileAndPrinterLabels()
+        {
+            if (!IsHandleCreated) return;
+
+            lblProfileName.Text = $"Profilo: {_signalRService.CurrentProfileName ?? "N/D"}";
+            lblPrinterName.Text = $"Stampante: {_signalRService.ActiveProfileSettings?.SelectedPrinter ?? "N/D"}";
+        }
+
         private void SignalRService_ConnectionStatusChanged(object? sender, string status)
         {
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
             if (lblConnectionStatus.InvokeRequired)
             {
@@ -50,28 +59,16 @@ namespace SagraFacile.WindowsPrinterService
         
         private void UpdateConnectionStatusLabel(string? status = null)
         {
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
-            if (status == null)
-            {
-                var currentStatus = _signalRService.GetCurrentStatus();
-                lblConnectionStatus.Text = $"Stato Connessione: {currentStatus.LastStatusMessage}";
-                lblConnectionStatus.ForeColor = currentStatus.LastStatusColor;
-            }
-            else
-            {
-                lblConnectionStatus.Text = $"Stato Connessione: {status}";
-                string lowerStatus = status.ToLowerInvariant();
-                if (lowerStatus.Contains("errore") || lowerStatus.Contains("fallita")) lblConnectionStatus.ForeColor = Color.Red;
-                else if (lowerStatus.Contains("riconnessione") || lowerStatus.Contains("connessione in corso")) lblConnectionStatus.ForeColor = Color.Orange;
-                else if (lowerStatus.Contains("registrato") || lowerStatus.Contains("connesso")) lblConnectionStatus.ForeColor = Color.Green;
-                else lblConnectionStatus.ForeColor = Color.Black;
-            }
+            var currentStatus = _signalRService.GetCurrentStatus();
+            lblConnectionStatus.Text = $"Stato Connessione: {currentStatus.LastStatusMessage}";
+            lblConnectionStatus.ForeColor = currentStatus.LastStatusColor;
         }
 
         private void SignalRService_OnDemandQueueCountChanged(object? sender, int count)
         {
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
             if (lblPendingCount.InvokeRequired)
             {
@@ -85,7 +82,7 @@ namespace SagraFacile.WindowsPrinterService
 
         private void UpdateQueueCountLabel(int? count = null)
         {
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
             int currentCount = count ?? _signalRService.GetOnDemandQueueCount();
             lblPendingCount.Text = $"Comande in Attesa: {currentCount}";
@@ -94,6 +91,7 @@ namespace SagraFacile.WindowsPrinterService
 
         private async void btnPrintNext_Click(object sender, EventArgs e)
         {
+            _logger.LogInformation("Tentativo di stampa prossima comanda...");
             LogActivity("Tentativo di stampa prossima comanda...");
             btnPrintNext.Enabled = false; 
 
@@ -101,33 +99,37 @@ namespace SagraFacile.WindowsPrinterService
 
             if (jobToPrint != null)
             {
+                _logger.LogInformation($"Stampa Job ID: {jobToPrint.JobId} per stampante");
                 LogActivity($"Stampa Job ID: {jobToPrint.JobId} per stampante");
                 bool success = await _signalRService.PrintQueuedJobAsync(jobToPrint);
                 if (success)
                 {
+                    _logger.LogInformation($"Comanda Job ID: {jobToPrint.JobId} stampata con successo.");
                     LogActivity($"Comanda Job ID: {jobToPrint.JobId} stampata con successo.");
                 }
                 else
                 {
+                    _logger.LogError($"Errore durante la stampa della comanda Job ID: {jobToPrint.JobId}. Controllare i log del servizio.");
                     LogActivity($"Errore durante la stampa della comanda Job ID: {jobToPrint.JobId}. Controllare i log del servizio.");
                 }
             }
             else
             {
+                _logger.LogInformation("Nessuna comanda trovata in coda.");
                 LogActivity("Nessuna comanda trovata in coda.");
             }
             
-            if (IsHandleCreated) // Check handle before updating UI
+            if (IsHandleCreated)
             {
-               UpdateQueueCountLabel(); // This will re-evaluate btnPrintNext.Enabled
+               UpdateQueueCountLabel();
             }
         }
 
         private void LogActivity(string message)
         {
-            Console.WriteLine($"[PrintStationForm] {DateTime.Now:HH:mm:ss} - {message}"); // Simple console log for now.
+            // _logger.LogInformation($"[PrintStationForm Activity] {message}"); // Use ILogger for structured logging
             
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
             if (txtActivityLog.InvokeRequired)
             {
@@ -141,11 +143,11 @@ namespace SagraFacile.WindowsPrinterService
 
         private void PrependLogMessage(string message)
         {
-            if (!IsHandleCreated) return; // Check if handle created
+            if (!IsHandleCreated) return;
 
             string timestamp = DateTime.Now.ToString("HH:mm:ss");
             txtActivityLog.Text = $"[{timestamp}] {message}{Environment.NewLine}{txtActivityLog.Text}";
-            if (txtActivityLog.Text.Length > 4000) // Keep log trimmed (increased size a bit)
+            if (txtActivityLog.Text.Length > 4000)
             {
                 txtActivityLog.Text = txtActivityLog.Text.Substring(0, 4000);
             }

@@ -93,6 +93,35 @@ public class AccountsController : ControllerBase
         }
     }
 
+    [HttpGet("confirm-email")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] string userId, [FromQuery] string token)
+    {
+        _logger.LogInformation("Received request to confirm email for user {UserId}.", userId);
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { Message = "User ID and token are required." });
+        }
+
+        var result = await _accountService.ConfirmEmailAsync(userId, token);
+
+        if (result.Succeeded)
+        {
+            _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
+            // Redirect to a frontend page indicating success
+            // For now, just return OK. The frontend will handle the redirect.
+            return Ok(new { Message = "Email confirmed successfully." });
+        }
+        else
+        {
+            _logger.LogWarning("Email confirmation failed for user {UserId}.", userId);
+            // Return a generic error message
+            return BadRequest(new { Message = "Email confirmation failed. The link may be invalid or expired." });
+        }
+    }
+
     [HttpPost("assign-roles")]
     [Authorize(Roles = "SuperAdmin,Admin")] 
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -447,5 +476,168 @@ public class AccountsController : ControllerBase
 
         _logger.LogInformation("Token refreshed successfully for user: {Email}", tokenResponse.Email);
         return Ok(tokenResponse);
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto forgotPasswordDto)
+    {
+        _logger.LogInformation("Received forgot password request for email: {Email}", forgotPasswordDto.Email);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _accountService.ForgotPasswordAsync(forgotPasswordDto);
+
+        if (result.Succeeded)
+        {
+            // Always return OK to prevent email enumeration attacks.
+            return Ok(new { Message = "Se esiste un account con questa email, è stato inviato un link per il reset della password." });
+        }
+        else
+        {
+            // This case would be for server-side errors like the email service being down.
+            return StatusCode(StatusCodes.Status500InternalServerError, new { Message = "Si è verificato un errore durante l'elaborazione della richiesta." });
+        }
+    }
+
+        [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto resetPasswordDto)
+    {
+        _logger.LogInformation("Received request to reset password for user: {UserId}", resetPasswordDto.UserId);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _accountService.ResetPasswordAsync(resetPasswordDto);
+
+        if (result.Succeeded)
+        {
+            return Ok(new { Message = "La tua password è stata resettata con successo." });
+        }
+        else
+        {
+            foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
+            {
+                ModelState.AddModelError(string.Empty, error.Description);
+            }
+            return BadRequest(ModelState);
+        }
+    }
+
+    [HttpPost("invite")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> InviteUser([FromBody] UserInvitationRequestDto invitationRequestDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _accountService.InviteUserAsync(invitationRequestDto);
+        if (result.Succeeded)
+        {
+            return Ok(new { Message = "Invito inviato con successo." });
+        }
+
+        foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
+        {
+            ModelState.AddModelError(string.Empty, error.Description);
+        }
+        return BadRequest(ModelState);
+    }
+
+    [HttpGet("invitation-details")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(InvitationDetailsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetInvitationDetails([FromQuery] string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return BadRequest(new { Message = "Token is required." });
+        }
+
+        var result = await _accountService.GetInvitationDetailsAsync(token);
+        if (result.Success)
+        {
+            return Ok(result.Value);
+        }
+        return BadRequest(new { Message = string.Join(", ", result.Errors) });
+    }
+
+    [HttpPost("accept-invitation")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AcceptInvitation([FromBody] AcceptInvitationDto acceptInvitationDto)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var result = await _accountService.AcceptInvitationAsync(acceptInvitationDto);
+        if (result.Succeeded)
+        {
+            return Ok(new { Message = "Account creato con successo." });
+        }
+        
+        foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
+        {
+            ModelState.AddModelError(string.Empty, error.Description);
+        }
+        return BadRequest(ModelState);
+    }
+
+    [HttpGet("pending-invitations")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [ProducesResponseType(typeof(IEnumerable<PendingInvitationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetPendingInvitations()
+    {
+        try
+        {
+            var pendingInvitations = await _accountService.GetPendingInvitationsAsync();
+            return Ok(pendingInvitations);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An unexpected error occurred while getting pending invitations.");
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpDelete("invitations/{invitationId}")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RevokeInvitation(Guid invitationId)
+    {
+        var result = await _accountService.RevokeInvitationAsync(invitationId);
+        if (result.Succeeded)
+        {
+            return Ok(new { Message = "Invito revocato con successo." });
+        }
+
+        foreach (var error in result.Errors ?? Enumerable.Empty<Microsoft.AspNetCore.Identity.IdentityError>())
+        {
+            if (error.Description.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            {
+                return NotFound(new { Message = error.Description });
+            }
+            ModelState.AddModelError(string.Empty, error.Description);
+        }
+        return BadRequest(ModelState);
     }
 }

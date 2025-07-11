@@ -3,6 +3,130 @@
 ---
 # Session Summaries (Newest First)
 
+## (2025-07-08) - Implemented Smart Re-invitation Feature for User Restoration
+**Context:** Enhanced the user invitation system to intelligently handle attempts to invite users who have been soft-deleted, allowing administrators to restore users during the 30-day grace period instead of being blocked by "user already exists" errors.
+**Accomplishments:**
+*   **Smart Re-invitation Logic in `InviteUserAsync`:**
+    *   Modified the method to detect soft-deleted users (`UserStatus.PendingDeletion`) within the same organization.
+    *   When a soft-deleted user is found, the system automatically restores them instead of creating a new invitation.
+    *   Restoration process includes: setting status to `Active`, clearing deletion schedule, re-enabling email confirmation, removing lockout, clearing old refresh tokens for security.
+    *   Role management: Updates user roles to match the invitation request (adds new roles, removes unspecified roles).
+    *   Enhanced logging throughout the process for better debugging and audit trails.
+*   **Improved User Experience:**
+    *   Returns different response data based on action taken: `"UserRestored"` vs `"InvitationSent"`.
+    *   Sends appropriate notification emails: restoration notification for restored users, invitation email for new users.
+    *   Provides detailed error handling and logging for both success and failure scenarios.
+*   **Enhanced Error Handling:**
+    *   Added comprehensive try-catch blocks for email sending with proper logging.
+    *   Returns meaningful error messages when email sending fails.
+    *   Maintains transaction integrity during user restoration process.
+**Key Decisions:**
+*   Prioritized user experience by automatically detecting and handling soft-deleted users.
+*   Maintained security by clearing old authentication tokens during restoration.
+*   Implemented role synchronization to ensure restored users have current role assignments.
+*   Added comprehensive logging for audit trails and debugging.
+**Outcome:** Administrators can now seamlessly "undo" user deletions during the grace period by simply re-inviting them, eliminating the previous UX friction where admins were blocked from re-inviting soft-deleted users.
+
+## (2025-07-08) - Implemented Password Reset and User Invitation System (Backend)
+**Context:** Implemented a comprehensive password reset and user invitation system for the SaaS offering, including backend API endpoints, service logic, and database model updates.
+**Accomplishments:**
+*   **Password Reset System:**
+    *   Created `ForgotPasswordDto` and `ResetPasswordDto` DTOs.
+    *   Implemented `ForgotPasswordAsync` and `ResetPasswordAsync` methods in `AccountService` for secure token generation, validation, and password updates.
+    *   Added public, anonymous API endpoints (`POST /api/accounts/forgot-password`, `POST /api/accounts/reset-password`) in `AccountsController`.
+*   **User Invitation System:**
+    *   Created `UserInvitation` model with `Id` (Guid), `Email`, `Roles`, `Token`, `ExpiryDate`, `OrganizationId`, and `CreatedAt` properties.
+    *   Implemented `InviteUserAsync`, `AcceptInvitationAsync`, `GetInvitationDetailsAsync`, `GetPendingInvitationsAsync`, and `RevokeInvitationAsync` methods in `AccountService`.
+    *   Added corresponding API endpoints in `AccountsController` (`POST /api/accounts/invite`, `GET /api/accounts/invitation-details`, `POST /api/accounts/accept-invitation`, `GET /api/accounts/pending-invitations`, `DELETE /api/accounts/invitations/{invitationId}`).
+    *   Updated `RegisterUserAsync` to check for pending invitations and prevent public sign-up if an invitation exists for the email.
+    *   Created and applied EF Core migration `AddCreatedAtToUserInvitation` to add the `CreatedAt` field to the `UserInvitation` model.
+*   **Security Enhancements:**
+    *   Ensured all tokens are URL-safe Base64 encoded.
+    *   Implemented organization-scoped invitations and role-based access control for invitation management.
+    *   Enforced email confirmation for SaaS public sign-ups.
+**Key Decisions:**
+*   Adopted industry-standard token-based approach for password resets.
+*   Designed invitation system to allow admins to pre-assign roles and manage pending invitations.
+*   Prioritized security by ensuring token validity, expiration, and proper authorization for invitation endpoints.
+*   Integrated invitation checks into the existing registration flow to prevent duplicate accounts.
+**Outcome:** The backend now fully supports secure password resets and a robust invitation-based user onboarding process, crucial for the SaaS platform.
+
+## (2025-07-07) - Enhanced Windows Printer Service UI/UX and Logging
+**Context:** Addressed the next step in improving the `SagraFacile.WindowsPrinterService` companion app by enhancing UI/UX for connection status and settings, and implementing comprehensive logging for better debugging of USB thermal printer issues.
+**Accomplishments:**
+*   **Enhanced PrintStationForm UI:**
+    *   **Added Profile and Printer Information Labels:** Added `lblProfileName` and `lblPrinterName` labels to `PrintStationForm.Designer.cs` to display the currently active profile name and configured printer name.
+    *   **Improved Connection Status Display:** Modified `UpdateConnectionStatusLabel()` to use `SignalRService.GetCurrentStatus()` for consistent status message and color display.
+    *   **Re-introduced Structured Logging:** Added `ILogger<PrintStationForm>` dependency injection and enhanced logging in `btnPrintNext_Click()` and other methods for better debugging.
+    *   **Updated Form Layout:** Repositioned controls to accommodate new labels and improved visual hierarchy.
+*   **Enhanced SignalRService:**
+    *   **Exposed ActiveProfileSettings:** Added public `ActiveProfileSettings` property to allow `PrintStationForm` to access printer configuration details.
+    *   **Maintained Existing Events:** Confirmed `ConnectionStatusChanged` and `OnDemandQueueCountChanged` events are properly implemented for real-time UI updates.
+*   **Significantly Enhanced RawPrinterHelperService Logging:**
+    *   **Detailed Parameter Validation:** Added comprehensive null/empty checks for printer names and data with specific error logging.
+    *   **Data Length and Content Logging:** Added logging of data length, hex preview of ESC/POS commands, and string content preview for debugging.
+    *   **Enhanced Error Reporting:** Implemented detailed Win32 error code logging with hexadecimal format and human-readable error descriptions for common printer-related error codes (ERROR_FILE_NOT_FOUND, ERROR_ACCESS_DENIED, ERROR_PRINTER_NOT_FOUND, etc.).
+    *   **Success Confirmation:** Added detailed success logging with data size confirmation.
+*   **Build Verification:** Confirmed all changes compile successfully with only minor warnings (package compatibility and async method warning).
+**Key Decisions:**
+*   Prioritized comprehensive logging and error reporting to facilitate debugging of USB thermal printer registration and printing issues.
+*   Enhanced UI to provide clear visibility into the active profile, printer configuration, and connection status.
+*   Maintained backward compatibility while improving debugging capabilities.
+*   Used structured logging patterns for better log analysis and troubleshooting.
+**Outcome:** The Windows Printer Service now provides significantly better visibility into its operation through enhanced UI and comprehensive logging. This will greatly facilitate debugging of USB thermal printer issues, particularly around SignalR registration, print job dispatch, and receipt verification.
+**Next Steps:**
+*   Resume USB thermal printer debugging with the enhanced logging and UI improvements.
+*   Focus on verifying correct registration with `OrderHub` and print job dispatch/receipt verification.
+*   Test the enhanced UI and logging with actual printer configurations.
+
+## (2025-07-03) - Implemented SaaS Onboarding Wizard - Organization Provisioning (Backend)
+**Context:** Implemented the backend components for the first step of the SaaS Onboarding Wizard, allowing newly registered users to create their organization.
+**Accomplishments:**
+*   **`OrganizationProvisionRequestDto`:** Created a new DTO for the organization provisioning request.
+*   **`IOrganizationService`:** Added `ProvisionOrganizationAsync` method to the interface.
+*   **`OrganizationService`:**
+    *   Implemented `ProvisionOrganizationAsync` to handle the creation of a new `Organization` and associate the current user with it, assigning the 'Admin' role.
+    *   Updated `GenerateSlug` and introduced `GenerateUniqueSlugAsync` to ensure organization slugs are unique by appending a number if a collision is found.
+    *   Injected `UserManager<User>` to manage user updates (assigning `OrganizationId` and roles).
+*   **`OrganizationsController`:** Added a new `POST /api/organizations/provision` endpoint, protected by authentication, to expose the provisioning functionality. It retrieves the user ID from claims and handles `ServiceResult` responses.
+**Key Decisions:**
+*   The provisioning process is transactional to ensure data consistency (organization creation, user update, role assignment).
+*   Slugs are automatically generated and guaranteed unique, preventing conflicts.
+*   The endpoint is authenticated but does not require a specific role, allowing any newly registered user to provision their organization.
+**Outcome:** The backend is now ready to support the organization creation step of the SaaS onboarding wizard.
+
+## (2025-07-03) - Implemented SaaS User Registration and Email Confirmation
+**Context:** As the first step in building the SaaS onboarding flow, the backend needed to support a public, unauthenticated sign-up process with mandatory email verification.
+**Accomplishments:**
+*   **`IAccountService`:** Added a new `ConfirmEmailAsync` method to the interface.
+*   **`AccountService` Refactoring:**
+    *   Injected `IEmailService` to handle sending confirmation emails.
+    *   The `RegisterUserAsync` method was significantly updated to differentiate between a public SaaS sign-up and an admin-initiated user creation based on the `APP_MODE` environment variable and whether the API call is authenticated.
+    *   For public SaaS sign-ups, a `User` is now created with `EmailConfirmed = false` and a `null` `OrganizationId`.
+    *   After user creation, it generates an email confirmation token and sends a verification link to the user's email address.
+    *   The `LoginUserAsync` method was updated to prevent users from logging in if their email has not been confirmed.
+*   **`AccountsController`:** A new public, anonymous `GET /api/accounts/confirm-email` endpoint was added. This endpoint receives the `userId` and `token` from the confirmation link and calls the `ConfirmEmailAsync` service method to verify the user's email address.
+**Key Decisions:**
+*   The registration logic now clearly separates the public SaaS flow from the internal, admin-driven flow.
+*   Email confirmation is a mandatory step for all new public sign-ups, enhancing security and user data validity.
+*   The system is designed to be resilient; even if the confirmation email fails to send, the user account is still created and they can request a new link later.
+**Outcome:** The backend is now fully equipped to handle the initial phase of SaaS user onboarding, from registration to email verification.
+
+## (2025-07-03) - Implemented SaaS Mode Framework and Subscription Status Endpoint
+**Context:** To support the dual Open Core and SaaS model, a foundational framework was needed to differentiate behavior. This session focused on creating the local testing infrastructure and the initial API endpoints required for SaaS-specific features.
+**Accomplishments:**
+*   **Created `docker-compose.saas-local.yml`:** A new Docker Compose file was added to the `sagrafacile` repository. This file inherits from the standard `docker-compose.yml` but crucially adds the `APP_MODE: saas` environment variable to the API service, enabling local development and testing of SaaS features without affecting the default open-source setup.
+*   **Created `InstanceController`:** A new, unauthenticated API endpoint `GET /api/instance/info` was created. This endpoint returns the current application mode (`saas` or `opensource`), allowing the frontend to dynamically adjust its UI and features.
+*   **Exposed `SubscriptionStatus` via API:**
+    *   The `OrganizationDto` was updated to include the `SubscriptionStatus` field.
+    *   The `IOrganizationService` interface and `OrganizationService` implementation were updated to ensure that `GetAllOrganizationsAsync` and `GetOrganizationByIdAsync` correctly map and return the `SubscriptionStatus` in the `OrganizationDto`.
+    *   The `OrganizationsController`'s `GetOrganization` endpoint was updated to return the `OrganizationDto`, securely exposing the subscription status to authorized frontend components.
+**Key Decisions:**
+*   The use of a separate `docker-compose.saas-local.yml` file is a clean and explicit way to manage different development environments, fully aligning with the "Phase 1: Local SaaS Simulation" strategy.
+*   Exposing the instance mode via a dedicated endpoint provides a clear and secure mechanism for the frontend to adapt its behavior.
+*   Returning DTOs from the API endpoints, rather than full data models, is a security best practice that gives us precise control over what data is exposed.
+**Outcome:** The backend is now fully equipped with the foundational logic to support a dual-mode (Open Source vs. SaaS) operation. The frontend can now query the instance mode and retrieve subscription-related data for specific organizations.
+
 ## (2025-07-03) - Major Database Migration: OrganizationId from int to Guid
 **Context:** A critical and complex database migration was required to change the `OrganizationId` primary key from an `int` to a `Guid` across the entire database. This change was necessary to ensure globally unique identifiers for organizations, a prerequisite for future SaaS features. The task also included adding a new `SubscriptionStatus` field to the `Organization` table.
 **Accomplishments:**
@@ -151,6 +275,14 @@
 *   Made pagination truly optional on the backend, allowing clients to retrieve all items by omitting `page` and `pageSize`.
 *   Introduced status-based filtering for orders via the `Statuses` query parameter, enabling more granular control over fetched data.
 **Outcome:** The backend API is now more flexible for order retrieval, supporting both paginated and full-list fetches, and allowing filtering by order statuses.
+
+## (2025-07-07) - Fixed SaaS Onboarding Redirection & Token Refresh
+**Context:** Addressed a critical issue where newly provisioned SaaS users were not being redirected to their organization dashboard because the frontend's JWT token was not updated with the new `organizationId` claim.
+**Accomplishments:**
+*   **`AccountService.cs` (`RefreshTokenAsync`):** Confirmed that the backend's `RefreshTokenAsync` method correctly generates a new JWT token with the user's latest claims (including `organizationId`) from the database.
+**Key Decisions:**
+*   Leveraged the existing refresh token mechanism to ensure updated user claims are propagated to the frontend.
+**Outcome:** The backend is correctly providing updated tokens. The frontend changes (documented in `sagrafacile-webapp/ProjectMemory.md`) now correctly utilize this.
 
 ## (2025-06-20) - Resolved JWT Authentication Issues
 **Context:** After a fresh server deployment, users could log in, but subsequent API calls failed with `SecurityTokenSignatureKeyNotFoundException` (401 Unauthorized). This indicated a mismatch in JWT configuration between token generation and validation.

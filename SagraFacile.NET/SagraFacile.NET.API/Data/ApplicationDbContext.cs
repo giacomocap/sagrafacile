@@ -34,6 +34,7 @@ namespace SagraFacile.NET.API.Data
         public DbSet<AdAreaAssignment> AdAreaAssignments { get; set; }
         public DbSet<PrintJob> PrintJobs { get; set; }
         public DbSet<PrintTemplate> PrintTemplates { get; set; }
+        public DbSet<UserInvitation> UserInvitations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -430,6 +431,18 @@ namespace SagraFacile.NET.API.Data
                 .Property(pj => pj.Status)
                 .HasConversion<string>();
             // -- Print Job Configuration -- END
+
+            // -- User Invitation Configuration -- START
+            builder.Entity<UserInvitation>()
+                .HasOne(ui => ui.Organization)
+                .WithMany()
+                .HasForeignKey(ui => ui.OrganizationId)
+                .OnDelete(DeleteBehavior.Cascade); // If an organization is deleted, its invitations are also deleted.
+
+            builder.Entity<UserInvitation>()
+                .HasIndex(ui => ui.Token)
+                .IsUnique();
+            // -- User Invitation Configuration -- END
         }
     }
 }

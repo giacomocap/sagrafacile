@@ -51,6 +51,7 @@ import queueService from '@/services/queueService';
 import useMenuAndAreaLoader from '@/hooks/useMenuAndAreaLoader';
 import useAppCart from '@/hooks/useAppCart';
 import useOrderHandler from '@/hooks/useOrderHandler';
+import OperationalHeader from '@/components/shared/OperationalHeader';
 
 const CashierPage = () => {
     const params = useParams();
@@ -452,6 +453,13 @@ const CashierPage = () => {
 
     return (
         <>
+            <OperationalHeader
+                title="Cassa"
+                areaName={currentArea?.name}
+                orgId={orgId}
+                role="cashier"
+                compact={true}
+            />
             <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
                 <CashierMenuPanel
                     selectedArea={currentArea}
@@ -471,6 +479,20 @@ const CashierPage = () => {
                     orderedCategoryNames={orderedCategoryNames}
                     itemsGroupedByCategory={itemsGroupedByCategory}
                     onRequestChangeStation={handleRequestChangeStation}
+                    onScanPreOrderClick={() => setShowScanner(true)}
+                    onScanQrClick={() => {
+                        setScannedOrderIdForConfirmation(null);
+                        setShowScannerInDialog(true);
+                        setIsScanDialogOpen(true);
+                    }}
+                    isSubmittingOrder={isSubmittingOrder}
+                    isFetchingPreOrder={isFetchingPreOrder}
+                    areaSupportsQueue={currentArea?.enableQueueSystem}
+                    queueState={queueState}
+                    isLoadingQueueState={isLoadingQueueState}
+                    onCallNext={handleCallNext}
+                    onCallSpecific={handleCallSpecific}
+                    onRespeakLastCalled={handleRespeakLastCalled}
                 />
 
                 <CashierOrderPanel
@@ -490,7 +512,6 @@ const CashierPage = () => {
                     orderTotals={orderTotals}
                     onClearEntireOrder={handleClearOrder}
                     onOpenPaymentDialog={handlePayment}
-                    onScanPreOrderClick={() => setShowScanner(true)}
                     isSubmittingOrder={isSubmittingOrder}
                     isFetchingPreOrder={isFetchingPreOrder}
                     selectedCashierStationId={selectedCashierStationId}
@@ -498,17 +519,6 @@ const CashierPage = () => {
                     isLoadingCashierStations={isLoadingCashierStations}
                     cashierStationError={cashierStationError}
                     onSelectCashierStation={handleSelectCashierStation}
-                    areaSupportsQueue={currentArea?.enableQueueSystem}
-                    queueState={queueState}
-                    isLoadingQueueState={isLoadingQueueState}
-                    onCallNext={handleCallNext}
-                    onCallSpecific={handleCallSpecific}
-                    onRespeakLastCalled={handleRespeakLastCalled}
-                    onScanQrClick={() => {
-                        setScannedOrderIdForConfirmation(null);
-                        setShowScannerInDialog(true);
-                        setIsScanDialogOpen(true);
-                    }}
                 />
 
                 <Dialog open={isNoteDialogOpen} onOpenChange={closeNoteDialog}>

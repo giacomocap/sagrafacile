@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useInstance } from '@/contexts/InstanceContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AdminNavigationProps {
   currentOrgId: string;
@@ -12,6 +14,7 @@ interface AdminNavigationProps {
 
 export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationProps) {
   const pathname = usePathname();
+  const { instanceInfo, loading } = useInstance();
 
   const handleLinkClick = () => {
     if (onLinkClick) {
@@ -25,6 +28,20 @@ export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationPr
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-3 py-2 mt-2">
           Gestione
         </h3>
+        {loading ? (
+          <Skeleton className="w-full h-9" />
+        ) : (
+          instanceInfo?.mode === 'saas' && (
+            <Link href={`/app/org/${currentOrgId}/admin/subscription`} onClick={handleLinkClick}>
+              <Button
+                variant={pathname.includes('/admin/subscription') ? 'secondary' : 'ghost'}
+                className="w-full justify-start h-9 px-3 text-sm font-normal"
+              >
+                Sottoscrizione
+              </Button>
+            </Link>
+          )
+        )}
         <Link href={`/app/org/${currentOrgId}/admin/users`} onClick={handleLinkClick}>
           <Button 
             variant={pathname.includes('/admin/users') ? 'secondary' : 'ghost'} 
@@ -143,6 +160,14 @@ export function AdminNavigation({ currentOrgId, onLinkClick }: AdminNavigationPr
             className="w-full justify-start h-9 px-3 text-sm font-normal"
           >
             Pubblicità Display
+          </Button>
+        </Link>
+        <Link href={`/app/org/${currentOrgId}/admin/settings`} onClick={handleLinkClick}>
+          <Button 
+            variant={pathname.includes('/admin/settings') ? 'secondary' : 'ghost'} 
+            className="w-full justify-start h-9 px-3 text-sm font-normal"
+          >
+            Impostazioni
           </Button>
         </Link>
       </div>

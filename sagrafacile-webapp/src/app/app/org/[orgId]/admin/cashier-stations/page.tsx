@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '@/services/apiClient';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -54,6 +54,7 @@ const initialFormData: CashierStationFormData = {
 export default function CashierStationsPage() {
     // const { user: _user } = useAuth(); // Renamed to avoid conflict if 'user' is used elsewhere or to satisfy linter
     const params = useParams();
+    const router = useRouter();
     const orgId = params.orgId as string;
 
     const [areas, setAreas] = useState<AreaDto[]>([]);
@@ -195,17 +196,17 @@ export default function CashierStationsPage() {
             console.error('Errore nell\'aggiunta della postazione cassa:', err);
             const errorResponse = (err as { response?: { data?: { title?: string, errors?: Record<string, string[]> } } }).response?.data;
             let errorMsg = errorResponse?.title || 'Aggiunta postazione cassa fallita.';
-            
+
             if (errorResponse?.errors) {
                 const fieldErrors = Object.entries(errorResponse.errors)
                     .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
                     .join('\n');
-                
+
                 if (fieldErrors) {
                     errorMsg = `${errorMsg}\n${fieldErrors}`;
                 }
             }
-            
+
             setAddError(errorMsg);
             toast.error(errorMsg);
         }
@@ -260,17 +261,17 @@ export default function CashierStationsPage() {
             console.error('Errore nell\'aggiornamento della postazione cassa:', err);
             const errorResponse = (err as { response?: { data?: { title?: string, errors?: Record<string, string[]> } } }).response?.data;
             let errorMsg = errorResponse?.title || 'Aggiornamento postazione cassa fallito.';
-            
+
             if (errorResponse?.errors) {
                 const fieldErrors = Object.entries(errorResponse.errors)
                     .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
                     .join('\n');
-                
+
                 if (fieldErrors) {
                     errorMsg = `${errorMsg}\n${fieldErrors}`;
                 }
             }
-            
+
             setEditError(errorMsg);
             toast.error(errorMsg);
         }
@@ -378,7 +379,7 @@ export default function CashierStationsPage() {
                         checked={formData.isEnabled}
                         onCheckedChange={(checked) => handleChange('isEnabled', checked)}
                     />
-                     <span className="ml-2 text-sm text-muted-foreground">
+                    <span className="ml-2 text-sm text-muted-foreground">
                         La postazione cassa è attiva e utilizzabile.
                     </span>
                 </div>
@@ -426,29 +427,31 @@ export default function CashierStationsPage() {
                         <CardTitle>Elenco Postazioni Cassa</CardTitle>
                         <CardDescription>Visualizza e gestisci tutte le postazioni cassa nella tua organizzazione.</CardDescription>
                     </div>
-                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm" onClick={handleOpenAddDialog} disabled={areas.length === 0 || printers.length === 0 && !isLoadingAreas && !isLoadingPrinters}>
-                                Aggiungi Nuova Postazione
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
-                            <DialogHeader>
-                                <DialogTitle>Aggiungi Nuova Postazione Cassa</DialogTitle>
-                                <DialogDescription>Configura i dettagli per la nuova postazione.</DialogDescription>
-                            </DialogHeader>
-                            {renderFormFields(addFormData, handleAddFormChange)}
-                            {addError && (
-                                <div className="py-2 px-3 text-red-500 text-sm bg-red-50 border border-red-200 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">
-                                    {addError}
-                                </div>
-                            )}
-                            <DialogFooter>
-                                <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
-                                <Button type="submit" onClick={handleAddStation} disabled={!addFormData.name.trim() || !addFormData.areaId}>Salva Postazione</Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <div className="flex flex-col items-end gap-2">
+                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" onClick={handleOpenAddDialog} disabled={areas.length === 0 || printers.length === 0 && !isLoadingAreas && !isLoadingPrinters}>
+                                    Aggiungi Nuova Postazione
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md overflow-y-scroll max-h-screen">
+                                <DialogHeader>
+                                    <DialogTitle>Aggiungi Nuova Postazione Cassa</DialogTitle>
+                                    <DialogDescription>Configura i dettagli per la nuova postazione.</DialogDescription>
+                                </DialogHeader>
+                                {renderFormFields(addFormData, handleAddFormChange)}
+                                {addError && (
+                                    <div className="py-2 px-3 text-red-500 text-sm bg-red-50 border border-red-200 rounded whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                        {addError}
+                                    </div>
+                                )}
+                                <DialogFooter>
+                                    <DialogClose asChild><Button type="button" variant="outline">Annulla</Button></DialogClose>
+                                    <Button type="submit" onClick={handleAddStation} disabled={!addFormData.name.trim() || !addFormData.areaId}>Salva Postazione</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoadingStations ? (
@@ -505,7 +508,38 @@ export default function CashierStationsPage() {
                             </TableBody>
                         </Table>
                     ) : (
-                        <p>Nessuna postazione cassa trovata{selectedFilterAreaId !== 'all' ? ' per l\'area selezionata' : ' per questa organizzazione'}. {pageError}</p>
+                        <div className="text-center py-8">
+                            <p className="text-muted-foreground mb-4">
+                                Nessuna postazione cassa trovata{selectedFilterAreaId !== 'all' ? ' per l\'area selezionata' : ' per questa organizzazione'}.
+                            </p>
+                            {(areas.length === 0 || printers.length === 0) && !isLoadingAreas && !isLoadingPrinters && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm">
+                                    <p className="font-medium text-yellow-800 mb-2">Configurazione richiesta</p>
+                                    <p className="text-yellow-700 mb-3">
+                                        {areas.length === 0 && printers.length === 0 ? (
+                                            <>Prima di poter creare postazioni cassa, devi configurare almeno un'<strong>area</strong> e una <strong>stampante</strong>.</>
+                                        ) : areas.length === 0 ? (
+                                            <>Prima di poter creare postazioni cassa, devi configurare almeno un'<strong>area</strong>.</>
+                                        ) : (
+                                            <>Prima di poter creare postazioni cassa, devi configurare almeno una <strong>stampante</strong>.</>
+                                        )}
+                                    </p>
+                                    <div className="flex gap-2 justify-center">
+                                        {areas.length === 0 && (
+                                            <Button variant="outline" size="sm" onClick={() => router.push(`/app/org/${orgId}/admin/areas`)}>
+                                                Configura Aree
+                                            </Button>
+                                        )}
+                                        {printers.length === 0 && (
+                                            <Button variant="outline" size="sm" onClick={() => router.push(`/app/org/${orgId}/admin/printers`)}>
+                                                Configura Stampanti
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            {pageError && <p className="text-red-500 mt-2">{pageError}</p>}
+                        </div>
                     )}
                 </CardContent>
             </Card>

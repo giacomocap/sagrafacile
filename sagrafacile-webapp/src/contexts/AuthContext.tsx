@@ -37,6 +37,7 @@ interface AuthContextType {
   login: (tokenResponse: TokenResponseDto) => void;
   logout: () => void;
   setTokens: (accessToken: string, refreshToken: string | null) => void; // For token refresh
+  refreshUser: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -139,8 +140,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     processAndSetToken(newAccessToken, newRefreshToken);
   };
 
+  const refreshUser = async () => {
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    if (storedRefreshToken) {
+      try {
+        // Import apiClient dynamically to avoid circular dependency
+        const { default: apiClient } = await import('@/services/apiClient');
+        
+        const response = await apiClient.post('/accounts/refresh-token', {
+          refreshToken: storedRefreshToken
+        });
+
+        const tokenResponse = response.data;
+        if (tokenResponse && tokenResponse.accessToken) {
+          // Update tokens and user info with the new token that contains updated claims
+          processAndSetToken(tokenResponse.accessToken, tokenResponse.refreshToken);
+        }
+      } catch (error) {
+        console.error('Failed to refresh user token:', error);
+        // If refresh fails, clear tokens and force re-login
+        logout();
+      }
+    } else {
+      // No refresh token available, just re-decode the existing access token
+      const storedAccessToken = localStorage.getItem('authToken');
+      if (storedAccessToken) {
+        processAndSetToken(storedAccessToken);
+      }
+    }
+  }
+
   // Provide the context value to children
-  const value = { user, accessToken, refreshToken, isLoading, login, logout, setTokens };
+  const value = { user, accessToken, refreshToken, isLoading, login, logout, setTokens, refreshUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

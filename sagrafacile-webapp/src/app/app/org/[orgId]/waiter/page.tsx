@@ -25,19 +25,19 @@ export default function SelectWaiterAreaPage() {
 
   useEffect(() => {
     if (isAuthLoading) {
-      return; 
+      return;
     }
     if (!user) {
       router.replace('/app/login');
       return;
     }
     // Add role checks if necessary, e.g., for 'Waiter' or 'Admin'
-    // const canAccessWaiter = user.roles?.some(role => ['waiter', 'admin', 'orgadmin', 'superadmin'].includes(role.toLowerCase()));
-    // if (!canAccessWaiter) {
-    //   console.warn("SelectWaiterAreaPage: User does not have permission. Redirecting.");
-    //   router.replace(`/app/org/${orgId}`); // Or to a "not authorized" page
-    //   return;
-    // }
+    const canAccessWaiter = user.roles?.some(role => ['waiter', 'admin', 'superadmin'].includes(role.toLowerCase()));
+    if (!canAccessWaiter) {
+      console.warn("SelectWaiterAreaPage: User does not have permission. Redirecting.");
+      router.replace(`/app/org/${orgId}`); // Or to a "not authorized" page
+      return;
+    }
   }, [user, isAuthLoading, orgId, router]);
 
   if (isAuthLoading) {

@@ -12,10 +12,13 @@ import NoDayOpenOverlay from '@/components/NoDayOpenOverlay';
 import { useParams } from 'next/navigation';
 import OrderQrScanner from '@/components/shared/OrderQrScanner';
 import OrderConfirmationView from '@/components/shared/OrderConfirmationView';
+import OperationalHeader from '@/components/shared/OperationalHeader';
+import useMenuAndAreaLoader from '@/hooks/useMenuAndAreaLoader';
 
 const WaiterPage = () => {
     const params = useParams();
     const areaId = params.areaId as string;
+    const orgId = params.orgId as string;
     const [showScanner, setShowScanner] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'tabs' | 'confirm'>('tabs');
@@ -26,6 +29,9 @@ const WaiterPage = () => {
     const [isLoadingActive, setIsLoadingActive] = useState(true);
     const [errorPending, setErrorPending] = useState<string | null>(null);
     const [errorActive, setErrorActive] = useState<string | null>(null);
+
+    // Get area information for the header
+    const { currentArea } = useMenuAndAreaLoader();
 
     const fetchOrders = useCallback(async () => {
         if (!areaId) return;
@@ -179,10 +185,16 @@ const WaiterPage = () => {
 
     return (
         <NoDayOpenOverlay>
-            <div className="container mx-auto p-4 flex flex-col space-y-4 h-full">
-                <h1 className="text-2xl font-bold text-center">Interfaccia Cameriere</h1>
+            <div className="flex flex-col h-full">
+                <OperationalHeader
+                    title="Interfaccia Cameriere"
+                    areaName={currentArea?.name}
+                    orgId={orgId}
+                    role="waiter"
+                />
                 
-                <Tabs defaultValue="scan" className="w-full max-w-lg mx-auto">
+                <div className="container mx-auto p-4 flex flex-col space-y-4 flex-1">
+                    <Tabs defaultValue="scan" className="w-full max-w-lg mx-auto">
                     <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 h-auto sm:h-10">
                         <TabsTrigger value="scan" className="py-2 sm:py-1">
                             <ScanLine className="mr-1 h-4 w-4" /> Scansiona
@@ -225,6 +237,7 @@ const WaiterPage = () => {
                         />
                     </TabsContent>
                 </Tabs>
+                </div>
             </div>
         </NoDayOpenOverlay>
     );

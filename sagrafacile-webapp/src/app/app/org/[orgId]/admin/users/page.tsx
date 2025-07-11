@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import apiClient from '@/services/apiClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext'; // Importa useOrganization
+import { useInstance } from '@/contexts/InstanceContext';
+import { invitationService } from '@/services/invitationService';
 import { Button } from '@/components/ui/button';
 import {
     Table,
@@ -38,7 +40,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from "@/components/ui/checkbox"; // Aggiunto per i ruoli
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Per gli errori
-import { AlertCircle, Edit, Trash2, Users as UsersIcon, Loader2 } from "lucide-react"; // Icona per alert di errore, pulsanti Modifica, Elimina e Ruoli, Loader
+import { AlertCircle, Edit, Trash2, Users as UsersIcon, Loader2, Mail } from "lucide-react"; // Icona per alert di errore, pulsanti Modifica, Elimina e Ruoli, Loader
+import PendingInvitationsSection from '@/components/admin/PendingInvitationsSection';
 
 // Definisce la struttura di un oggetto User basato su UserDto
 interface User {
@@ -88,6 +91,7 @@ export default function UserManagementPage() {
     const { isLoading: isAuthLoading } = useAuth(); // Ottiene lo stato di caricamento dell'autenticazione, utente rimosso
     // Usa il contesto dell'organizzazione
     const { selectedOrganizationId, isSuperAdminContext, isLoadingOrgs } = useOrganization(); // Ottiene lo stato di caricamento dell'organizzazione
+    const { instanceInfo, loading: instanceLoading } = useInstance();
     const [users, setUsers] = useState<User[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true); // Stato rinominato per chiarezza
     const [error, setError] = useState<string | null>(null);
@@ -116,6 +120,13 @@ export default function UserManagementPage() {
     const [selectedRoles, setSelectedRoles] = useState<Record<string, boolean>>({}); // { nomeRuolo: true/false }
     const [isManagingRoles, setIsManagingRoles] = useState(false);
     const [rolesError, setRolesError] = useState<string | null>(null);
+
+    // Stato per l'Invito Utente (solo SaaS)
+    const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState('');
+    const [inviteRoles, setInviteRoles] = useState<Record<string, boolean>>({});
+    const [isInviting, setIsInviting] = useState(false);
+    const [inviteError, setInviteError] = useState<string | null>(null);
 
 
     const fetchUsers = useCallback(async () => {
@@ -326,20 +337,145 @@ export default function UserManagementPage() {
         }
     };
 
+    // Gestione Invito Utente (solo SaaS)
+    const openInviteDialog = () => {
+        setInviteEmail('');
+        setInviteRoles({});
+        setInviteError(null);
+        setIsInviteDialogOpen(true);
+    };
+
+    const handleInviteRoleCheckboxChange = (roleName: string, checked: boolean) => {
+        setInviteRoles(prev => ({ ...prev, [roleName]: checked }));
+    };
+
+    const handleInviteSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setInviteError(null);
+
+        if (!inviteEmail) {
+            setInviteError("L'email è obbligatoria.");
+            return;
+        }
+
+        const selectedRolesList = Object.entries(inviteRoles)
+            .filter(([, isSelected]) => isSelected)
+            .map(([roleName]) => roleName);
+
+        if (selectedRolesList.length === 0) {
+            setInviteError("Seleziona almeno un ruolo.");
+            return;
+        }
+
+        setIsInviting(true);
+
+        try {
+            const result = await invitationService.inviteUser({
+                email: inviteEmail,
+                roles: selectedRolesList,
+            });
+            
+            setIsInviteDialogOpen(false);
+            
+            // Check if this was a user restoration vs. new invitation
+            if (result.data?.Action === "UserRestored") {
+                // User was restored from soft-deletion, refresh the user list
+                await fetchUsers();
+                // You could also show a success toast here if you have a toast system
+                console.log("User restored successfully:", result.data.Message);
+            } else {
+                // Normal invitation sent, no need to refresh user list
+                console.log("Invitation sent successfully");
+            }
+        } catch (err: unknown) {
+            console.error("Invito fallito:", err);
+            const error = err as { response?: { data?: { message?: string } }, message?: string };
+            setInviteError(error.response?.data?.message || error.message || 'Invito fallito.');
+        } finally {
+            setIsInviting(false);
+        }
+    };
+
     // Renderizza un loader se i dati essenziali non sono ancora pronti
-    if (isAuthLoading || isLoadingOrgs) {
+    if (isAuthLoading || isLoadingOrgs || instanceLoading) {
         return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Caricamento...</span></div>;
     }
+
+    const isSaaSMode = instanceInfo?.mode === 'saas';
 
     return (
         <div className="container mx-auto p-4">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Gestione Utenti</h1>
-                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button onClick={() => setRegisterError(null)}>Aggiungi Utente</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
+                <div className="flex gap-2">
+                    {isSaaSMode && (
+                        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" onClick={openInviteDialog}>
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Invita Utente
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
+                                <DialogHeader>
+                                    <DialogTitle>Invita Nuovo Utente</DialogTitle>
+                                    <DialogDescription>
+                                        Invia un invito via email. L'utente riceverà un link per completare la registrazione.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={handleInviteSubmit}>
+                                    <div className="grid gap-4 py-4">
+                                        {inviteError && (
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Errore di Invito</AlertTitle>
+                                                <AlertDescription>{inviteError}</AlertDescription>
+                                            </Alert>
+                                        )}
+                                        <div className="grid grid-cols-4 items-center gap-4">
+                                            <Label htmlFor="inviteEmail" className="text-right">Email</Label>
+                                            <Input 
+                                                id="inviteEmail" 
+                                                type="email" 
+                                                value={inviteEmail} 
+                                                onChange={(e) => setInviteEmail(e.target.value)} 
+                                                className="col-span-3" 
+                                                required 
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-4 items-start gap-4">
+                                            <Label className="text-right pt-2">Ruoli</Label>
+                                            <div className="col-span-3 space-y-2">
+                                                {availableRoles.map(role => (
+                                                    <div key={role} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`invite-role-${role}`}
+                                                            checked={inviteRoles[role] || false}
+                                                            onCheckedChange={(checked) => handleInviteRoleCheckboxChange(role, checked as boolean)}
+                                                        />
+                                                        <Label htmlFor={`invite-role-${role}`} className="font-normal">{role}</Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <DialogClose asChild>
+                                            <Button type="button" variant="secondary" onClick={() => setIsInviteDialogOpen(false)}>Annulla</Button>
+                                        </DialogClose>
+                                        <Button type="submit" disabled={isInviting}>
+                                            {isInviting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Invio...</> : "Invia Invito"}
+                                        </Button>
+                                    </DialogFooter>
+                                </form>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button onClick={() => setRegisterError(null)}>Aggiungi Utente</Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px] overflow-y-scroll max-h-screen">
                         <DialogHeader>
                             <DialogTitle>Aggiungi Nuovo Utente</DialogTitle>
                             <DialogDescription>
@@ -387,6 +523,7 @@ export default function UserManagementPage() {
                         </form>
                     </DialogContent>
                 </Dialog>
+                </div>
             </div>
 
             {error && (
@@ -562,6 +699,9 @@ export default function UserManagementPage() {
                     </DialogContent>
                 </Dialog>
             )}
+
+            {/* Pending Invitations Section - Only show in SaaS mode */}
+            {isSaaSMode && <PendingInvitationsSection />}
         </div>
     );
 }

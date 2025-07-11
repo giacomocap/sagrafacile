@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore; // Added for ToListAsync, AnyAsync
 using SagraFacile.NET.API.Data; // Added for ApplicationDbContext
 using System.Security.Cryptography; // Added for RandomNumberGenerator
 using Microsoft.Extensions.Logging; // Added for ILogger
+using System.Web;
+using Microsoft.AspNetCore.WebUtilities; // Added for WebEncoders
+using SagraFacile.NET.API.Models.Results;
 
 namespace SagraFacile.NET.API.Services;
 
@@ -22,6 +25,7 @@ public class AccountService : BaseService, IAccountService
     private readonly IConfiguration _configuration;
     private readonly ApplicationDbContext _context; // Inject DbContext
     private readonly ILogger<AccountService> _logger; // Inject ILogger
+    private readonly IEmailService _emailService;
     // IHttpContextAccessor is now inherited from BaseService
 
     public AccountService(
@@ -31,7 +35,8 @@ public class AccountService : BaseService, IAccountService
         IConfiguration configuration,
         IHttpContextAccessor httpContextAccessor, // Inject accessor for base class
         ApplicationDbContext context, // Inject DbContext
-        ILogger<AccountService> logger) // Inject ILogger
+        ILogger<AccountService> logger, // Inject ILogger
+        IEmailService emailService)
         : base(httpContextAccessor) // Call base constructor
     {
         _userManager = userManager;
@@ -40,6 +45,7 @@ public class AccountService : BaseService, IAccountService
         _configuration = configuration;
         _context = context; // Assign DbContext
         _logger = logger; // Assign ILogger
+        _emailService = emailService;
     }
 
     // GetUserContext helper is now inherited from BaseService
@@ -48,93 +54,127 @@ public class AccountService : BaseService, IAccountService
     {
         _logger.LogInformation("Attempting to register user with email {Email}.", registerDto.Email);
 
-        // Get the context of the user making the request
-        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+        var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
+        var isSaaSMode = appMode == "saas";
+        var isApiCallAuthenticated = _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false; // Check if the call is from an already logged-in user
 
-        Guid? organizationIdToAssign; // Now nullable, must be determined
+        // Check for pending invitations before allowing public sign-up
+        var pendingInvitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Email == registerDto.Email && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
 
-        if (isCallerSuperAdmin)
+        if (pendingInvitation != null)
         {
-            _logger.LogDebug("Caller is SuperAdmin. Checking for OrganizationId in DTO.");
-            // SuperAdmin MUST provide OrganizationId in the DTO
-            if (!registerDto.OrganizationId.HasValue)
+            _logger.LogWarning("Registration blocked for {Email} due to a pending invitation.", registerDto.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "An invitation has already been sent to this email address. Please use the link in the invitation email to register." } } };
+        }
+
+        // SaaS Public Sign-up Flow
+        if (isSaaSMode && !isApiCallAuthenticated)
+        {
+            _logger.LogInformation("Executing SaaS public sign-up flow for {Email}.", registerDto.Email);
+            var user = new User
             {
-                _logger.LogWarning("SuperAdmin registration failed: OrganizationId not provided in DTO.");
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId when registering a user." } } };
-            }
-            organizationIdToAssign = registerDto.OrganizationId.Value;
-            _logger.LogDebug("User will be assigned to OrganizationId: {OrganizationId}.", organizationIdToAssign);
-        }
-        else
-        {
-            _logger.LogDebug("Caller is not SuperAdmin. Assigning user to caller's organization.");
-            // Admin registers users within their own organization
-            if (!callerOrganizationId.HasValue)
+                UserName = registerDto.Email,
+                Email = registerDto.Email,
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                OrganizationId = null, // No organization assigned on initial sign-up
+                EmailConfirmed = false // Requires email confirmation
+            };
+
+            var identityResult = await _userManager.CreateAsync(user, registerDto.Password);
+            if (!identityResult.Succeeded)
             {
-                _logger.LogError("Registering user context is missing OrganizationId for non-SuperAdmin caller.");
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Registering user context is missing OrganizationId." } } };
+                _logger.LogWarning("SaaS user creation failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
             }
-            organizationIdToAssign = callerOrganizationId.Value;
-            _logger.LogDebug("User will be assigned to caller's OrganizationId: {OrganizationId}.", organizationIdToAssign);
 
-            // Optional: Double-check if Admin tries to specify a different OrgId in DTO (should ideally be ignored or error)
-            if (registerDto.OrganizationId.HasValue && registerDto.OrganizationId.Value != organizationIdToAssign)
+            _logger.LogInformation("SaaS user {Email} created successfully with ID {UserId}. Generating confirmation token.", user.Email, user.Id);
+
+            // Send confirmation email
+            try
             {
-                _logger.LogWarning("OrgAdmin attempted to assign user to a different organization ({AttemptedOrgId}) than their own ({CallerOrgId}).", registerDto.OrganizationId.Value, organizationIdToAssign);
-                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "OrgAdmins cannot assign users to a different organization." } } };
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var tokenBytes = Encoding.UTF8.GetBytes(token);
+                var urlSafeToken = WebEncoders.Base64UrlEncode(tokenBytes); // Generate a URL-safe token
+
+                var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+                var confirmationLink = $"{frontendBaseUrl}/conferma-email?userId={user.Id}&token={urlSafeToken}";
+
+                await _emailService.SendEmailAsync(
+                    user.Email,
+                    "Conferma la tua registrazione a SagraFacile",
+                    $"<h1>Benvenuto in SagraFacile!</h1><p>Per favore, conferma il tuo indirizzo email cliccando sul seguente link: <a href='{confirmationLink}'>Conferma Email</a></p>"
+                );
+                _logger.LogInformation("Email confirmation link sent to {Email}.", user.Email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send confirmation email to {Email}. The user was created but needs to confirm their email manually.", registerDto.Email);
+                // Even if email fails, the user is created. They can request a new confirmation link later.
+                // We still return a success message to the user, but with a note about the email.
+                return new AccountResult { Succeeded = true, Data = new { UserId = user.Id, Message = "Registration successful. Please check your email to confirm your account. If you don't receive an email, please contact support." } };
+            }
+
+            return new AccountResult { Succeeded = true, Data = new { UserId = user.Id, Message = "Registration successful. Please check your email to confirm your account." } };
+        }
+        else // This is the Admin-initiated Registration Flow (for both Self-Hosted and SaaS)
+        {
+            _logger.LogInformation("Executing admin-initiated registration flow for {Email}.", registerDto.Email);
+            var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext(); // Get user context here
+            Guid? organizationIdToAssign;
+
+            if (isCallerSuperAdmin)
+            {
+                if (!registerDto.OrganizationId.HasValue)
+                {
+                    return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "SuperAdmin must specify an OrganizationId." } } };
+                }
+                organizationIdToAssign = registerDto.OrganizationId.Value;
+            }
+            else
+            {
+                if (!callerOrganizationId.HasValue)
+                {
+                    return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Admin user context is missing OrganizationId." } } };
+                }
+                organizationIdToAssign = callerOrganizationId.Value;
+            }
+
+            var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
+            if (!organizationExists)
+            {
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
+            }
+
+            var adminCreatedUser = new User
+            {
+                UserName = registerDto.Email,
+                Email = registerDto.Email,
+                FirstName = registerDto.FirstName,
+                LastName = registerDto.LastName,
+                OrganizationId = organizationIdToAssign.Value,
+                EmailConfirmed = true // Admin-created users are confirmed by default
+            };
+
+            var adminCreateResult = await _userManager.CreateAsync(adminCreatedUser, registerDto.Password);
+            if (adminCreateResult.Succeeded)
+            {
+                _logger.LogInformation("Admin-created user {Email} registered successfully in organization {OrganizationId}.", adminCreatedUser.Email, adminCreatedUser.OrganizationId);
+                return new AccountResult { Succeeded = true, Data = new { UserId = adminCreatedUser.Id } };
+            }
+            else
+            {
+                _logger.LogWarning("Admin-initiated registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", adminCreateResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = adminCreateResult.Errors };
             }
         }
-
-        // Validate that the determined OrganizationId actually exists
-        // If organizationIdToAssign is null (SuperAdmin didn't provide it), this check should fail.
-        if (!organizationIdToAssign.HasValue)
-        {
-            _logger.LogWarning("Organization ID to assign is null. This should have been caught earlier for SuperAdmin, or indicates a logic error for OrgAdmin.");
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Organization ID to assign is missing." } } };
-        }
-
-        _logger.LogDebug("Checking if OrganizationId {OrganizationId} exists.", organizationIdToAssign.Value);
-        var organizationExists = await _context.Organizations.AnyAsync(o => o.Id == organizationIdToAssign.Value);
-        if (!organizationExists)
-        {
-            _logger.LogWarning("Organization with ID {OrganizationId} not found during user registration.", organizationIdToAssign.Value);
-            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = $"Organization with ID {organizationIdToAssign.Value} not found." } } };
-        }
-
-        // Proceed with user creation
-        var user = new User
-        {
-            UserName = registerDto.Email, // Use Email as UserName
-            Email = registerDto.Email,
-            FirstName = registerDto.FirstName,
-            LastName = registerDto.LastName,
-            OrganizationId = organizationIdToAssign.Value, // Assign the validated OrganizationId
-            EmailConfirmed = true // Consider email confirmation flow
-        };
-
-        _logger.LogInformation("Creating user {Email} in organization {OrganizationId}.", user.Email, user.OrganizationId);
-        var identityResult = await _userManager.CreateAsync(user, registerDto.Password);
-
-        if (identityResult.Succeeded)
-        {
-            _logger.LogInformation("User {Email} registered successfully with ID {UserId}.", user.Email, user.Id);
-            // Optional: Assign default role
-            // await _userManager.AddToRoleAsync(user, "DefaultRole");
-
-            return new AccountResult { Succeeded = true, Data = new { UserId = user.Id } }; // Return basic info
-        }
-        else
-        {
-            _logger.LogWarning("User registration failed for {Email}. Errors: {Errors}", registerDto.Email, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
-        }
-    }
+    } // Close the else block for admin-initiated flow
 
     public async Task<LoginResult> LoginUserAsync(LoginDto loginDto)
     {
         _logger.LogInformation("Attempting login for user with email {Email}.", loginDto.Email);
 
-        // 1. Find the user by email first
         var user = await _userManager.FindByEmailAsync(loginDto.Email);
         if (user == null)
         {
@@ -142,29 +182,24 @@ public class AccountService : BaseService, IAccountService
             return new LoginResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid login attempt." } } };
         }
 
-        // 2. Check password using CheckPasswordSignInAsync
-        _logger.LogDebug("Checking password for user {UserId}.", user.Id);
-        var result = await _signInManager.CheckPasswordSignInAsync(
-            user,
-            loginDto.Password,
-            lockoutOnFailure: true); // Enable lockout for security
+        // Check if email is confirmed before checking password
+        if (!user.EmailConfirmed)
+        {
+            _logger.LogWarning("Login failed for {Email}: Email not confirmed.", loginDto.Email);
+            return new LoginResult { Succeeded = false, IsNotAllowed = true, Errors = new List<IdentityError> { new IdentityError { Description = "Email not confirmed. Please check your inbox for the confirmation link." } } };
+        }
+
+        var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, lockoutOnFailure: true);
 
         if (result.Succeeded)
         {
             _logger.LogInformation("User {Email} logged in successfully. Generating tokens.", loginDto.Email);
-            // Password is correct, proceed to generate token
             var tokenResponse = await GenerateAndSaveTokens(user);
-
-            return new LoginResult
-            {
-                Succeeded = true,
-                Data = tokenResponse // Return TokenResponseDto
-            };
+            return new LoginResult { Succeeded = true, Data = tokenResponse };
         }
         else
         {
-            // Password check failed, provide feedback based on SignInResult
-            string errorDescription = "Invalid login attempt."; // Default message
+            string errorDescription = "Invalid login attempt.";
             if (result.IsLockedOut)
             {
                 errorDescription = "Account locked out.";
@@ -172,13 +207,9 @@ public class AccountService : BaseService, IAccountService
             }
             else if (result.IsNotAllowed)
             {
+                // This case might be redundant now due to the explicit check above, but kept for completeness
                 errorDescription = "Login not allowed.";
-                _logger.LogWarning("Login failed for {Email}: Login not allowed.", loginDto.Email);
-            }
-            else if (result.RequiresTwoFactor)
-            {
-                errorDescription = "Two-factor authentication required.";
-                _logger.LogWarning("Login failed for {Email}: Two-factor authentication required.", loginDto.Email);
+                _logger.LogWarning("Login failed for {Email}: Login not allowed (by SignInManager).", loginDto.Email);
             }
             else
             {
@@ -193,6 +224,46 @@ public class AccountService : BaseService, IAccountService
                 RequiresTwoFactor = result.RequiresTwoFactor,
                 Errors = new List<IdentityError> { new IdentityError { Description = errorDescription } }
             };
+        }
+    }
+
+    public async Task<AccountResult> ConfirmEmailAsync(string userId, string token)
+    {
+        _logger.LogInformation("Attempting to confirm email for user {UserId}.", userId);
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(token))
+        {
+            _logger.LogWarning("Email confirmation failed: UserId or token is missing.");
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User ID and token must be provided." } } };
+        }
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+        {
+            _logger.LogWarning("Email confirmation failed: User with ID {UserId} not found.", userId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User not found." } } };
+        }
+
+        try
+        {
+            var decodedTokenBytes = WebEncoders.Base64UrlDecode(token);
+            var originalToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
+            var result = await _userManager.ConfirmEmailAsync(user, originalToken);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Email confirmed successfully for user {UserId}.", userId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogWarning("Email confirmation failed for user {UserId}. Errors: {Errors}", userId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = result.Errors };
+            }
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogError(ex, "Failed to decode Base64Url token for user {UserId}.", userId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid token format." } } };
         }
     }
 
@@ -463,20 +534,49 @@ public class AccountService : BaseService, IAccountService
         {
             _logger.LogDebug("Caller is SuperAdmin. Access granted for deleting user {UserId}.", userId);
         }
-
-        // Perform deletion
-        _logger.LogInformation("Deleting user {UserId}.", userId);
-        var identityResult = await _userManager.DeleteAsync(user);
-
-        if (identityResult.Succeeded)
+        var appMode = _configuration["APP_MODE"] ?? _configuration["AppSettings:AppMode"];
+        var isSaaSMode = appMode == "saas";
+        if (isSaaSMode)
         {
-            _logger.LogInformation("User {UserId} deleted successfully.", userId);
-            return new AccountResult { Succeeded = true };
+            // Perform soft deletion for SaaS mode
+            _logger.LogInformation("SaaS Mode: Soft-deleting user {UserId}.", userId);
+
+            user.Status = UserStatus.PendingDeletion;
+            user.DeletionScheduledAt = DateTime.UtcNow.AddDays(30); // 30-day grace period for anonymization
+            user.RefreshToken = null; // Invalidate refresh token
+            user.RefreshTokenExpiryTime = null;
+            user.EmailConfirmed = false; // Prevent login
+            user.LockoutEnd = DateTimeOffset.MaxValue; // Lock the account permanently
+
+            var softDeleteResult = await _userManager.UpdateAsync(user);
+
+            if (softDeleteResult.Succeeded)
+            {
+                _logger.LogInformation("User {UserId} soft-deleted successfully. Anonymization scheduled for {DeletionDate}.", userId, user.DeletionScheduledAt);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogError("Failed to soft-delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", softDeleteResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = softDeleteResult.Errors };
+            }
         }
         else
         {
-            _logger.LogError("Failed to delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", identityResult.Errors.Select(e => e.Description)));
-            return new AccountResult { Succeeded = false, Errors = identityResult.Errors };
+            // Perform hard deletion for self-hosted mode
+            _logger.LogInformation("Self-Hosted Mode: Hard-deleting user {UserId}.", userId);
+            var hardDeleteResult = await _userManager.DeleteAsync(user);
+
+            if (hardDeleteResult.Succeeded)
+            {
+                _logger.LogInformation("User {UserId} hard-deleted successfully.", userId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogError("Failed to hard-delete user {UserId}. Errors: {Errors}", userId, string.Join(", ", hardDeleteResult.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = hardDeleteResult.Errors };
+            }
         }
     }
 
@@ -617,5 +717,312 @@ public class AccountService : BaseService, IAccountService
         var randomNumber = new byte[64];
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
+    }
+
+    public async Task<AccountResult> ForgotPasswordAsync(ForgotPasswordDto forgotPasswordDto)
+    {
+        _logger.LogInformation("Password reset requested for email {Email}.", forgotPasswordDto.Email);
+        var user = await _userManager.FindByEmailAsync(forgotPasswordDto.Email);
+        if (user == null)
+        {
+            // Don't reveal that the user does not exist.
+            _logger.LogWarning("Password reset request for non-existent email {Email}.", forgotPasswordDto.Email);
+            return new AccountResult { Succeeded = true };
+        }
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var tokenBytes = Encoding.UTF8.GetBytes(token);
+        var urlSafeToken = WebEncoders.Base64UrlEncode(tokenBytes);
+
+        var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+        var resetLink = $"{frontendBaseUrl}/reset-password?userId={user.Id}&token={urlSafeToken}";
+
+        try
+        {
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Reset della tua password per SagraFacile",
+                $"<h1>Reset Password</h1><p>Per resettare la tua password, clicca sul seguente link: <a href='{resetLink}'>Reset Password</a></p><p>Se non hai richiesto tu il reset, ignora questa email.</p>"
+            );
+            _logger.LogInformation("Password reset link sent to {Email}.", user.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send password reset email to {Email}.", user.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Could not send reset email. Please try again later." } } };
+        }
+
+        return new AccountResult { Succeeded = true };
+    }
+
+    public async Task<AccountResult> ResetPasswordAsync(ResetPasswordDto resetPasswordDto)
+    {
+        _logger.LogInformation("Attempting to reset password for user {UserId}.", resetPasswordDto.UserId);
+        var user = await _userManager.FindByIdAsync(resetPasswordDto.UserId);
+        if (user == null)
+        {
+            // Don't reveal that the user does not exist
+            _logger.LogWarning("Password reset attempt for non-existent user ID {UserId}.", resetPasswordDto.UserId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid password reset request." } } };
+        }
+
+        try
+        {
+            var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDto.Token);
+            var originalToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
+            var result = await _userManager.ResetPasswordAsync(user, originalToken, resetPasswordDto.Password);
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Password for user {UserId} has been reset successfully.", resetPasswordDto.UserId);
+                return new AccountResult { Succeeded = true };
+            }
+            else
+            {
+                _logger.LogWarning("Password reset failed for user {UserId}. Errors: {Errors}", resetPasswordDto.UserId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                return new AccountResult { Succeeded = false, Errors = result.Errors };
+            }
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogError(ex, "Failed to decode Base64Url password reset token for user {UserId}.", resetPasswordDto.UserId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid token format." } } };
+        }
+    }
+
+    public async Task<AccountResult> InviteUserAsync(UserInvitationRequestDto invitationRequestDto)
+    {
+        _logger.LogInformation("Attempting to invite user with email {Email}.", invitationRequestDto.Email);
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+        if (!callerOrganizationId.HasValue)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User context is missing OrganizationId." } } };
+        }
+
+        var existingUser = await _userManager.FindByEmailAsync(invitationRequestDto.Email);
+        if (existingUser != null)
+        {
+            // Smart re-invitation: Check if this is a soft-deleted user that can be restored
+            if (existingUser.Status == UserStatus.PendingDeletion && 
+                existingUser.OrganizationId == callerOrganizationId.Value)
+            {
+                _logger.LogInformation("Found soft-deleted user {UserId} with email {Email}. Attempting to restore user instead of creating invitation.", existingUser.Id, invitationRequestDto.Email);
+                
+                // Restore the soft-deleted user
+                existingUser.Status = UserStatus.Active;
+                existingUser.DeletionScheduledAt = null;
+                existingUser.EmailConfirmed = true;
+                existingUser.LockoutEnd = null; // Remove lockout
+                existingUser.RefreshToken = null; // Clear old refresh token for security
+                existingUser.RefreshTokenExpiryTime = null;
+
+                // Update roles to match the invitation request
+                var currentRoles = await _userManager.GetRolesAsync(existingUser);
+                var rolesToAdd = invitationRequestDto.Roles.Except(currentRoles).ToList();
+                var rolesToRemove = currentRoles.Except(invitationRequestDto.Roles).ToList();
+
+                if (rolesToAdd.Any())
+                {
+                    await _userManager.AddToRolesAsync(existingUser, rolesToAdd);
+                }
+
+                if (rolesToRemove.Any())
+                {
+                    await _userManager.RemoveFromRolesAsync(existingUser, rolesToRemove);
+                }
+
+                var restoreResult = await _userManager.UpdateAsync(existingUser);
+                if (restoreResult.Succeeded)
+                {
+                    _logger.LogInformation("User {UserId} with email {Email} has been successfully restored from soft-deletion.", existingUser.Id, invitationRequestDto.Email);
+                    
+                    // Send restoration notification email
+                    try
+                    {
+                        await _emailService.SendEmailAsync(
+                            existingUser.Email,
+                            "Il tuo account SagraFacile è stato ripristinato",
+                            $"<h1>Account Ripristinato</h1><p>Il tuo account SagraFacile è stato ripristinato e puoi nuovamente accedere al sistema. I tuoi ruoli sono stati aggiornati come richiesto dall'amministratore.</p><p>Puoi accedere utilizzando la tua password esistente.</p>"
+                        );
+                        _logger.LogInformation("Restoration notification email sent to {Email}.", existingUser.Email);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send restoration notification email to {Email}. User was restored successfully.", existingUser.Email);
+                    }
+
+                    return new AccountResult { 
+                        Succeeded = true, 
+                        Data = new { 
+                            UserId = existingUser.Id, 
+                            Message = "User account has been restored from deletion and roles have been updated.",
+                            Action = "UserRestored"
+                        } 
+                    };
+                }
+                else
+                {
+                    _logger.LogError("Failed to restore user {UserId}. Errors: {Errors}", existingUser.Id, string.Join(", ", restoreResult.Errors.Select(e => e.Description)));
+                    return new AccountResult { Succeeded = false, Errors = restoreResult.Errors };
+                }
+            }
+            else
+            {
+                // User exists and is not soft-deleted, or belongs to different organization
+                _logger.LogWarning("Cannot invite user {Email}: User already exists and is not eligible for restoration.", invitationRequestDto.Email);
+                return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "A user with this email already exists." } } };
+            }
+        }
+
+        // No existing user found, proceed with normal invitation flow
+        _logger.LogInformation("No existing user found for {Email}. Creating new invitation.", invitationRequestDto.Email);
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var invitation = new UserInvitation
+        {
+            Email = invitationRequestDto.Email,
+            OrganizationId = callerOrganizationId.Value,
+            Roles = string.Join(",", invitationRequestDto.Roles),
+            Token = token,
+            ExpiryDate = DateTime.UtcNow.AddDays(7),
+            IsUsed = false
+        };
+
+        _context.UserInvitations.Add(invitation);
+        await _context.SaveChangesAsync();
+
+        var frontendBaseUrl = _configuration["FRONTEND_BASE_URL"] ?? _configuration["AppSettings:BaseUrl"] ?? "https://app.sagrafacile.it";
+        var invitationLink = $"{frontendBaseUrl}/accetta-invito?token={token}";
+
+        try
+        {
+            await _emailService.SendEmailAsync(
+                invitation.Email,
+                "Sei stato invitato a SagraFacile",
+                $"<h1>Invito a SagraFacile</h1><p>Sei stato invitato a unirti a un'organizzazione su SagraFacile. Clicca sul seguente link per accettare l'invito e creare il tuo account: <a href='{invitationLink}'>Accetta Invito</a></p>"
+            );
+            _logger.LogInformation("Invitation email sent to {Email}.", invitation.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send invitation email to {Email}. Invitation was created but email failed.", invitation.Email);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Could not send invitation email. Please try again later." } } };
+        }
+
+        return new AccountResult { 
+            Succeeded = true, 
+            Data = new { 
+                Message = "Invitation sent successfully.",
+                Action = "InvitationSent"
+            } 
+        };
+    }
+
+    public async Task<AccountResult> AcceptInvitationAsync(AcceptInvitationDto acceptDto)
+    {
+        var invitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Token == acceptDto.Token && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
+
+        if (invitation == null)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invalid or expired invitation token." } } };
+        }
+
+        var user = new User
+        {
+            UserName = invitation.Email,
+            Email = invitation.Email,
+            FirstName = acceptDto.FirstName,
+            LastName = acceptDto.LastName,
+            OrganizationId = invitation.OrganizationId,
+            EmailConfirmed = true
+        };
+
+        var result = await _userManager.CreateAsync(user, acceptDto.Password);
+        if (!result.Succeeded)
+        {
+            return new AccountResult { Succeeded = false, Errors = result.Errors };
+        }
+
+        var roles = invitation.Roles.Split(',');
+        await _userManager.AddToRolesAsync(user, roles);
+
+        invitation.IsUsed = true;
+        await _context.SaveChangesAsync();
+
+        return new AccountResult { Succeeded = true, Data = new { UserId = user.Id } };
+    }
+
+    public async Task<ServiceResult<InvitationDetailsDto>> GetInvitationDetailsAsync(string token)
+    {
+        var invitation = await _context.UserInvitations
+            .Include(i => i.Organization)
+            .FirstOrDefaultAsync(i => i.Token == token && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow);
+
+        if (invitation == null || invitation.Organization == null)
+        {
+            return ServiceResult<InvitationDetailsDto>.Fail("Invalid or expired invitation token.");
+        }
+
+        var details = new InvitationDetailsDto
+        {
+            Email = invitation.Email,
+            OrganizationName = invitation.Organization.Name
+        };
+
+        return ServiceResult<InvitationDetailsDto>.Ok(details);
+    }
+
+    public async Task<IEnumerable<PendingInvitationDto>> GetPendingInvitationsAsync()
+    {
+        _logger.LogInformation("Fetching pending invitations.");
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+
+        if (!callerOrganizationId.HasValue)
+        {
+            _logger.LogError("User organization context is missing when fetching pending invitations.");
+            throw new InvalidOperationException("User organization context is missing.");
+        }
+
+        var pendingInvitations = await _context.UserInvitations
+            .Where(i => i.OrganizationId == callerOrganizationId.Value && !i.IsUsed && i.ExpiryDate > DateTime.UtcNow)
+            .Select(i => new PendingInvitationDto
+            {
+                Id = i.Id,
+                Email = i.Email,
+                Roles = i.Roles,
+                ExpiryDate = i.ExpiryDate,
+                InvitedAt = i.CreatedAt
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Successfully fetched {InvitationCount} pending invitations.", pendingInvitations.Count);
+        return pendingInvitations;
+    }
+
+    public async Task<AccountResult> RevokeInvitationAsync(Guid invitationId)
+    {
+        _logger.LogInformation("Attempting to revoke invitation with ID {InvitationId}.", invitationId);
+        var (callerOrganizationId, isCallerSuperAdmin) = GetUserContext();
+
+        if (!callerOrganizationId.HasValue)
+        {
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "User context is missing OrganizationId." } } };
+        }
+
+        var invitation = await _context.UserInvitations
+            .FirstOrDefaultAsync(i => i.Id == invitationId && i.OrganizationId == callerOrganizationId.Value && !i.IsUsed);
+
+        if (invitation == null)
+        {
+            _logger.LogWarning("Invitation with ID {InvitationId} not found or already used.", invitationId);
+            return new AccountResult { Succeeded = false, Errors = new List<IdentityError> { new IdentityError { Description = "Invitation not found or already used." } } };
+        }
+
+        _context.UserInvitations.Remove(invitation);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Invitation with ID {InvitationId} revoked successfully.", invitationId);
+        return new AccountResult { Succeeded = true };
     }
 }

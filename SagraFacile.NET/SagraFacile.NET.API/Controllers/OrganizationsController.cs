@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Authorization; // Now used
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SagraFacile.NET.API.DTOs; // Add DTO namespace
+using SagraFacile.NET.API.DTOs;
 using SagraFacile.NET.API.Models;
 using SagraFacile.NET.API.Services.Interfaces;
+using System.Security.Claims;
 
 namespace SagraFacile.NET.API.Controllers
 {
@@ -45,24 +46,29 @@ namespace SagraFacile.NET.API.Controllers
         // GET: api/Organizations/5
         [HttpGet("{id}")]
         // [AllowAnonymous] // Removed - Requires authentication now
-        [ProducesResponseType(typeof(Organization), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(OrganizationDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<Organization>> GetOrganization(Guid id)
+        public async Task<ActionResult<OrganizationDto>> GetOrganization(Guid id)
         {
             _logger.LogInformation("Received request to get organization by ID: {OrganizationId}.", id);
             try
             {
-                var organization = await _organizationService.GetOrganizationByIdAsync(id);
+                var organizationDto = await _organizationService.GetOrganizationByIdAsync(id);
 
-                if (organization == null)
+                if (organizationDto == null)
                 {
-                    _logger.LogWarning("Organization with ID {OrganizationId} not found.", id);
-                    return NotFound($"Organization with ID {id} not found.");
+                    _logger.LogWarning("Organization with ID {OrganizationId} not found or access denied.", id);
+                    return NotFound($"Organization with ID {id} not found or access denied.");
                 }
 
                 _logger.LogInformation("Successfully retrieved organization {OrganizationId}.", id);
-                return Ok(organization);
+                return Ok(organizationDto);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized access attempt for organization {OrganizationId}.", id);
+                return Forbid();
             }
             catch (Exception ex)
             {
@@ -185,6 +191,46 @@ namespace SagraFacile.NET.API.Controllers
             {
                 _logger.LogError(ex, "An unexpected error occurred while deleting organization {OrganizationId}.", id);
                 return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+            }
+        }
+
+        [HttpPost("provision")]
+        [Authorize] // Any authenticated user can attempt to provision an org
+        [ProducesResponseType(typeof(OrganizationDto), StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<OrganizationDto>> ProvisionOrganization([FromBody] OrganizationProvisionRequestDto provisionDto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("User ID claim not found in token.");
+            }
+
+            _logger.LogInformation("Received request from user {UserId} to provision organization '{OrganizationName}'.", userId, provisionDto.OrganizationName);
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                var result = await _organizationService.ProvisionOrganizationAsync(provisionDto, userId);
+
+                if (!result.Success)
+                {
+                    _logger.LogWarning("Provisioning failed for user {UserId}: {Errors}", userId, string.Join(", ", result.Errors));
+                    return BadRequest(new { errors = result.Errors });
+                }
+
+                _logger.LogInformation("Successfully provisioned organization {OrganizationId} for user {UserId}.", result.Value.Id, userId);
+                return CreatedAtAction(nameof(GetOrganization), new { id = result.Value.Id }, result.Value);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An unexpected error occurred during organization provisioning for user {UserId}.", userId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred during provisioning.");
             }
         }
     }

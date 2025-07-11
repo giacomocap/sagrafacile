@@ -20,26 +20,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Info } from 'lucide-react'; // Import Info icon
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { PrinterDto, AreaDto } from '@/types';
+import { PrinterDto, AreaDto, AreaUpsertDto } from '@/types';
 import printerService from '@/services/printerService';
 
 // Special value to represent "None" selection for printers
 const NONE_PRINTER_VALUE = "__NONE__";
-
-// DTO for creating/updating Areas - can remain local if specific to this form structure
-// or be replaced if AreaDto covers its needs for POST/PUT. For now, let's assume AreaDto is sufficient for POST/PUT.
-interface AreaUpsertDto {
-    name: string;
-    organizationId: number;
-    enableWaiterConfirmation: boolean;
-    enableKds: boolean;
-    enableCompletionConfirmation: boolean;
-    receiptPrinterId?: number | null;
-    printComandasAtCashier: boolean;
-    enableQueueSystem: boolean;
-    guestCharge: number;
-    takeawayCharge: number;
-}
 
 export default function AreasPage() {
     const { user } = useAuth();
@@ -142,7 +127,7 @@ export default function AreasPage() {
 
         const dataToSend: AreaUpsertDto = {
             name: newAreaData.name.trim(),
-            organizationId: parseInt(user.organizationId, 10),
+            organizationId: user.organizationId,
             enableWaiterConfirmation: newAreaData.enableWaiterConfirmation || false,
             enableKds: newAreaData.enableKds || false,
             enableCompletionConfirmation: newAreaData.enableCompletionConfirmation || false,
@@ -153,7 +138,7 @@ export default function AreasPage() {
             takeawayCharge: newAreaData.takeawayCharge || 0,
         };
 
-        if (isNaN(dataToSend.organizationId) || dataToSend.organizationId <= 0) {
+        if (!(dataToSend.organizationId?.length > 0)) {
             setAddError("ID organizzazione non valido.");
             return;
         }
@@ -377,6 +362,33 @@ export default function AreasPage() {
                     </Dialog>
                 </CardHeader>
                 <CardContent>
+                    {/* Workflow explanation */}
+                    <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                        <h4 className="text-sm font-medium text-blue-900 mb-3">💡 Configurazione del Flusso Operativo</h4>
+                        <div className="text-sm text-blue-800 space-y-2">
+                            <p><strong>Flusso Base:</strong> Cliente ordina → Pagamento → Preparazione → Consegna</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <div>
+                                    <p><strong>Opzioni Workflow:</strong></p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                        <li><strong>Conferma Cameriere:</strong> Richiede scansione QR (per abbinare tavolo e ricevuta) prima della preparazione</li>
+                                        <li><strong>KDS (Kitchen Display):</strong> Gli chef confermano ogni piatto pronto per la consegna su schermo</li>
+                                        <li><strong>Conferma Ritiro:</strong> Conferma esplicita quando il cliente ritira</li>
+                                        <li><strong>Sistema Code:</strong> Gestione numeretti per chiamare i clienti</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p><strong>Configurazioni Stampa:</strong></p>
+                                    <ul className="list-disc list-inside space-y-1 text-xs">
+                                        <li><strong>Stampante Predefinita:</strong> Per scontrini e backup comande</li>
+                                        <li><strong>Stampa Comande:</strong> Dove stampare le comande (predefinita vs categoria)</li>
+                                        <li><strong>Costi Aggiuntivi:</strong> Coperto per persona e supplemento asporto</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {isLoading ? <p>Caricamento aree...</p> : error ? <p className="text-red-500">{error}</p> : areas.length > 0 ? (
                         <Table>
                             <TableHeader>
